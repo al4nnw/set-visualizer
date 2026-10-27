@@ -39,6 +39,24 @@ function splitArtistTitle(s: string): { artist: string; title: string } {
 }
 
 /**
+ * DJ software logs a track again when a deck that still holds it goes back on air. With two decks,
+ * an entry for a song that's already on one of them (one of the last two different songs) is the
+ * same play continuing, not a new one, so it's dropped.
+ */
+export function dropRepeatedLoads(entries: ParsedEntry[], decks = 2): ParsedEntry[] {
+  const sorted = [...entries].sort((a, b) => (a.start ?? 0) - (b.start ?? 0))
+  const loaded: ParsedEntry[] = []
+  const keep = new Set<ParsedEntry>()
+  for (const e of sorted) {
+    if (loaded.some((l) => sameSong(l, e))) continue
+    keep.add(e)
+    loaded.push(e)
+    if (loaded.length > decks) loaded.shift()
+  }
+  return entries.filter((e) => keep.has(e))
+}
+
+/**
  * For cue sheets from DJ software, moves each track's start to where it takes over in the audio and
  * keeps the cue time as the moment it appears on the right. `find` maps sorted cue times to takeovers,
  * or null for a track that never takes over (it's marked as layered and keeps its cue as its start).
@@ -48,6 +66,7 @@ export async function placeTakeovers(
   find: (cues: number[], songs: Array<{ title: string; artist: string }>) => Promise<Array<number | null>>
 ): Promise<ParsedEntry[]> {
   if (!entries.length || !entries.every((e) => e.start !== undefined && e.startIsDeckStart)) return entries
+  entries = dropRepeatedLoads(entries)
   const order = entries.map((e, i) => i).sort((a, b) => entries[a].start! - entries[b].start!)
   const takeovers = await find(
     order.map((i) => entries[i].start!),

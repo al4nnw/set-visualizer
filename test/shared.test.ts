@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers } from '../src/shared/tracklist'
+import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
 import { detectTakeovers, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
@@ -131,5 +131,11 @@ describe('takeover detection', () => {
       ['T0', 'A'],
       ['T2', 'B']
     ])
+  })
+
+  it('drops entries for a song that is still on one of the two decks', () => {
+    const e = (title: string, start: number) => ({ title, artist: 'x', start })
+    const r = dropRepeatedLoads([e('Caravan', 241), e('800 Lesbians', 123), e('800 Lesbians', 480), e('Bad Boy', 510), e('Caravan', 622), e('Beep', 673), e('Caravan', 900)])
+    expect(r.map((x) => `${x.title}@${x.start}`)).toEqual(['Caravan@241', '800 Lesbians@123', 'Bad Boy@510', 'Beep@673', 'Caravan@900'])
   })
 })
