@@ -22,7 +22,11 @@ function envelope(
     if (filter) args.push('-af', filter)
     args.push('-ar', String(sampleRate), '-f', 'f32le', '-')
     const p = spawn(ffmpegPath, args)
+    // Samples per bucket can be fractional (11025 / 50 = 220.5), so bucket edges are placed by the
+    // running sample count; rounding it per bucket would make the envelope drift away from the audio.
     const per = sampleRate / rate
+    let total = 0
+    let edge = Math.round(per)
     const peaks: number[] = []
     const rms: number[] = []
     let n = 0
@@ -39,7 +43,9 @@ function envelope(
         const a = v < 0 ? -v : v
         if (a > pk) pk = a
         sq += v * v
-        if (++n >= per) {
+        n++
+        if (++total >= edge) {
+          edge = Math.round((peaks.length + 2) * per)
           peaks.push(pk)
           rms.push(Math.sqrt(sq / n))
           n = 0

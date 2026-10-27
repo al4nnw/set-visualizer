@@ -413,11 +413,16 @@ function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number) {
   const step = bar + Math.max(1, Math.round(s))
   const cx = x0 + w / 2
 
-  for (let x = 0; x < w; x += step) {
-    const tt = t + (x - w / 2) / pxPerSec
-    if (tt < 0 || tt > project.duration) continue
-    const i = Math.floor(tt * wf.rate)
-    const pk = wf.peaks[i] ?? 0
+  // Bars sit on a fixed time grid that scrolls with t, and each shows the loudest bucket in its
+  // slice, so kicks don't flicker in and out as the window moves.
+  const barSec = step / pxPerSec
+  const first = Math.floor((t - windowSec) / barSec)
+  for (let k = first; k * barSec <= t + windowSec; k++) {
+    const tt = k * barSec
+    const x = (tt - t) * pxPerSec + w / 2
+    if (x < 0 || x > w || tt < 0 || tt > project.duration) continue
+    let pk = 0
+    for (let i = Math.floor(tt * wf.rate), end = Math.floor((tt + barSec) * wf.rate); i <= end; i++) pk = Math.max(pk, wf.peaks[i] ?? 0)
     const edge = Math.min(1, Math.min(x, w - x) / (w * 0.18))
     const ph = Math.max(1, pk * (h / 2))
     if (tt <= t) {
