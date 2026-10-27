@@ -11,6 +11,13 @@ describe('tracklist parsing', () => {
     expect(r[1]).toMatchObject({ title: 'Song Two', artist: 'Artist B' })
     expect(r[1].start).toBeCloseTo(330 + 37 / 75)
   })
+
+  it('reads Rekordbox recording cue sheets as hh:mm:ss', () => {
+    const cue = `REM RECORDED_BY "rekordbox-dj"\nTITLE "Set"\nFILE "rec.wav" WAVE\n\tTRACK 01 AUDIO\n\t\tTITLE "Song One"\n\t\tFILE "C:/Music/one.mp3" WAVE\n\t\tINDEX 01 00:00:00\n\tTRACK 02 AUDIO\n\t\tTITLE "Song Two"\n\t\tINDEX 01 00:42:23\n`
+    const r = parseCue(cue)
+    expect(r.map((e) => e.title)).toEqual(['Song One', 'Song Two'])
+    expect(r[1].start).toBe(42 * 60 + 23)
+  })
   it('parses rekordbox utf-16 txt exports', () => {
     const txt = '#\tArtwork\tTrack Title\tArtist\tBPM\n1\t\tStrobe\tdeadmau5\t128.00\n2\t\tOpus\tEric Prydz\t126.00\n'
     const buf = new Uint8Array([0xff, 0xfe, ...new Uint8Array(Buffer.from(txt, 'utf16le'))])

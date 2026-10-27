@@ -31,10 +31,15 @@ function splitArtistTitle(s: string): { artist: string; title: string } {
 
 const unquote = (s: string) => s.trim().replace(/^"(.*)"$/, '$1')
 
-/** CUE sheet: TRACK / TITLE / PERFORMER / INDEX 01 mm:ss:ff (75 frames per second). */
+/**
+ * CUE sheet: TRACK / TITLE / PERFORMER / INDEX 01 mm:ss:ff (75 frames per second).
+ * Rekordbox recordings ("REM RECORDED_BY "rekordbox-dj"") break the spec and write INDEX as hh:mm:ss.
+ */
 export function parseCue(text: string): ParsedEntry[] {
   const out: ParsedEntry[] = []
   let cur: ParsedEntry | null = null
+  const indexes: Array<[ParsedEntry, number, number, number]> = []
+  let hms = /^\s*REM\s+RECORDED_BY\s+"?rekordbox/im.test(text)
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
     const [kw, ...rest] = line.split(/\s+/)
@@ -53,11 +58,15 @@ export function parseCue(text: string): ParsedEntry[] {
       case 'INDEX': {
         if (!cur || rest[0] !== '01') break
         const m = /^(\d+):(\d+):(\d+)$/.exec(rest[1] ?? '')
-        if (m) cur.start = +m[1] * 60 + +m[2] + +m[3] / 75
+        if (!m) break
+        indexes.push([cur, +m[1], +m[2], +m[3]])
+        // A third field of 75 or more can't be a frame count.
+        if (+m[3] >= 75) hms = true
         break
       }
     }
   }
+  for (const [e, a, b, c] of indexes) e.start = hms ? a * 3600 + b * 60 + c : a * 60 + b + c / 75
   return out
 }
 
