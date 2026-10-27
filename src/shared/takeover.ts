@@ -47,7 +47,7 @@ function dist(p: Float64Array, q: Float64Array): number {
  * Best single step in `v` (least squares), requiring it to go up and leave `margin` samples on each
  * side. Returns the index of the first sample after the step and how much the mean rises.
  */
-export function stepUp(v: number[], margin: number): { at: number; contrast: number } | null {
+export function stepUp(v: number[], margin: number): { at: number; contrast: number; low: number; high: number } | null {
   const n = v.length
   const prefix = [0]
   const prefixSq = [0]
@@ -55,7 +55,7 @@ export function stepUp(v: number[], margin: number): { at: number; contrast: num
     prefix.push(prefix[prefix.length - 1] + x)
     prefixSq.push(prefixSq[prefixSq.length - 1] + x * x)
   }
-  let best: { at: number; contrast: number; err: number } | null = null
+  let best: { at: number; contrast: number; low: number; high: number; err: number } | null = null
   for (let i = margin; i <= n - margin; i++) {
     const sa = prefix[i]
     const sz = prefix[n] - sa
@@ -63,9 +63,27 @@ export function stepUp(v: number[], margin: number): { at: number; contrast: num
     const mz = sz / (n - i)
     if (mz <= ma) continue
     const err = prefixSq[i] - sa * ma + (prefixSq[n] - prefixSq[i]) - sz * mz
-    if (!best || err < best.err) best = { at: i, contrast: mz - ma, err }
+    if (!best || err < best.err) best = { at: i, contrast: mz - ma, low: ma, high: mz, err }
   }
-  return best && { at: best.at, contrast: best.contrast }
+  return best && { at: best.at, contrast: best.contrast, low: best.low, high: best.high }
+}
+
+/**
+ * DJs often crossfade over a while, and the step lands in the middle of it. The outgoing track only
+ * drops to the background once the mix is almost all the new track, so the swap goes at the first
+ * second from which the next few seconds average at least 85% of the way from the low level to the
+ * upper quartile of what follows the step.
+ */
+export function settledAt(like: number[], step: { at: number; low: number }, hold = 6): number {
+  const after = like.slice(step.at).sort((a, b) => a - b)
+  const high = after[Math.floor(after.length * 0.75)] ?? step.low
+  const target = step.low + 0.85 * (high - step.low)
+  for (let i = step.at; i + hold <= like.length; i++) {
+    let sum = 0
+    for (let j = i; j < i + hold; j++) sum += like[j]
+    if (sum / hold >= target) return i
+  }
+  return step.at
 }
 
 /**
@@ -94,7 +112,7 @@ export function stepTakeovers(s: SpectralFrames, cues: number[], duration: numbe
     }
     const step = stepUp(like, 8)
     if (!step || step.contrast < MIN_CONTRAST) return fallback
-    return cue + step.at
+    return cue + settledAt(like, step)
   })
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
-import { detectTakeovers, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
+import { detectTakeovers, settledAt, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
@@ -137,5 +137,13 @@ describe('takeover detection', () => {
     const e = (title: string, start: number) => ({ title, artist: 'x', start })
     const r = dropRepeatedLoads([e('Caravan', 241), e('800 Lesbians', 123), e('800 Lesbians', 480), e('Bad Boy', 510), e('Caravan', 622), e('Beep', 673), e('Caravan', 900)])
     expect(r.map((x) => `${x.title}@${x.start}`)).toEqual(['Caravan@241', '800 Lesbians@123', 'Bad Boy@510', 'Beep@673', 'Caravan@900'])
+  })
+
+  it('puts the swap at the end of a slow crossfade', () => {
+    // Flat, then a 30-sample ramp from 0.3 to 0.8, then flat.
+    const v = [...Array(40).fill(0.3), ...Array.from({ length: 30 }, (_, i) => 0.3 + (0.5 * i) / 30), ...Array(40).fill(0.8)]
+    const step = stepUp(v, 8)!
+    expect(step.at).toBeLessThan(60)
+    expect(settledAt(v, step)).toBeGreaterThanOrEqual(62)
   })
 })
