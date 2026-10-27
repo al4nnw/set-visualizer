@@ -1,14 +1,12 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
-import { QUALITY_BPP, type Project } from '@shared/types'
 import { ffmpegPath } from './ffmpeg'
 
 /**
- * GPU export: the renderer sends raw RGBA frames and an ffmpeg that has NVIDIA's encoder
- * (h264_nvenc) encodes them and muxes the audio in one go. ffmpeg-static has no NVENC, so this
- * looks for another one: $SETVIS_FFMPEG_GPU, the build shipped with the app (scripts/fetch-ffmpeg.mjs),
+ * Finds an ffmpeg for GPU export (see gpuEncoder.ts). ffmpeg-static has no NVENC, so this looks for
+ * another one: $SETVIS_FFMPEG_GPU, the build shipped with the app (scripts/fetch-ffmpeg.mjs),
  * then the system's `ffmpeg`.
  */
 
@@ -44,72 +42,4 @@ export function findNvencFfmpeg(): Promise<string | null> {
     return null
   })()
   return probed
-}
-
-export interface GpuExport {
-  /** Writes one RGBA frame; resolves when ffmpeg is ready for more. */
-  write(frame: Uint8Array): Promise<void>
-  finish(): Promise<void>
-  abort(): void
-}
-
-export function startGpuExport(bin: string, project: Project, outPath: string): GpuExport {
-  const { width: W, height: H, fps, quality } = project.settings
-  const bitrate = Math.round(W * H * fps * (QUALITY_BPP[quality] ?? 0.13))
-  const p: ChildProcessWithoutNullStreams = spawn(bin, [
-    '-hide_banner', '-loglevel', 'error', '-y',
-    // RGBA straight from the canvas; NVENC converts to YUV on the GPU.
-    '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-',
-    '-i', project.audioPath,
-    '-map', '0:v:0', '-map', '1:a:0',
-    '-c:v', 'h264_nvenc', '-preset', 'p5', '-tune', 'hq', '-rc', 'vbr',
-    '-b:v', String(bitrate), '-maxrate', String(Math.round(bitrate * 1.5)), '-bufsize', String(bitrate * 2),
-    '-profile:v', 'high', '-g', String(fps * 2), '-bf', '2',
-    '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
-    '-c:a', 'aac', '-b:a', '320k', '-ar', '48000',
-    '-t', String(project.duration), '-movflags', '+faststart', outPath
-  ])
-  let err = ''
-  let failed: Error | null = null
-  const closed = new Promise<void>((resolve, reject) => {
-    p.on('error', (e) => {
-      failed = e
-      reject(e)
-    })
-    p.on('close', (code) => {
-      if (code === 0) return resolve()
-      failed = new Error(`GPU encoder (ffmpeg h264_nvenc) failed: ${err.slice(-800)}`)
-      reject(failed)
-    })
-  })
-  closed.catch(() => {})
-  p.stderr.on('data', (d) => (err += d))
-  p.stdin.on('error', () => {}) // reported through `closed`
-
-  return {
-    write(frame) {
-      if (failed) return Promise.reject(failed)
-      return new Promise((resolve, reject) => {
-        const ok = p.stdin.write(Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength))
-        if (ok) return resolve()
-        const onDrain = () => {
-          p.removeListener('close', onClose)
-          resolve()
-        }
-        const onClose = () => {
-          p.stdin.removeListener('drain', onDrain)
-          reject(failed ?? new Error('GPU encoder stopped'))
-        }
-        p.stdin.once('drain', onDrain)
-        p.once('close', onClose)
-      })
-    },
-    async finish() {
-      p.stdin.end()
-      await closed
-    },
-    abort() {
-      p.kill('SIGKILL')
-    }
-  }
 }

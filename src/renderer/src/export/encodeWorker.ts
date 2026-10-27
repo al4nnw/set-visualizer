@@ -2,12 +2,13 @@
 import { drawFrame, prepareScene, type Ctx } from '@shared/scene'
 import { QUALITY_BPP, type Project } from '@shared/types'
 import { loadArtMap, loadSceneFonts, offscreenFactory } from '../sceneAssets'
+import { createNv12Converter } from './nv12'
 
 interface StartMsg {
   type: 'start'
   project: Project
   fonts: Array<{ weight: string; url: string }>
-  /** 'webcodecs' encodes here; 'raw' sends RGBA frames out for the GPU encoder in the main process. */
+  /** 'webcodecs' encodes here; 'raw' sends NV12 frames out to the GPU encoder (see gpuEncoder.ts). */
   mode: 'webcodecs' | 'raw'
 }
 
@@ -15,7 +16,7 @@ let cancelled = false
 /** Raw frames sent but not yet taken by the encoder. */
 let inFlight = 0
 let wake: (() => void) | null = null
-const MAX_IN_FLIGHT = 3
+const MAX_IN_FLIGHT = 4
 
 async function runRaw(msg: StartMsg) {
   const { project } = msg
@@ -23,8 +24,8 @@ async function runRaw(msg: StartMsg) {
   await loadSceneFonts(msg.fonts)
   const prep = prepareScene(project, await loadArtMap(project), offscreenFactory)
   const canvas = new OffscreenCanvas(W, H)
-  const ctx2d = canvas.getContext('2d', { alpha: false, willReadFrequently: true })!
-  const ctx = ctx2d as unknown as Ctx
+  const ctx = canvas.getContext('2d', { alpha: false }) as unknown as Ctx
+  const toNv12 = createNv12Converter(W, H)
   postMessage({ type: 'info', codec: 'h264_nvenc', hardware: 'nvidia' })
   const total = Math.ceil(project.duration * fps)
   let pending = 0
@@ -34,8 +35,7 @@ async function runRaw(msg: StartMsg) {
       return
     }
     drawFrame(ctx, prep, f / fps)
-    const pixels = ctx2d.getImageData(0, 0, W, H).data
-    const frame = new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength)
+    const frame = toNv12(canvas)
     while (inFlight >= MAX_IN_FLIGHT && !cancelled) await new Promise<void>((r) => (wake = r))
     inFlight++
     postMessage({ type: 'frame', data: frame }, [frame.buffer])
