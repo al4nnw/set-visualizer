@@ -7,6 +7,11 @@ export function sortTracks(tracks: Track[]): Track[] {
   return [...tracks].sort((a, b) => a.start - b.start)
 }
 
+/** Tracks that take the main spot at some point, in play order (layered ones left out). */
+export function mainTracks(tracks: Track[]): Track[] {
+  return sortTracks(tracks.filter((t) => !t.layered))
+}
+
 /** Time the track shows up on the right, clamped so it never collides with the previous swap. */
 export function appearTime(tracks: Track[], i: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): number {
   const t = tracks[i]
@@ -75,9 +80,19 @@ export function currentIndex(sorted: Track[], t: number): number {
   return idx
 }
 
-/** Deck letters alternating A, B, A, B... in play order. */
+/**
+ * Deck letters alternating A, B, A, B... in play order. A layered track gets the other deck from the
+ * main track playing when it comes in.
+ */
 export function alternateDecks(tracks: Track[]): Track[] {
-  return sortTracks(tracks).map((t, i) => ({ ...t, deck: i % 2 === 0 ? 'A' : 'B' }))
+  const main = mainTracks(tracks).map((t, i): Track => ({ ...t, deck: i % 2 === 0 ? 'A' : 'B' }))
+  const layered = tracks
+    .filter((t) => t.layered)
+    .map((t): Track => {
+      const under = main[Math.max(0, currentIndex(main, t.start))]
+      return { ...t, deck: under?.deck === 'A' ? 'B' : 'A' }
+    })
+  return sortTracks([...main, ...layered])
 }
 
 export function formatTime(sec: number, forceHours = false): string {

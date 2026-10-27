@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { appearTime, formatTime, sortTracks } from '@shared/layout'
+import { appearTime, currentIndex, formatTime, mainTracks } from '@shared/layout'
 import type { Project, Track } from '@shared/types'
 import { mediaUrl } from '../api'
 
@@ -36,7 +36,8 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
   const fitPps = viewW / dur
   const pps = fitPps * zoom
   const innerW = Math.max(viewW, dur * pps)
-  const sorted = sortTracks(project.tracks)
+  const sorted = mainTracks(project.tracks)
+  const layered = project.tracks.filter((t) => t.layered)
   const { theme } = project.settings
 
   useLayoutEffect(() => {
@@ -226,6 +227,25 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
                     </div>
                   )}
                 </div>
+              </div>
+            )
+          })}
+          {layered.map((tr) => {
+            // Shown under the main lanes' blocks, from its cue to when the next main track takes over.
+            const next = sorted[currentIndex(sorted, tr.start) + 1]
+            const end = next && next.start > tr.start ? next.start : Math.min(dur, tr.start + 30)
+            const color = tr.deck === 'B' ? theme.accentB : theme.accent
+            const width = Math.max(4, (end - tr.start) * pps)
+            return (
+              <div
+                key={tr.id}
+                className={`track-block layered ${selectedId === tr.id ? 'selected' : ''}`}
+                style={{ left: tr.start * pps, width, top: (tr.deck === 'B' ? LANE_B : LANE_A) + LANE_H - 18, height: 16, ['--c' as string]: color }}
+                onPointerDown={(e) => startDrag(e, tr, 'move')}
+                onDoubleClick={() => onSeek(tr.start)}
+                title={`${tr.artist} – ${tr.title}\nLayered: mixed in under another track, never takes over`}
+              >
+                {width > 60 && <div className="tb-title">{tr.title || 'Untitled'}</div>}
               </div>
             )
           })}

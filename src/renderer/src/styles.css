@@ -712,6 +712,24 @@ label.color {
 .track-block.unverified {
   border-style: dashed;
 }
+.track-block.layered {
+  padding: 0 6px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  opacity: 0.8;
+  z-index: 1;
+}
+.track-block.layered .tb-title {
+  font-size: 10px;
+  font-weight: 500;
+}
+.layered-tag {
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
 .track-block img {
   height: 100%;
   aspect-ratio: 1;

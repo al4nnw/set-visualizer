@@ -13,6 +13,8 @@ export interface ParsedEntry {
    * track takes over, so the takeover should be found in the audio.
    */
   startIsDeckStart?: boolean
+  /** Never takes over: only mixed in under another track. */
+  layered?: boolean
 }
 
 let idCounter = 0
@@ -38,20 +40,27 @@ function splitArtistTitle(s: string): { artist: string; title: string } {
 
 /**
  * For cue sheets from DJ software, moves each track's start to where it takes over in the audio and
- * keeps the cue time as the moment it appears on the right. `find` maps sorted cue times to takeovers.
+ * keeps the cue time as the moment it appears on the right. `find` maps sorted cue times to takeovers,
+ * or null for a track that never takes over (it's marked as layered and keeps its cue as its start).
  */
 export async function placeTakeovers(
   entries: ParsedEntry[],
-  find: (cues: number[]) => Promise<number[]>
+  find: (cues: number[], songs: Array<{ title: string; artist: string }>) => Promise<Array<number | null>>
 ): Promise<ParsedEntry[]> {
   if (!entries.length || !entries.every((e) => e.start !== undefined && e.startIsDeckStart)) return entries
   const order = entries.map((e, i) => i).sort((a, b) => entries[a].start! - entries[b].start!)
-  const takeovers = await find(order.map((i) => entries[i].start!))
+  const takeovers = await find(
+    order.map((i) => entries[i].start!),
+    order.map((i) => ({ title: entries[i].title, artist: entries[i].artist }))
+  )
   const out = [...entries]
   order.forEach((i, k) => {
     const cue = entries[i].start!
     const at = takeovers[k]
-    out[i] = { ...entries[i], start: at, mixIn: at > cue ? cue : undefined, startIsDeckStart: false }
+    out[i] =
+      at === null
+        ? { ...entries[i], layered: true, startIsDeckStart: false }
+        : { ...entries[i], start: at, mixIn: at > cue ? cue : undefined, startIsDeckStart: false }
   })
   return out
 }
@@ -174,6 +183,7 @@ export function entriesToTracks(entries: ParsedEntry[], duration: number): Track
     artist: e.artist,
     start: timed === n ? e.start! : (duration / Math.max(1, n)) * i,
     mixIn: timed === n ? e.mixIn : undefined,
+    ...(timed === n && e.layered ? { layered: true } : {}),
     deck: 'A'
   }))
   return alternateDecks(tracks)

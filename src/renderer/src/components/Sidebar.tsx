@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatTime, parseTime, sortTracks } from '@shared/layout'
+import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
 import type { Project, Track } from '@shared/types'
 import { api, mediaUrl } from '../api'
 
@@ -48,7 +48,8 @@ export function Sidebar(p: Props) {
   const { project, selectedId, time } = p
   const sorted = sortTracks(project.tracks)
   const sel = sorted.find((t) => t.id === selectedId) ?? null
-  const currentIdx = sorted.reduce((acc, t, i) => (t.start <= time ? i : acc), 0)
+  const main = mainTracks(project.tracks)
+  const currentId = main.reduce<string | undefined>((acc, t) => (t.start <= time ? t.id : acc), main[0]?.id)
   const { theme } = project.settings
 
   return (
@@ -73,7 +74,7 @@ export function Sidebar(p: Props) {
         {sorted.map((t, i) => (
           <div
             key={t.id}
-            className={`track-row ${t.id === selectedId ? 'selected' : ''} ${i === currentIdx ? 'current' : ''}`}
+            className={`track-row ${t.id === selectedId ? 'selected' : ''} ${t.id === currentId ? 'current' : ''}`}
             onClick={() => p.onSelect(t.id)}
             onDoubleClick={() => p.onSeek(t.start)}
           >
@@ -87,6 +88,7 @@ export function Sidebar(p: Props) {
               <span className="deck-pill" style={{ background: t.deck === 'B' ? theme.accentB : theme.accent }}>
                 {t.deck}
               </span>
+              {t.layered && <span className="layered-tag" title="Mixed in under another track, never takes over">layered</span>}
               <span className="tr-time">{formatTime(t.start)}</span>
               {t.unverified && <span className="warn-dot" title="Found by fingerprinting — please check" />}
             </div>
@@ -153,6 +155,10 @@ export function Sidebar(p: Props) {
               </div>
             </label>
           </div>
+          <label className="check" title="Mixed in under another track and never takes over: it won't get the main spot in the video">
+            <input type="checkbox" checked={!!sel.layered} onChange={(e) => p.onChangeTrack(sel.id, { layered: e.target.checked || undefined })} />
+            Layered only (never takes over)
+          </label>
           <div className="row">
             <div className="seg">
               {(['A', 'B'] as const).map((d) => (

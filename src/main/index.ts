@@ -172,8 +172,8 @@ function registerIpc() {
     const { duration, waveform } = await analyseAudio(path, (p) => send('audio:progress', p))
     return { duration, waveform, name: basename(path) }
   })
-  ipcMain.handle('audio:takeovers', async (_e, path: string, cues: number[], duration: number) =>
-    detectTakeovers(await spectralFrames(path), cues, duration)
+  ipcMain.handle('audio:takeovers', async (_e, path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>) =>
+    detectTakeovers(await spectralFrames(path), cues, duration, songs)
   )
   ipcMain.handle('tracklist:parse', async (_e, path: string) => parseTracklist(basename(path), await readFile(path)))
 

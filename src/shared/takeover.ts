@@ -1,3 +1,5 @@
+import { sameSong } from './tracklist'
+
 /**
  * Finding where the incoming track actually takes over.
  *
@@ -21,6 +23,8 @@ export const TAKEOVER_WINDOW = 180
 export const FALLBACK_TAKEOVER = 32
 /** Minimum jump in "sounds like the new track" for a detection to be trusted (0..1 scale). */
 const MIN_CONTRAST = 0.15
+/** Cost of switching tracks in the whole-set pass, in per-second spectral distance units. */
+const SWITCH_PENALTY = 30
 
 function meanProfile(s: SpectralFrames, from: number, to: number): Float64Array | null {
   const a = Math.max(0, Math.round(from * s.fps))
@@ -68,7 +72,7 @@ export function stepUp(v: number[], margin: number): { at: number; contrast: num
  * For each cue (seconds, sorted), where that track takes over. The first track keeps its cue.
  * `duration` is the length of the set.
  */
-export function detectTakeovers(s: SpectralFrames, cues: number[], duration: number): number[] {
+export function stepTakeovers(s: SpectralFrames, cues: number[], duration: number): number[] {
   return cues.map((cue, k) => {
     if (k === 0) return cue
     const prev = cues[k - 1]
@@ -92,4 +96,94 @@ export function detectTakeovers(s: SpectralFrames, cues: number[], duration: num
     if (!step || step.contrast < MIN_CONTRAST) return fallback
     return cue + step.at
   })
+}
+
+/**
+ * Which tracks are ever the dominant one. Each track gets a spectral profile from the middle of its
+ * stretch as placed by `takeovers` (pooled with other plays of the same song), then every second of
+ * the set is assigned to one track, in play order, with tracks allowed to be skipped. A skipped track
+ * was only ever layered under another one.
+ */
+export function dominantTracks(
+  s: SpectralFrames,
+  cues: number[],
+  takeovers: number[],
+  duration: number,
+  songs?: Array<{ title: string; artist: string }>
+): boolean[] {
+  const K = cues.length
+  const T = Math.floor(duration)
+  if (K < 3 || !s.frames.length) return cues.map(() => true)
+  const same = (a: number, b: number) => a === b || (!!songs && sameSong(songs[a], songs[b]))
+  const profiles = cues.map((_, k) => {
+    const parts: Float64Array[] = []
+    for (let j = 0; j < K; j++) {
+      if (!same(j, k)) continue
+      const a = takeovers[j]
+      const z = j + 1 < K ? takeovers[j + 1] : duration
+      const pad = Math.min(15, (z - a) / 4)
+      const p = meanProfile(s, a + pad, z - pad)
+      if (p) parts.push(p)
+    }
+    if (!parts.length) return null
+    const out = new Float64Array(parts[0].length)
+    for (const p of parts) for (let b = 0; b < out.length; b++) out[b] += p[b] / parts.length
+    return out
+  })
+
+  // Viterbi over seconds: state k may only follow states < k and only once its deck has started.
+  let cost = new Float64Array(K).fill(Infinity)
+  cost[0] = 0
+  const back: Int16Array[] = []
+  for (let t = 0; t < T; t++) {
+    const p = meanProfile(s, t - 2, t + 2)
+    const next = new Float64Array(K).fill(Infinity)
+    const from = new Int16Array(K)
+    let bestPrev = Infinity
+    let bestIdx = -1
+    for (let k = 0; k < K; k++) {
+      let c = cost[k]
+      let f = k
+      if (bestIdx >= 0 && bestPrev + SWITCH_PENALTY < c) {
+        c = bestPrev + SWITCH_PENALTY
+        f = bestIdx
+      }
+      const prof = profiles[k]
+      if (cues[k] <= t && c < Infinity && prof) {
+        next[k] = c + (p ? dist(p, prof) : 0)
+        from[k] = f
+      }
+      if (cost[k] < bestPrev) {
+        bestPrev = cost[k]
+        bestIdx = k
+      }
+    }
+    back.push(from)
+    cost = next
+  }
+  const seen = cues.map(() => false)
+  // The last track is the one playing at the end; walk back from it.
+  let k = K - 1
+  if (cost[k] === Infinity) return cues.map(() => true)
+  for (let t = T - 1; t >= 0; t--) {
+    seen[k] = true
+    k = back[t][k]
+  }
+  seen[0] = true
+  return seen
+}
+
+/**
+ * For each cue (seconds, sorted), where that track takes over, or null when it never does (it was
+ * only layered under another track). The first track keeps its cue.
+ */
+export function detectTakeovers(
+  s: SpectralFrames,
+  cues: number[],
+  duration: number,
+  songs?: Array<{ title: string; artist: string }>
+): Array<number | null> {
+  const takeovers = stepTakeovers(s, cues, duration)
+  const dominant = dominantTracks(s, cues, takeovers, duration, songs)
+  return takeovers.map((t, k) => (dominant[k] ? t : null))
 }

@@ -3,7 +3,7 @@
  * canvas) and in the exporter (Skia canvas in Node), so what you see is what gets rendered.
  */
 import type { Project, Track, Waveform } from './types'
-import { cardStates, currentIndex, formatTime, lerp, sortTracks, type CardState } from './layout'
+import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
 
 export type Ctx = CanvasRenderingContext2D
 export type ImageLike = CanvasImageSource & { width: number; height: number }
@@ -190,7 +190,7 @@ function renderWaveLayer(
 export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory): PreparedScene {
   const { width: W, height: H } = project.settings
   const s = H / 1080
-  const sorted = sortTracks(project.tracks)
+  const sorted = mainTracks(project.tracks)
   const wf = project.waveform as Waveform & { _bassMax?: number }
   if (wf._bassMax === undefined) {
     // 98th percentile so a single spike doesn't flatten the pulse.

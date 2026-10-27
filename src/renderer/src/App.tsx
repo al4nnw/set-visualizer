@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { alternateDecks, formatTime, sortTracks } from '@shared/layout'
+import { alternateDecks, formatTime, mainTracks } from '@shared/layout'
 import { entriesToTracks, newId, placeTakeovers, sameSong } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, type IdentifyHit, type Project, type RenderSettings, type Track } from '@shared/types'
@@ -67,9 +67,9 @@ export function App() {
 
   // ---- loading ---------------------------------------------------------------------------
   const withTakeovers = (entries: ParsedEntry[], audioPath: string, duration: number, onDetect: () => void) =>
-    placeTakeovers(entries, (cues) => {
+    placeTakeovers(entries, (cues, songs) => {
       onDetect()
-      return api.detectTakeovers(audioPath, cues, duration)
+      return api.detectTakeovers(audioPath, cues, duration, songs)
     })
 
   const loadAudio = async (audioPath: string, tracklistPath: string | null) => {
@@ -198,7 +198,7 @@ export function App() {
 
   const jumpTrack = (dir: 1 | -1) => {
     if (!project) return
-    const starts = sortTracks(project.tracks).map((t) => t.start)
+    const starts = mainTracks(project.tracks).map((t) => t.start)
     const target = dir > 0 ? starts.find((s) => s > time + 0.5) : [...starts].reverse().find((s) => s < time - 2)
     seek(target ?? (dir > 0 ? project.duration : 0))
   }

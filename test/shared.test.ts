@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers } from '../src/shared/tracklist'
 import { detectTakeovers, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
+import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
 
@@ -108,5 +109,27 @@ describe('takeover detection', () => {
     const r = await placeTakeovers(entries, async () => [0, 95])
     expect(r[1]).toMatchObject({ start: 95, mixIn: 60 })
     expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 60 })
+  })
+
+  it('marks a track that never takes over as layered', () => {
+    // Track 2 is cued at 60s but only layered under track 1 until track 3 takes over at 150s.
+    const fps = 4
+    const A = new Float32Array([1, -1, 1, -1, 0, 0])
+    const C = new Float32Array([0, 0, -1, 1, -1, 1])
+    const frames = Array.from({ length: 300 * fps }, (_, i) => (i / fps < 150 ? A : C))
+    const r = detectTakeovers({ fps, frames }, [0, 60, 120], 300)
+    expect(r[1]).toBeNull()
+    expect(r[2]).toBeGreaterThanOrEqual(148)
+    expect(r[2]).toBeLessThanOrEqual(152)
+  })
+
+  it('keeps layered tracks out of the main sequence', async () => {
+    const entries = [0, 60, 120].map((start, i) => ({ title: `T${i}`, artist: '', start, startIsDeckStart: true }))
+    const tracks = alternateDecks(entriesToTracks(await placeTakeovers(entries, async () => [0, null, 150]), 300))
+    expect(tracks.find((t) => t.title === 'T1')).toMatchObject({ layered: true, start: 60, deck: 'B' })
+    expect(mainTracks(tracks).map((t) => [t.title, t.deck])).toEqual([
+      ['T0', 'A'],
+      ['T2', 'B']
+    ])
   })
 })

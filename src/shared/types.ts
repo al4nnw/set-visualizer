@@ -12,6 +12,11 @@ export interface Track {
    */
   mixIn?: number
   deck: Deck
+  /**
+   * Only mixed in under another track and never takes over. It stays in the tracklist but never
+   * becomes the main track; `start` is when its deck started.
+   */
+  layered?: boolean
   /** Absolute path to a local image file (downloaded or picked by the user). */
   artwork?: string
   /** Where the track/art was found (YouTube, SoundCloud, ...). */
