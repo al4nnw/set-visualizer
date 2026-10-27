@@ -20,7 +20,7 @@ export async function runExport(
   const totalFrames = Math.ceil(project.duration * fps)
   const started = performance.now()
   let done = 0
-  const gpu = await api.gpuExportAvailable().catch(() => false)
+  const gpu = project.settings.encoder === 'gpu' && (await api.gpuExportAvailable().catch(() => false))
   const encoder = gpu ? 'GPU (NVIDIA NVENC)' : 'CPU (WebCodecs)'
   const report = (stage: ExportProgress['stage'], extra: Partial<ExportProgress> = {}) => {
     const rate = done / Math.max(0.001, (performance.now() - started) / 1000)

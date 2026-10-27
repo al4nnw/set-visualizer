@@ -64,6 +64,8 @@ export interface RenderSettings {
   djName: string
   theme: Theme
   quality: Quality
+  /** 'gpu' encodes with NVENC when an ffmpeg that supports it is found; 'cpu' always uses WebCodecs. */
+  encoder?: 'cpu' | 'gpu'
 }
 
 export type Quality = 'standard' | 'high' | 'max'

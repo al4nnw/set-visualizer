@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatTime, mainTracks } from '@shared/layout'
 import type { ExportProgress, Project, Quality, RenderSettings, Theme } from '@shared/types'
 import { api } from '../api'
@@ -34,6 +34,10 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
   const abortRef = useRef<AbortController | null>(null)
   const running = progress !== null && ['preparing', 'rendering', 'finishing'].includes(progress.stage)
   const chapters = youtubeChapters(project)
+  const [gpuAvailable, setGpuAvailable] = useState(false)
+  useEffect(() => {
+    api.gpuExportAvailable().then(setGpuAvailable, () => setGpuAvailable(false))
+  }, [])
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
 
   const start = async () => {
@@ -95,6 +99,18 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
                 ))}
               </div>
             </label>
+            {gpuAvailable && (
+              <label>
+                Encoder
+                <div className="seg">
+                  {(['cpu', 'gpu'] as const).map((e) => (
+                    <button key={e} className={(s.encoder ?? 'cpu') === e ? 'on' : ''} onClick={() => onChangeSettings({ encoder: e })} disabled={running}>
+                      {e === 'cpu' ? 'CPU' : 'GPU (NVENC)'}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            )}
             <h4>Text</h4>
             <label>
               DJ name
