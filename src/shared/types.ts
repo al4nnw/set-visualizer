@@ -111,6 +111,8 @@ export interface ExportProgress {
   stage: 'preparing' | 'rendering' | 'finishing' | 'done' | 'error' | 'cancelled'
   message?: string
   outputPath?: string
+  /** Which encoder the export uses, e.g. "GPU (NVIDIA NVENC)". */
+  encoder?: string
 }
 
 export const DEFAULT_THEME: Theme = {

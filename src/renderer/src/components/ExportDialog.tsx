@@ -156,7 +156,8 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             <div className="row small muted">
               <span>
                 {progress.stage === 'preparing' && 'Preparing…'}
-                {progress.stage === 'rendering' && `Rendering frame ${progress.frame.toLocaleString()} of ${progress.totalFrames.toLocaleString()} · ${progress.fps.toFixed(0)} fps`}
+                {progress.stage === 'rendering' &&
+                  `Rendering frame ${progress.frame.toLocaleString()} of ${progress.totalFrames.toLocaleString()} · ${progress.fps.toFixed(0)} fps${progress.encoder ? ` · ${progress.encoder}` : ''}`}
                 {progress.stage === 'finishing' && 'Adding audio…'}
                 {progress.stage === 'done' && 'Done!'}
               </span>

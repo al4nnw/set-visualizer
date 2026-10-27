@@ -7,9 +7,73 @@ interface StartMsg {
   type: 'start'
   project: Project
   fonts: Array<{ weight: string; url: string }>
+  /** 'webcodecs' encodes here; 'raw' sends I420 frames out for the GPU encoder in the main process. */
+  mode: 'webcodecs' | 'raw'
 }
 
 let cancelled = false
+/** Raw frames sent but not yet taken by the encoder. */
+let inFlight = 0
+let wake: (() => void) | null = null
+const MAX_IN_FLIGHT = 3
+
+/** RGBA to I420 (BT.709, limited range), averaging chroma over each 2x2 block. */
+function toI420(rgba: Uint8ClampedArray, w: number, h: number): Uint8Array {
+  const out = new Uint8Array((w * h * 3) / 2)
+  const uOff = w * h
+  const vOff = uOff + (w * h) / 4
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4
+      out[y * w + x] = (16 + 0.1826 * rgba[i] + 0.6142 * rgba[i + 1] + 0.062 * rgba[i + 2]) | 0
+    }
+  }
+  const cw = w / 2
+  for (let y = 0; y < h; y += 2) {
+    for (let x = 0; x < w; x += 2) {
+      const a = (y * w + x) * 4
+      const b = a + w * 4
+      const r = (rgba[a] + rgba[a + 4] + rgba[b] + rgba[b + 4]) / 4
+      const g = (rgba[a + 1] + rgba[a + 5] + rgba[b + 1] + rgba[b + 5]) / 4
+      const bl = (rgba[a + 2] + rgba[a + 6] + rgba[b + 2] + rgba[b + 6]) / 4
+      const c = (y / 2) * cw + x / 2
+      out[uOff + c] = (128 - 0.1006 * r - 0.3386 * g + 0.4392 * bl) | 0
+      out[vOff + c] = (128 + 0.4392 * r - 0.3989 * g - 0.0403 * bl) | 0
+    }
+  }
+  return out
+}
+
+async function runRaw(msg: StartMsg) {
+  const { project } = msg
+  const { width: W, height: H, fps } = project.settings
+  await loadSceneFonts(msg.fonts)
+  const prep = prepareScene(project, await loadArtMap(project), offscreenFactory)
+  const canvas = new OffscreenCanvas(W, H)
+  const ctx2d = canvas.getContext('2d', { alpha: false, willReadFrequently: true })!
+  const ctx = ctx2d as unknown as Ctx
+  postMessage({ type: 'info', codec: 'h264_nvenc', hardware: 'nvidia' })
+  const total = Math.ceil(project.duration * fps)
+  let pending = 0
+  for (let f = 0; f < total; f++) {
+    if (cancelled) {
+      postMessage({ type: 'cancelled' })
+      return
+    }
+    drawFrame(ctx, prep, f / fps)
+    const frame = toI420(ctx2d.getImageData(0, 0, W, H).data, W, H)
+    while (inFlight >= MAX_IN_FLIGHT && !cancelled) await new Promise<void>((r) => (wake = r))
+    inFlight++
+    postMessage({ type: 'frame', data: frame }, [frame.buffer])
+    if (++pending >= 15) {
+      postMessage({ type: 'progress', frames: pending })
+      pending = 0
+    }
+  }
+  while (inFlight > 0 && !cancelled) await new Promise<void>((r) => (wake = r))
+  postMessage({ type: 'progress', frames: pending })
+  postMessage({ type: cancelled ? 'cancelled' : 'done' })
+}
 
 const CODECS = ['avc1.640034', 'avc1.640033', 'avc1.640032', 'avc1.640028', 'avc1.4d0034', 'avc1.42e034', 'avc1.42e028']
 
@@ -87,7 +151,23 @@ async function run(msg: StartMsg) {
   postMessage({ type: 'done' })
 }
 
+const release = () => {
+  const w = wake
+  wake = null
+  w?.()
+}
+
 self.onmessage = (e: MessageEvent) => {
-  if (e.data.type === 'cancel') cancelled = true
-  if (e.data.type === 'start') run(e.data as StartMsg).catch((err: Error) => postMessage({ type: 'error', message: err.message }))
+  if (e.data.type === 'cancel') {
+    cancelled = true
+    release()
+  }
+  if (e.data.type === 'ack') {
+    inFlight--
+    release()
+  }
+  if (e.data.type === 'start') {
+    const msg = e.data as StartMsg
+    ;(msg.mode === 'raw' ? runRaw(msg) : run(msg)).catch((err: Error) => postMessage({ type: 'error', message: err.message }))
+  }
 }

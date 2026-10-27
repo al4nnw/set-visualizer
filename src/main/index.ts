@@ -11,6 +11,7 @@ import { detectTakeovers } from '@shared/takeover'
 import { analyseAudio, spectralFrames } from './audio'
 import { downloadArt, importLocalArt } from './art'
 import { createAutoArt } from './autoArt'
+import { findNvencFfmpeg, startGpuExport, type GpuExport } from './gpuExport'
 import { ffmpegPath } from './ffmpeg'
 import { identifySet } from './identify'
 import { search } from './search'
@@ -129,6 +130,7 @@ interface WebCodecsExport {
   project: Project
 }
 let wcExport: WebCodecsExport | null = null
+let gpuExport: GpuExport | null = null
 
 function mux(videoPath: string, fps: number, audioPath: string, duration: number, outPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -254,6 +256,32 @@ function registerIpc() {
       job.stream.destroy()
       await rm(job.dir, { recursive: true, force: true })
     }
+  })
+
+  // GPU path: raw frames in, ffmpeg + NVENC encodes and adds the audio.
+  ipcMain.handle('export:gpu', async () => !!(await findNvencFfmpeg()))
+  ipcMain.handle('export:gpuBegin', async (_e, project: Project, outPath: string) => {
+    const bin = await findNvencFfmpeg()
+    if (!bin) throw new Error('No ffmpeg with NVENC found')
+    gpuExport?.abort()
+    gpuExport = startGpuExport(bin, project, outPath)
+  })
+  ipcMain.handle('export:gpuFrame', (_e, frame: Uint8Array) => {
+    if (!gpuExport) throw new Error('No export in progress')
+    return gpuExport.write(frame)
+  })
+  ipcMain.handle('export:gpuFinish', async () => {
+    const job = gpuExport
+    if (!job) throw new Error('No export in progress')
+    try {
+      await job.finish()
+    } finally {
+      gpuExport = null
+    }
+  })
+  ipcMain.handle('export:gpuAbort', () => {
+    gpuExport?.abort()
+    gpuExport = null
   })
 
   ipcMain.handle('shell:reveal', (_e, path: string) => shell.showItemInFolder(path))
