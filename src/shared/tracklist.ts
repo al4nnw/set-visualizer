@@ -6,6 +6,13 @@ export interface ParsedEntry {
   artist: string
   /** Seconds, or undefined when the source has no timing (e.g. a Rekordbox history export). */
   start?: number
+  /** Where the track starts being mixed in, when known separately from `start`. */
+  mixIn?: number
+  /**
+   * True when `start` is when the deck started playing (DJ software cue sheets) rather than when the
+   * track takes over, so the takeover should be found in the audio.
+   */
+  startIsDeckStart?: boolean
 }
 
 let idCounter = 0
@@ -29,6 +36,26 @@ function splitArtistTitle(s: string): { artist: string; title: string } {
   return { artist: '', title: s.trim() }
 }
 
+/**
+ * For cue sheets from DJ software, moves each track's start to where it takes over in the audio and
+ * keeps the cue time as the moment it appears on the right. `find` maps sorted cue times to takeovers.
+ */
+export async function placeTakeovers(
+  entries: ParsedEntry[],
+  find: (cues: number[]) => Promise<number[]>
+): Promise<ParsedEntry[]> {
+  if (!entries.length || !entries.every((e) => e.start !== undefined && e.startIsDeckStart)) return entries
+  const order = entries.map((e, i) => i).sort((a, b) => entries[a].start! - entries[b].start!)
+  const takeovers = await find(order.map((i) => entries[i].start!))
+  const out = [...entries]
+  order.forEach((i, k) => {
+    const cue = entries[i].start!
+    const at = takeovers[k]
+    out[i] = { ...entries[i], start: at, mixIn: at > cue ? cue : undefined, startIsDeckStart: false }
+  })
+  return out
+}
+
 const unquote = (s: string) => s.trim().replace(/^"(.*)"$/, '$1')
 
 /**
@@ -46,7 +73,7 @@ export function parseCue(text: string): ParsedEntry[] {
     const arg = rest.join(' ')
     switch (kw?.toUpperCase()) {
       case 'TRACK':
-        cur = { title: '', artist: '' }
+        cur = { title: '', artist: '', startIsDeckStart: true }
         out.push(cur)
         break
       case 'TITLE':
@@ -146,6 +173,7 @@ export function entriesToTracks(entries: ParsedEntry[], duration: number): Track
     title: e.title,
     artist: e.artist,
     start: timed === n ? e.start! : (duration / Math.max(1, n)) * i,
+    mixIn: timed === n ? e.mixIn : undefined,
     deck: 'A'
   }))
   return alternateDecks(tracks)

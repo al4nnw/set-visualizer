@@ -7,7 +7,8 @@ import { basename, extname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import type { Project, SearchResult } from '@shared/types'
 import { parseTracklist } from '@shared/tracklist'
-import { analyseAudio } from './audio'
+import { detectTakeovers } from '@shared/takeover'
+import { analyseAudio, spectralFrames } from './audio'
 import { downloadArt, importLocalArt } from './art'
 import { ffmpegPath } from './ffmpeg'
 import { identifySet } from './identify'
@@ -171,6 +172,9 @@ function registerIpc() {
     const { duration, waveform } = await analyseAudio(path, (p) => send('audio:progress', p))
     return { duration, waveform, name: basename(path) }
   })
+  ipcMain.handle('audio:takeovers', async (_e, path: string, cues: number[], duration: number) =>
+    detectTakeovers(await spectralFrames(path), cues, duration)
+  )
   ipcMain.handle('tracklist:parse', async (_e, path: string) => parseTracklist(basename(path), await readFile(path)))
 
   ipcMain.handle('project:save', async (_e, project: Project, path: string | null) => {

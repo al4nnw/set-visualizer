@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { alternateDecks, formatTime, sortTracks } from '@shared/layout'
-import { entriesToTracks, newId, sameSong } from '@shared/tracklist'
+import { entriesToTracks, newId, placeTakeovers, sameSong } from '@shared/tracklist'
+import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, type IdentifyHit, type Project, type RenderSettings, type Track } from '@shared/types'
 import { api, errMsg, mediaUrl } from './api'
 import { DropZone } from './components/DropZone'
@@ -65,6 +66,12 @@ export function App() {
   )
 
   // ---- loading ---------------------------------------------------------------------------
+  const withTakeovers = (entries: ParsedEntry[], audioPath: string, duration: number, onDetect: () => void) =>
+    placeTakeovers(entries, (cues) => {
+      onDetect()
+      return api.detectTakeovers(audioPath, cues, duration)
+    })
+
   const loadAudio = async (audioPath: string, tracklistPath: string | null) => {
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
@@ -72,7 +79,12 @@ export function App() {
     try {
       const { duration, waveform, name } = await api.analyseAudio(audioPath)
       let tracks: Track[] = []
-      if (tracklistPath) tracks = entriesToTracks(await api.parseTracklist(tracklistPath), duration)
+      if (tracklistPath) {
+        const entries = await withTakeovers(await api.parseTracklist(tracklistPath), audioPath, duration, () =>
+          setBusy({ label: 'Finding where each track takes over…', progress: 1 })
+        )
+        tracks = entriesToTracks(entries, duration)
+      }
       reset({
         version: 1,
         audioPath,
@@ -128,7 +140,8 @@ export function App() {
     try {
       const entries = await api.parseTracklist(path)
       if (!entries.length) return showToast('No tracks found in that file')
-      const tracks = entriesToTracks(entries, project.duration)
+      const placed = await withTakeovers(entries, project.audioPath, project.duration, () => showToast('Finding where each track takes over…'))
+      const tracks = entriesToTracks(placed, project.duration)
       update((p) => ({ ...p, tracks }))
       const timed = entries.every((e) => e.start !== undefined)
       showToast(timed ? `Imported ${tracks.length} tracks` : `Imported ${tracks.length} tracks. The file has no times, so they're spread evenly: drag them into place.`)

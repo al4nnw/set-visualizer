@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks } from '../src/shared/tracklist'
+import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers } from '../src/shared/tracklist'
+import { detectTakeovers, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
 
@@ -72,5 +73,40 @@ describe('card layout', () => {
     expect(two.slot).toBeGreaterThan(0)
     expect(two.slot).toBeLessThan(1)
     expect(cardStates(tracks, 103, s).map((x) => x.track.id)).toEqual(['2'])
+  })
+})
+
+describe('takeover detection', () => {
+  it('finds a step up', () => {
+    const v = [...Array(20).fill(0.3), ...Array(20).fill(0.8)]
+    expect(stepUp(v, 8)).toMatchObject({ at: 20 })
+    expect(stepUp(v, 8)!.contrast).toBeCloseTo(0.5)
+  })
+
+  it('places the swap where the mix starts sounding like the incoming track', () => {
+    // Two "tracks" with different spectra; the second is cued at 60s but only takes over at 100s.
+    const fps = 4
+    const A = new Float32Array([1, -1, 1, -1])
+    const B = new Float32Array([-1, 1, -1, 1])
+    const frames = Array.from({ length: 300 * fps }, (_, i) => (i / fps < 100 ? A : B))
+    const [first, second] = detectTakeovers({ fps, frames }, [0, 60], 300)
+    expect(first).toBe(0)
+    expect(second).toBeGreaterThanOrEqual(98)
+    expect(second).toBeLessThanOrEqual(102)
+  })
+
+  it('falls back to a fixed delay when nothing changes', () => {
+    const frames = Array.from({ length: 300 * 4 }, () => new Float32Array([1, -1, 1, -1]))
+    expect(detectTakeovers({ fps: 4, frames }, [0, 60], 300)[1]).toBe(60 + FALLBACK_TAKEOVER)
+  })
+
+  it('keeps the cue as the mix-in time for DJ cue sheets', async () => {
+    const entries = [
+      { title: 'One', artist: '', start: 0, startIsDeckStart: true },
+      { title: 'Two', artist: '', start: 60, startIsDeckStart: true }
+    ]
+    const r = await placeTakeovers(entries, async () => [0, 95])
+    expect(r[1]).toMatchObject({ start: 95, mixIn: 60 })
+    expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 60 })
   })
 })
