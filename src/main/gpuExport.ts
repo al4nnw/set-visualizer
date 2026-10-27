@@ -1,12 +1,25 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { app } from 'electron'
 import { QUALITY_BPP, type Project } from '@shared/types'
 import { ffmpegPath } from './ffmpeg'
 
 /**
- * GPU export: the renderer sends raw I420 frames and an ffmpeg that has NVIDIA's encoder
- * (h264_nvenc) encodes them and muxes the audio in one go. The bundled ffmpeg has no NVENC, so this
- * looks for another one: $SETVIS_FFMPEG_GPU, then the system's `ffmpeg`.
+ * GPU export: the renderer sends raw RGBA frames and an ffmpeg that has NVIDIA's encoder
+ * (h264_nvenc) encodes them and muxes the audio in one go. ffmpeg-static has no NVENC, so this
+ * looks for another one: $SETVIS_FFMPEG_GPU, the build shipped with the app (scripts/fetch-ffmpeg.mjs),
+ * then the system's `ffmpeg`.
  */
+
+/** The NVENC ffmpeg shipped in resources/ffmpeg (extraResources when packaged). */
+function bundledNvencFfmpeg(): string | undefined {
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+  const file = app.isPackaged
+    ? join(process.resourcesPath, 'ffmpeg', exe)
+    : join(app.getAppPath(), 'resources', 'ffmpeg', `${process.platform}-${process.arch}`, exe)
+  return existsSync(file) ? file : undefined
+}
 
 let probed: Promise<string | null> | null = null
 
@@ -26,7 +39,7 @@ function tryNvenc(bin: string): Promise<boolean> {
 /** Path of an ffmpeg that can encode with NVENC on this machine, or null. Checked once per run. */
 export function findNvencFfmpeg(): Promise<string | null> {
   probed ??= (async () => {
-    const candidates = [process.env.SETVIS_FFMPEG_GPU, 'ffmpeg', ffmpegPath].filter((c): c is string => !!c)
+    const candidates = [process.env.SETVIS_FFMPEG_GPU, bundledNvencFfmpeg(), 'ffmpeg', ffmpegPath].filter((c): c is string => !!c)
     for (const bin of [...new Set(candidates)]) if (await tryNvenc(bin)) return bin
     return null
   })()
@@ -34,7 +47,7 @@ export function findNvencFfmpeg(): Promise<string | null> {
 }
 
 export interface GpuExport {
-  /** Writes one I420 frame; resolves when ffmpeg is ready for more. */
+  /** Writes one RGBA frame; resolves when ffmpeg is ready for more. */
   write(frame: Uint8Array): Promise<void>
   finish(): Promise<void>
   abort(): void
@@ -45,7 +58,8 @@ export function startGpuExport(bin: string, project: Project, outPath: string): 
   const bitrate = Math.round(W * H * fps * (QUALITY_BPP[quality] ?? 0.13))
   const p: ChildProcessWithoutNullStreams = spawn(bin, [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-',
+    // RGBA straight from the canvas; NVENC converts to YUV on the GPU.
+    '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-',
     '-i', project.audioPath,
     '-map', '0:v:0', '-map', '1:a:0',
     '-c:v', 'h264_nvenc', '-preset', 'p5', '-tune', 'hq', '-rc', 'vbr',

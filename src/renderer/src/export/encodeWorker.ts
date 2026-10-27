@@ -7,7 +7,7 @@ interface StartMsg {
   type: 'start'
   project: Project
   fonts: Array<{ weight: string; url: string }>
-  /** 'webcodecs' encodes here; 'raw' sends I420 frames out for the GPU encoder in the main process. */
+  /** 'webcodecs' encodes here; 'raw' sends RGBA frames out for the GPU encoder in the main process. */
   mode: 'webcodecs' | 'raw'
 }
 
@@ -16,33 +16,6 @@ let cancelled = false
 let inFlight = 0
 let wake: (() => void) | null = null
 const MAX_IN_FLIGHT = 3
-
-/** RGBA to I420 (BT.709, limited range), averaging chroma over each 2x2 block. */
-function toI420(rgba: Uint8ClampedArray, w: number, h: number): Uint8Array {
-  const out = new Uint8Array((w * h * 3) / 2)
-  const uOff = w * h
-  const vOff = uOff + (w * h) / 4
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4
-      out[y * w + x] = (16 + 0.1826 * rgba[i] + 0.6142 * rgba[i + 1] + 0.062 * rgba[i + 2]) | 0
-    }
-  }
-  const cw = w / 2
-  for (let y = 0; y < h; y += 2) {
-    for (let x = 0; x < w; x += 2) {
-      const a = (y * w + x) * 4
-      const b = a + w * 4
-      const r = (rgba[a] + rgba[a + 4] + rgba[b] + rgba[b + 4]) / 4
-      const g = (rgba[a + 1] + rgba[a + 5] + rgba[b + 1] + rgba[b + 5]) / 4
-      const bl = (rgba[a + 2] + rgba[a + 6] + rgba[b + 2] + rgba[b + 6]) / 4
-      const c = (y / 2) * cw + x / 2
-      out[uOff + c] = (128 - 0.1006 * r - 0.3386 * g + 0.4392 * bl) | 0
-      out[vOff + c] = (128 + 0.4392 * r - 0.3989 * g - 0.0403 * bl) | 0
-    }
-  }
-  return out
-}
 
 async function runRaw(msg: StartMsg) {
   const { project } = msg
@@ -61,7 +34,8 @@ async function runRaw(msg: StartMsg) {
       return
     }
     drawFrame(ctx, prep, f / fps)
-    const frame = toI420(ctx2d.getImageData(0, 0, W, H).data, W, H)
+    const pixels = ctx2d.getImageData(0, 0, W, H).data
+    const frame = new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength)
     while (inFlight >= MAX_IN_FLIGHT && !cancelled) await new Promise<void>((r) => (wake = r))
     inFlight++
     postMessage({ type: 'frame', data: frame }, [frame.buffer])
