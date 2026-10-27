@@ -145,22 +145,13 @@ export function Sidebar(p: Props) {
                 </button>
               </div>
             </label>
-            <label className="grow">
-              Mix-in (appears right)
+          </div>
+          <div className="row">
+            <label className="grow" title="When it starts being heard. It appears on the right as 'now playing' from here.">
+              Heard from (mix-in)
               <div className="row">
                 <TimeInput value={sel.mixIn} placeholder={`auto (−${project.settings.defaultLead}s)`} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
                 <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
-                  ⇤ now
-                </button>
-              </div>
-            </label>
-          </div>
-          <div className="row">
-            <label className="grow" title="When it starts being heard. From here the right card says 'now playing' instead of 'up next'.">
-              Heard from
-              <div className="row">
-                <TimeInput value={sel.audibleAt} placeholder="at the swap" onChange={(v) => p.onChangeTrack(sel.id, { audibleAt: v })} />
-                <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { audibleAt: Math.min(time, sel.start) })}>
                   ⇤ now
                 </button>
               </div>
@@ -175,10 +166,6 @@ export function Sidebar(p: Props) {
               </div>
             </label>
           </div>
-          <label className="check" title="Mixed in under another track and never takes over: it won't get the main spot in the video">
-            <input type="checkbox" checked={!!sel.layered} onChange={(e) => p.onChangeTrack(sel.id, { layered: e.target.checked || undefined })} />
-            Layered only (never takes over)
-          </label>
           <div className="row">
             <div className="seg">
               {(['A', 'B'] as const).map((d) => (

@@ -98,6 +98,7 @@ const SPECTRUM_RATE = 11025
 const FFT_SIZE = 2048
 const HOP = 2756 // ~4 frames per second
 const BANDS = 32
+const POWER_BANDS = 48
 
 /** In-place radix-2 FFT. */
 function fft(re: Float64Array, im: Float64Array) {
@@ -130,14 +131,19 @@ function fft(re: Float64Array, im: Float64Array) {
 }
 
 /**
- * Log energy in 32 bands (40 Hz to 5 kHz, log spaced) about 4 times a second, with each frame's
- * mean removed. Used to tell tracks apart when finding takeovers.
+ * About 4 times a second: log energy in 32 bands (40 Hz to 5 kHz, log spaced) with each frame's mean
+ * removed, used to tell tracks apart, and linear power in 48 bands over the same range, normalised
+ * per band over the whole set, used to measure how much of each track is in the mix.
  */
 export async function spectralFrames(file: string): Promise<SpectralFrames> {
   const raw = await runFfmpeg(['-i', file, '-vn', '-ac', '1', '-ar', String(SPECTRUM_RATE), '-f', 'f32le', '-'])
   const x = new Float32Array(raw.buffer, raw.byteOffset, Math.floor(raw.length / 4))
   const edges: number[] = []
-  for (let b = 0; b <= BANDS; b++) edges.push(Math.round(((40 * Math.pow(5000 / 40, b / BANDS)) * FFT_SIZE) / SPECTRUM_RATE))
+  const bandEdges = (n: number) => Array.from({ length: n + 1 }, (_, b) => Math.round((40 * Math.pow(5000 / 40, b / n) * FFT_SIZE) / SPECTRUM_RATE))
+  edges.push(...bandEdges(BANDS))
+  const powerEdges = bandEdges(POWER_BANDS)
+  const power: Float32Array[] = []
+  const totals = new Float64Array(POWER_BANDS)
   const win = new Float64Array(FFT_SIZE).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / FFT_SIZE))
   const re = new Float64Array(FFT_SIZE)
   const im = new Float64Array(FFT_SIZE)
@@ -159,6 +165,16 @@ export async function spectralFrames(file: string): Promise<SpectralFrames> {
     mean /= BANDS
     for (let b = 0; b < BANDS; b++) f[b] -= mean
     frames.push(f)
+    const pw = new Float32Array(POWER_BANDS)
+    for (let b = 0; b < POWER_BANDS; b++) {
+      let e = 0
+      for (let k = powerEdges[b]; k < Math.max(powerEdges[b + 1], powerEdges[b] + 1); k++) e += re[k] * re[k] + im[k] * im[k]
+      pw[b] = e
+      totals[b] += e
+    }
+    power.push(pw)
   }
-  return { fps: SPECTRUM_RATE / HOP, frames }
+  // Every band on the same footing, so the kick doesn't decide everything.
+  for (const pw of power) for (let b = 0; b < POWER_BANDS; b++) pw[b] /= totals[b] / power.length || 1
+  return { fps: SPECTRUM_RATE / HOP, frames, power }
 }

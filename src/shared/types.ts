@@ -7,12 +7,10 @@ export interface Track {
   /** Seconds into the set where this track becomes the main track (moves to the left). */
   start: number
   /**
-   * Seconds into the set where this track starts being mixed in (appears on the right).
-   * When undefined, the project's default lead time is used.
+   * Seconds into the set where this track starts being heard: it appears on the right as "now
+   * playing". When undefined, it appears the project's default lead time early as "up next".
    */
   mixIn?: number
-  /** Seconds into the set where it starts being heard (the right card says "now playing" from here). */
-  audibleAt?: number
   /**
    * Seconds into the set where it stops being heard, when it keeps playing under the next track after
    * the swap. Until then its card stays on the right as "now playing".

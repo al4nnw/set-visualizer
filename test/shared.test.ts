@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
-import { detectTakeovers, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
+import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
@@ -98,7 +98,7 @@ describe('takeover detection', () => {
 
   it('falls back to a fixed delay when nothing changes', () => {
     const frames = Array.from({ length: 300 * 4 }, () => new Float32Array([1, -1, 1, -1]))
-    expect(detectTakeovers({ fps: 4, frames }, [0, 60], 300)[1]).toEqual({ start: 60 + FALLBACK_TAKEOVER, tailEnd: 60 + FALLBACK_TAKEOVER + FALLBACK_TAIL })
+    expect(detectTakeovers({ fps: 4, frames }, [0, 60], 300)[1]).toEqual({ start: 60 + FALLBACK_TAKEOVER, audibleAt: 60, tailEnd: 60 + FALLBACK_TAKEOVER + FALLBACK_TAIL })
   })
 
   it('keeps the cue as the mix-in time for DJ cue sheets', async () => {
@@ -106,10 +106,10 @@ describe('takeover detection', () => {
       { title: 'One', artist: '', start: 0, startIsDeckStart: true },
       { title: 'Two', artist: '', start: 60, startIsDeckStart: true }
     ]
-    const r = await placeTakeovers(entries, async () => [{ start: 0, tailEnd: 0 }, { start: 95, audibleAt: 80, tailEnd: 110 }])
-    expect(r[1]).toMatchObject({ start: 95, mixIn: 60, audibleAt: 80 })
+    const r = await placeTakeovers(entries, async () => [{ start: 0, audibleAt: 0, tailEnd: 0 }, { start: 95, audibleAt: 80, tailEnd: 110 }])
+    expect(r[1]).toMatchObject({ start: 95, mixIn: 80 })
     expect(r[0]).toMatchObject({ tailEnd: 110 })
-    expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 60, audibleAt: 80 })
+    expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 80 })
   })
 
   it('marks a track that never takes over as layered', () => {
@@ -126,7 +126,7 @@ describe('takeover detection', () => {
 
   it('keeps layered tracks out of the main sequence', async () => {
     const entries = [0, 60, 120].map((start, i) => ({ title: `T${i}`, artist: '', start, startIsDeckStart: true }))
-    const tracks = alternateDecks(entriesToTracks(await placeTakeovers(entries, async () => [{ start: 0, tailEnd: 0 }, null, { start: 150, tailEnd: 150 }]), 300))
+    const tracks = alternateDecks(entriesToTracks(await placeTakeovers(entries, async () => [{ start: 0, audibleAt: 0, tailEnd: 0 }, null, { start: 150, audibleAt: 150, tailEnd: 150 }]), 300))
     expect(tracks.find((t) => t.title === 'T1')).toMatchObject({ layered: true, start: 60, deck: 'B' })
     expect(mainTracks(tracks).map((t) => [t.title, t.deck])).toEqual([
       ['T0', 'A'],
@@ -152,12 +152,30 @@ describe('takeover detection', () => {
     const settings = { defaultLead: 45, swapDuration: 1 }
     const tracks: Track[] = [
       { id: 'a', title: 'A', artist: '', start: 0, deck: 'A', tailEnd: 130 },
-      { id: 'b', title: 'B', artist: '', start: 100, mixIn: 60, audibleAt: 80, deck: 'B' }
+      { id: 'b', title: 'B', artist: '', start: 100, mixIn: 80, deck: 'B' }
     ]
     const at = (t: number) => cardStates(tracks, t, settings).map((c) => `${c.track.id}:${c.role}:${c.slot.toFixed(1)}:${c.playing}`)
-    expect(at(70)).toEqual(['a:main:0.0:true', 'b:incoming:1.0:false'])
+    expect(at(70)).toEqual(['a:main:0.0:true'])
     expect(at(90)).toEqual(['a:main:0.0:true', 'b:incoming:1.0:true'])
     expect(at(120)).toEqual(['a:tail:1.0:true', 'b:main:0.0:true'])
     expect(at(140)).toEqual(['b:main:0.0:true'])
+  })
+
+  it('measures when the incoming track is heard and when the outgoing one is gone', () => {
+    // Power spectra: A alone until 100s, A + B from 100s to 160s, B alone after. B's deck starts at 80s.
+    const fps = 4
+    const A = new Float32Array([4, 1, 0.2, 0.1])
+    const B = new Float32Array([0.2, 0.3, 3, 2])
+    const power = Array.from({ length: 400 * fps }, (_, i) => {
+      const t = i / fps
+      const a = t < 160 ? 1 : 0
+      const b = t >= 100 ? 1 : 0
+      return A.map((v, k) => a * v + b * B[k] + 0.01)
+    })
+    const r = measureBlend({ fps, frames: [], power }, { cue: 80, start: 130, next: 300, outgoingFrom: 0 })
+    expect(r.audible).toBeGreaterThanOrEqual(96)
+    expect(r.audible).toBeLessThanOrEqual(104)
+    expect(r.gone).toBeGreaterThanOrEqual(156)
+    expect(r.gone).toBeLessThanOrEqual(164)
   })
 })

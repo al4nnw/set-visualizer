@@ -15,7 +15,6 @@ export interface ParsedEntry {
   startIsDeckStart?: boolean
   /** Never takes over: only mixed in under another track. */
   layered?: boolean
-  audibleAt?: number
   tailEnd?: number
 }
 
@@ -68,7 +67,7 @@ export async function placeTakeovers(
   find: (
     cues: number[],
     songs: Array<{ title: string; artist: string }>
-  ) => Promise<Array<{ start: number; audibleAt?: number; tailEnd: number } | null>>
+  ) => Promise<Array<{ start: number; audibleAt: number; tailEnd: number } | null>>
 ): Promise<ParsedEntry[]> {
   if (!entries.length || !entries.every((e) => e.start !== undefined && e.startIsDeckStart)) return entries
   entries = dropRepeatedLoads(entries)
@@ -89,8 +88,7 @@ export async function placeTakeovers(
     out[i] = {
       ...entries[i],
       start: x.start,
-      mixIn: x.start > cue ? cue : undefined,
-      audibleAt: x.audibleAt !== undefined && x.audibleAt < x.start ? x.audibleAt : undefined,
+      mixIn: Math.max(cue, Math.min(x.audibleAt, x.start)),
       startIsDeckStart: false
     }
     // The track this one replaces keeps playing underneath until the crossfade ends.
@@ -219,7 +217,6 @@ export function entriesToTracks(entries: ParsedEntry[], duration: number): Track
     start: timed === n ? e.start! : (duration / Math.max(1, n)) * i,
     mixIn: timed === n ? e.mixIn : undefined,
     ...(timed === n && e.layered ? { layered: true } : {}),
-    ...(timed === n && e.audibleAt !== undefined ? { audibleAt: e.audibleAt } : {}),
     ...(timed === n && e.tailEnd !== undefined ? { tailEnd: e.tailEnd } : {}),
     deck: 'A'
   }))

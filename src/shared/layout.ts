@@ -76,7 +76,7 @@ export function cardStates(sorted: Track[], t: number, settings: Pick<RenderSett
     if (t < start) {
       // Incoming on the right.
       const p = easeOut(clamp01((t - appear) / APPEAR_DURATION))
-      const playing = tr.audibleAt !== undefined && t >= tr.audibleAt
+      const playing = tr.mixIn !== undefined
       out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming', playing })
     } else if (t < start + swap && i > 0) {
       const p = easeInOut(clamp01((t - start) / swap))

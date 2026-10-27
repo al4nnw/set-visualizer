@@ -15,6 +15,8 @@ export interface SpectralFrames {
   fps: number
   /** One row per frame: log band energies with the frame's mean removed (so loudness doesn't matter). */
   frames: Float32Array[]
+  /** One row per frame: linear band power, each band divided by its average over the set. */
+  power?: Float32Array[]
 }
 
 /** How far after the cue to look for the takeover. */
@@ -89,45 +91,143 @@ export function settledAt(like: number[], step: { at: number; low: number }, hol
 /** Seconds the outgoing track is assumed to keep playing under the new one when it can't be measured. */
 export const FALLBACK_TAIL = 16
 
-const avgAt = (v: number[], i: number, hold: number) => {
-  let sum = 0
-  for (let j = i; j < i + hold; j++) sum += v[j]
-  return sum / hold
-}
-
-/**
- * The whole crossfade around a step, in samples: when the incoming track starts to be heard (the mix
- * leaves the outgoing track's level), when it takes over (see `settledAt`) and when the outgoing one
- * is gone (the mix reaches the incoming track's upper level, at most a minute after the takeover).
- */
-export function crossfade(like: number[], step: { at: number; low: number }, hold = 6): { audible: number; settled: number; gone: number } {
-  const after = like.slice(step.at).sort((a, b) => a - b)
-  const high = after[Math.floor(after.length * 0.75)] ?? step.low
-  const settled = settledAt(like, step, hold)
-  let audible = 0
-  for (let i = Math.min(step.at, like.length - hold); i >= 0; i--) {
-    if (avgAt(like, i, hold) <= step.low + 0.25 * (high - step.low)) {
-      audible = i + hold
-      break
-    }
-  }
-  let gone = Math.min(like.length, settled + 60)
-  for (let i = settled; i + hold <= Math.min(like.length, settled + 60); i++) {
-    if (avgAt(like, i, hold) >= high) {
-      gone = i + hold
-      break
-    }
-  }
-  return { audible: Math.min(audible, settled), settled, gone: Math.max(gone, settled) }
-}
-
 export interface Transition {
   /** When the incoming track takes over. */
   start: number
-  /** When it starts being heard, if that could be measured. */
-  audibleAt?: number
+  /** When it starts being heard (it appears on the right from here). */
+  audibleAt: number
   /** When the outgoing track stops being heard. */
   tailEnd: number
+}
+
+const quantile = (v: number[], p: number) => {
+  const sorted = [...v].sort((a, b) => a - b)
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0
+}
+
+function meanPower(s: SpectralFrames, from: number, to: number): Float64Array | null {
+  const power = s.power
+  if (!power?.length) return null
+  const a = Math.max(0, Math.round(from * s.fps))
+  const z = Math.min(power.length, Math.round(to * s.fps))
+  if (z <= a) return null
+  const out = new Float64Array(power[0].length)
+  for (let i = a; i < z; i++) for (let b = 0; b < out.length; b++) out[b] += power[i][b]
+  for (let b = 0; b < out.length; b++) out[b] /= z - a
+  return out
+}
+
+/**
+ * Share of the incoming track in the mix at each second from `from` to `to`, smoothed over a few
+ * seconds. Each second's spectrum is fitted as a non-negative blend of the two tracks' spectra
+ * (power adds up when two decks play together), and the share is the incoming part's loudness.
+ */
+export function incomingShare(s: SpectralFrames, a: Float64Array, b: Float64Array, from: number, to: number): number[] {
+  const dot = (p: ArrayLike<number>, q: ArrayLike<number>) => {
+    let d = 0
+    for (let i = 0; i < p.length; i++) d += p[i] * q[i]
+    return d
+  }
+  const sumA = a.reduce((x, v) => x + v, 0)
+  const sumB = b.reduce((x, v) => x + v, 0)
+  const aa = dot(a, a)
+  const bb = dot(b, b)
+  const ab = dot(a, b)
+  const det = aa * bb - ab * ab
+  const raw: number[] = []
+  for (let t = from; t < to; t++) {
+    const x = meanPower(s, t - 1, t + 1)
+    if (!x || det <= 0) {
+      raw.push(0.5)
+      continue
+    }
+    const xa = dot(x, a)
+    const xb = dot(x, b)
+    let wa = (xa * bb - xb * ab) / det
+    let wb = (xb * aa - xa * ab) / det
+    if (wa < 0) [wa, wb] = [0, Math.max(0, xb / bb)]
+    if (wb < 0) [wa, wb] = [Math.max(0, xa / aa), 0]
+    const la = wa * sumA
+    const lb = wb * sumB
+    raw.push(la + lb > 0 ? lb / (la + lb) : 0.5)
+  }
+  return raw.map((_, i) => {
+    let sum = 0
+    let n = 0
+    for (let j = Math.max(0, i - 3); j <= Math.min(raw.length - 1, i + 3); j++) {
+      sum += raw[j]
+      n++
+    }
+    return sum / n
+  })
+}
+
+/**
+ * When the incoming track starts being heard and when the outgoing one is gone, around a takeover.
+ * Each track's spectrum comes from where it plays alone: the outgoing one just before the incoming
+ * deck starts (`cue`), the incoming one in the minute before the next deck starts. How much of the
+ * incoming track shows up while the outgoing one is alone sets the noise floor for "heard", and how
+ * much of the outgoing one shows up while the incoming one is alone sets it for "gone". When the two
+ * tracks sound too alike to tell apart, the cue and a fixed tail are used instead.
+ */
+export function measureBlend(
+  s: SpectralFrames,
+  o: { cue: number; start: number; next: number; outgoingFrom: number }
+): { audible: number; gone: number } {
+  const { cue, start, next } = o
+  const fallback = { audible: cue, gone: Math.min(next, start + FALLBACK_TAIL) }
+  const soloFrom = Math.min(Math.max(o.outgoingFrom + 5, cue - 90), cue - 20)
+  const tailFrom = Math.max(start + 20, next - 60)
+  const a = meanPower(s, soloFrom, cue)
+  const b = meanPower(s, tailFrom, next)
+  if (!a || !b || next - tailFrom < 10) return fallback
+  const t0 = Math.floor(soloFrom)
+  const share = incomingShare(s, a, b, t0, Math.ceil(next))
+  const at = (t: number) => Math.max(0, Math.min(share.length - 1, Math.round(t) - t0))
+
+  let audible = cue
+  const heardFloor = Math.max(0.15, quantile(share.slice(0, at(cue)), 0.9))
+  if (heardFloor < 0.6) {
+    for (let i = at(start); i >= at(cue); i--) {
+      if (share[i] <= heardFloor) {
+        audible = t0 + i + 1
+        break
+      }
+    }
+  }
+
+  let gone = fallback.gone
+  const goneFloor = Math.min(0.85, quantile(share.slice(at(tailFrom)), 0.05) - 0.05)
+  if (goneFloor >= 0.3) {
+    gone = start
+    // Last stretch where the outgoing track is still clearly in the mix.
+    for (let i = at(start); i + 6 <= at(tailFrom); i++) {
+      let below = 0
+      for (let j = i; j < i + 6; j++) if (share[j] < goneFloor) below++
+      if (below >= 5) gone = t0 + i + 3
+    }
+  }
+  return { audible: Math.max(cue, Math.min(audible, start)), gone: Math.max(start, Math.min(gone, next)) }
+}
+
+/** Where the track cued at `cue` takes over from the one before, or null when the audio shows no clear change. */
+function takeoverAt(s: SpectralFrames, cue: number, prev: number, end: number): number | null {
+  // Outgoing track: up to 90s before the cue. Incoming: the last minute before the next one comes in.
+  const a = meanProfile(s, Math.max(prev + 5, cue - 90), cue)
+  const b = meanProfile(s, Math.max(cue + 5, end - 60), end)
+  if (!a || !b || end - cue < 20) return null
+  // 0 = sounds like the outgoing track, 1 = sounds like the incoming one. One value per second.
+  const like: number[] = []
+  for (let t = cue; t < end; t++) {
+    const p = meanProfile(s, t - 3, t + 3)
+    if (!p) break
+    const da = dist(p, a)
+    const db = dist(p, b)
+    like.push(da + db > 0 ? da / (da + db) : 0.5)
+  }
+  const step = stepUp(like, 8)
+  if (!step || step.contrast < MIN_CONTRAST) return null
+  return cue + settledAt(like, step)
 }
 
 /**
@@ -135,31 +235,20 @@ export interface Transition {
  * cue. `duration` is the length of the set.
  */
 export function stepTakeovers(s: SpectralFrames, cues: number[], duration: number): Transition[] {
-  return cues.map((cue, k): Transition => {
-    if (k === 0) return { start: cue, tailEnd: cue }
-    const prev = cues[k - 1]
+  const out: Transition[] = []
+  cues.forEach((cue, k) => {
+    if (k === 0) {
+      out.push({ start: cue, audibleAt: cue, tailEnd: cue })
+      return
+    }
     const next = k + 1 < cues.length ? cues[k + 1] : duration
     const end = Math.min(next, cue + TAKEOVER_WINDOW)
-    const at = Math.min(cue + FALLBACK_TAKEOVER, (cue + end) / 2)
-    const fallback = { start: at, tailEnd: Math.min(end, at + FALLBACK_TAIL) }
-    // Outgoing track: up to 90s before the cue. Incoming: the last minute before the next one comes in.
-    const a = meanProfile(s, Math.max(prev + 5, cue - 90), cue)
-    const b = meanProfile(s, Math.max(cue + 5, end - 60), end)
-    if (!a || !b || end - cue < 20) return fallback
-    // 0 = sounds like the outgoing track, 1 = sounds like the incoming one. One value per second.
-    const like: number[] = []
-    for (let t = cue; t < end; t++) {
-      const p = meanProfile(s, t - 3, t + 3)
-      if (!p) break
-      const da = dist(p, a)
-      const db = dist(p, b)
-      like.push(da + db > 0 ? da / (da + db) : 0.5)
-    }
-    const step = stepUp(like, 8)
-    if (!step || step.contrast < MIN_CONTRAST) return fallback
-    const x = crossfade(like, step)
-    return { start: cue + x.settled, audibleAt: cue + x.audible, tailEnd: cue + x.gone }
+    const start = takeoverAt(s, cue, cues[k - 1], end) ?? Math.min(cue + FALLBACK_TAKEOVER, (cue + end) / 2)
+    const before = out[k - 1]
+    const blend = measureBlend(s, { cue, start, next, outgoingFrom: Math.max(before.start, before.tailEnd) })
+    out.push({ start, audibleAt: blend.audible, tailEnd: blend.gone })
   })
+  return out
 }
 
 /**
