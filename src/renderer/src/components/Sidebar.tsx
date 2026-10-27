@@ -155,6 +155,26 @@ export function Sidebar(p: Props) {
               </div>
             </label>
           </div>
+          <div className="row">
+            <label className="grow" title="When it starts being heard. From here the right card says 'now playing' instead of 'up next'.">
+              Heard from
+              <div className="row">
+                <TimeInput value={sel.audibleAt} placeholder="at the swap" onChange={(v) => p.onChangeTrack(sel.id, { audibleAt: v })} />
+                <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { audibleAt: Math.min(time, sel.start) })}>
+                  ⇤ now
+                </button>
+              </div>
+            </label>
+            <label className="grow" title="When it stops being heard, if it keeps playing under the next track after the swap. Until then it stays on the right as 'now playing'.">
+              Plays under next until
+              <div className="row">
+                <TimeInput value={sel.tailEnd} placeholder="leaves at the swap" onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
+                <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
+                  ⇤ now
+                </button>
+              </div>
+            </label>
+          </div>
           <label className="check" title="Mixed in under another track and never takes over: it won't get the main spot in the video">
             <input type="checkbox" checked={!!sel.layered} onChange={(e) => p.onChangeTrack(sel.id, { layered: e.target.checked || undefined })} />
             Layered only (never takes over)

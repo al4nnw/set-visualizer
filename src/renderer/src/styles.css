@@ -766,6 +766,14 @@ label.color {
   border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent);
   border-right: none;
 }
+.mix-tail {
+  position: absolute;
+  border-radius: 0 8px 8px 0;
+  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--c) 18%, transparent) 0 6px, transparent 6px 12px);
+  border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent);
+  border-left: none;
+  pointer-events: none;
+}
 .mix-handle {
   position: absolute;
   left: -4px;

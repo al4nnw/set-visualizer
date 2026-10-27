@@ -11,6 +11,13 @@ export interface Track {
    * When undefined, the project's default lead time is used.
    */
   mixIn?: number
+  /** Seconds into the set where it starts being heard (the right card says "now playing" from here). */
+  audibleAt?: number
+  /**
+   * Seconds into the set where it stops being heard, when it keeps playing under the next track after
+   * the swap. Until then its card stays on the right as "now playing".
+   */
+  tailEnd?: number
   deck: Deck
   /**
    * Only mixed in under another track and never takes over. It stays in the tracklist but never

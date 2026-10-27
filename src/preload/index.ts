@@ -18,7 +18,7 @@ const api = {
 
   analyseAudio: (path: string): Promise<{ duration: number; waveform: Waveform; name: string }> => ipcRenderer.invoke('audio:analyse', path),
   onAudioProgress: (cb: (p: number) => void) => on('audio:progress', cb),
-  detectTakeovers: (path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>): Promise<Array<number | null>> =>
+  detectTakeovers: (path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>): Promise<Array<{ start: number; audibleAt?: number; tailEnd: number } | null>> =>
     ipcRenderer.invoke('audio:takeovers', path, cues, duration, songs),
   parseTracklist: (path: string): Promise<ParsedEntry[]> => ipcRenderer.invoke('tracklist:parse', path),
 

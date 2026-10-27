@@ -15,6 +15,8 @@ export interface ParsedEntry {
   startIsDeckStart?: boolean
   /** Never takes over: only mixed in under another track. */
   layered?: boolean
+  audibleAt?: number
+  tailEnd?: number
 }
 
 let idCounter = 0
@@ -63,7 +65,10 @@ export function dropRepeatedLoads(entries: ParsedEntry[], decks = 2): ParsedEntr
  */
 export async function placeTakeovers(
   entries: ParsedEntry[],
-  find: (cues: number[], songs: Array<{ title: string; artist: string }>) => Promise<Array<number | null>>
+  find: (
+    cues: number[],
+    songs: Array<{ title: string; artist: string }>
+  ) => Promise<Array<{ start: number; audibleAt?: number; tailEnd: number } | null>>
 ): Promise<ParsedEntry[]> {
   if (!entries.length || !entries.every((e) => e.start !== undefined && e.startIsDeckStart)) return entries
   entries = dropRepeatedLoads(entries)
@@ -73,13 +78,24 @@ export async function placeTakeovers(
     order.map((i) => ({ title: entries[i].title, artist: entries[i].artist }))
   )
   const out = [...entries]
+  let lastMain = -1
   order.forEach((i, k) => {
     const cue = entries[i].start!
-    const at = takeovers[k]
-    out[i] =
-      at === null
-        ? { ...entries[i], layered: true, startIsDeckStart: false }
-        : { ...entries[i], start: at, mixIn: at > cue ? cue : undefined, startIsDeckStart: false }
+    const x = takeovers[k]
+    if (x === null) {
+      out[i] = { ...entries[i], layered: true, startIsDeckStart: false }
+      return
+    }
+    out[i] = {
+      ...entries[i],
+      start: x.start,
+      mixIn: x.start > cue ? cue : undefined,
+      audibleAt: x.audibleAt !== undefined && x.audibleAt < x.start ? x.audibleAt : undefined,
+      startIsDeckStart: false
+    }
+    // The track this one replaces keeps playing underneath until the crossfade ends.
+    if (lastMain >= 0 && x.tailEnd > x.start) out[lastMain] = { ...out[lastMain], tailEnd: x.tailEnd }
+    lastMain = i
   })
   return out
 }
@@ -203,6 +219,8 @@ export function entriesToTracks(entries: ParsedEntry[], duration: number): Track
     start: timed === n ? e.start! : (duration / Math.max(1, n)) * i,
     mixIn: timed === n ? e.mixIn : undefined,
     ...(timed === n && e.layered ? { layered: true } : {}),
+    ...(timed === n && e.audibleAt !== undefined ? { audibleAt: e.audibleAt } : {}),
+    ...(timed === n && e.tailEnd !== undefined ? { tailEnd: e.tailEnd } : {}),
     deck: 'A'
   }))
   return alternateDecks(tracks)

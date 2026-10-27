@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { appearTime, currentIndex, formatTime, mainTracks } from '@shared/layout'
+import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@shared/layout'
 import type { Project, Track } from '@shared/types'
 import { mediaUrl } from '../api'
 
@@ -199,8 +199,16 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
             const color = tr.deck === 'B' ? theme.accentB : theme.accent
             const left = start * pps
             const width = Math.max(4, (end - start) * pps)
+            const tail = tailTime(sorted, i, project.settings)
             return (
               <div key={tr.id}>
+                {tail !== undefined && (
+                  <div
+                    className="mix-tail"
+                    title="Still playing under the next track until here (shown on the right as 'now playing')"
+                    style={{ left: end * pps, width: (tail - end) * pps, top: top + 6, height: LANE_H - 12, ['--c' as string]: color }}
+                  />
+                )}
                 {i > 0 && tr.start - appear > 0.5 && (
                   <div
                     className="mix-lead"

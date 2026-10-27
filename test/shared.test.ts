@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
-import { detectTakeovers, settledAt, stepUp, FALLBACK_TAKEOVER } from '../src/shared/takeover'
+import { detectTakeovers, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
@@ -91,14 +91,14 @@ describe('takeover detection', () => {
     const B = new Float32Array([-1, 1, -1, 1])
     const frames = Array.from({ length: 300 * fps }, (_, i) => (i / fps < 100 ? A : B))
     const [first, second] = detectTakeovers({ fps, frames }, [0, 60], 300)
-    expect(first).toBe(0)
-    expect(second).toBeGreaterThanOrEqual(98)
-    expect(second).toBeLessThanOrEqual(102)
+    expect(first!.start).toBe(0)
+    expect(second!.start).toBeGreaterThanOrEqual(98)
+    expect(second!.start).toBeLessThanOrEqual(102)
   })
 
   it('falls back to a fixed delay when nothing changes', () => {
     const frames = Array.from({ length: 300 * 4 }, () => new Float32Array([1, -1, 1, -1]))
-    expect(detectTakeovers({ fps: 4, frames }, [0, 60], 300)[1]).toBe(60 + FALLBACK_TAKEOVER)
+    expect(detectTakeovers({ fps: 4, frames }, [0, 60], 300)[1]).toEqual({ start: 60 + FALLBACK_TAKEOVER, tailEnd: 60 + FALLBACK_TAKEOVER + FALLBACK_TAIL })
   })
 
   it('keeps the cue as the mix-in time for DJ cue sheets', async () => {
@@ -106,9 +106,10 @@ describe('takeover detection', () => {
       { title: 'One', artist: '', start: 0, startIsDeckStart: true },
       { title: 'Two', artist: '', start: 60, startIsDeckStart: true }
     ]
-    const r = await placeTakeovers(entries, async () => [0, 95])
-    expect(r[1]).toMatchObject({ start: 95, mixIn: 60 })
-    expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 60 })
+    const r = await placeTakeovers(entries, async () => [{ start: 0, tailEnd: 0 }, { start: 95, audibleAt: 80, tailEnd: 110 }])
+    expect(r[1]).toMatchObject({ start: 95, mixIn: 60, audibleAt: 80 })
+    expect(r[0]).toMatchObject({ tailEnd: 110 })
+    expect(entriesToTracks(r, 300)[1]).toMatchObject({ start: 95, mixIn: 60, audibleAt: 80 })
   })
 
   it('marks a track that never takes over as layered', () => {
@@ -119,13 +120,13 @@ describe('takeover detection', () => {
     const frames = Array.from({ length: 300 * fps }, (_, i) => (i / fps < 150 ? A : C))
     const r = detectTakeovers({ fps, frames }, [0, 60, 120], 300)
     expect(r[1]).toBeNull()
-    expect(r[2]).toBeGreaterThanOrEqual(148)
-    expect(r[2]).toBeLessThanOrEqual(152)
+    expect(r[2]!.start).toBeGreaterThanOrEqual(148)
+    expect(r[2]!.start).toBeLessThanOrEqual(152)
   })
 
   it('keeps layered tracks out of the main sequence', async () => {
     const entries = [0, 60, 120].map((start, i) => ({ title: `T${i}`, artist: '', start, startIsDeckStart: true }))
-    const tracks = alternateDecks(entriesToTracks(await placeTakeovers(entries, async () => [0, null, 150]), 300))
+    const tracks = alternateDecks(entriesToTracks(await placeTakeovers(entries, async () => [{ start: 0, tailEnd: 0 }, null, { start: 150, tailEnd: 150 }]), 300))
     expect(tracks.find((t) => t.title === 'T1')).toMatchObject({ layered: true, start: 60, deck: 'B' })
     expect(mainTracks(tracks).map((t) => [t.title, t.deck])).toEqual([
       ['T0', 'A'],
@@ -145,5 +146,18 @@ describe('takeover detection', () => {
     const step = stepUp(v, 8)!
     expect(step.at).toBeLessThan(60)
     expect(settledAt(v, step)).toBeGreaterThanOrEqual(62)
+  })
+
+  it('keeps the old track on the right as now playing while it plays under the new one', () => {
+    const settings = { defaultLead: 45, swapDuration: 1 }
+    const tracks: Track[] = [
+      { id: 'a', title: 'A', artist: '', start: 0, deck: 'A', tailEnd: 130 },
+      { id: 'b', title: 'B', artist: '', start: 100, mixIn: 60, audibleAt: 80, deck: 'B' }
+    ]
+    const at = (t: number) => cardStates(tracks, t, settings).map((c) => `${c.track.id}:${c.role}:${c.slot.toFixed(1)}:${c.playing}`)
+    expect(at(70)).toEqual(['a:main:0.0:true', 'b:incoming:1.0:false'])
+    expect(at(90)).toEqual(['a:main:0.0:true', 'b:incoming:1.0:true'])
+    expect(at(120)).toEqual(['a:tail:1.0:true', 'b:main:0.0:true'])
+    expect(at(140)).toEqual(['b:main:0.0:true'])
   })
 })

@@ -389,7 +389,13 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.font = `700 ${18 * s}px ${f}`
   ctx.fillStyle = color
   const label =
-    c.role === 'leaving' ? `PREVIOUS  ·  ${num}` : c.role === 'incoming' || c.mainness < 0.5 ? `UP NEXT  ·  ${num}` : `NOW PLAYING  ·  ${num}`
+    c.playing && c.role !== 'leaving'
+      ? `NOW PLAYING  ·  ${num}`
+      : c.role === 'leaving' || c.role === 'tail'
+        ? `PREVIOUS  ·  ${num}`
+        : c.role === 'incoming' || c.mainness < 0.5
+          ? `UP NEXT  ·  ${num}`
+          : `NOW PLAYING  ·  ${num}`
   ctx.fillText(label, tx, ty)
   ty += 46 * s
   ctx.fillStyle = settings.theme.text

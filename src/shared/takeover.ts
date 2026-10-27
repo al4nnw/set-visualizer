@@ -86,17 +86,62 @@ export function settledAt(like: number[], step: { at: number; low: number }, hol
   return step.at
 }
 
+/** Seconds the outgoing track is assumed to keep playing under the new one when it can't be measured. */
+export const FALLBACK_TAIL = 16
+
+const avgAt = (v: number[], i: number, hold: number) => {
+  let sum = 0
+  for (let j = i; j < i + hold; j++) sum += v[j]
+  return sum / hold
+}
+
 /**
- * For each cue (seconds, sorted), where that track takes over. The first track keeps its cue.
- * `duration` is the length of the set.
+ * The whole crossfade around a step, in samples: when the incoming track starts to be heard (the mix
+ * leaves the outgoing track's level), when it takes over (see `settledAt`) and when the outgoing one
+ * is gone (the mix reaches the incoming track's upper level, at most a minute after the takeover).
  */
-export function stepTakeovers(s: SpectralFrames, cues: number[], duration: number): number[] {
-  return cues.map((cue, k) => {
-    if (k === 0) return cue
+export function crossfade(like: number[], step: { at: number; low: number }, hold = 6): { audible: number; settled: number; gone: number } {
+  const after = like.slice(step.at).sort((a, b) => a - b)
+  const high = after[Math.floor(after.length * 0.75)] ?? step.low
+  const settled = settledAt(like, step, hold)
+  let audible = 0
+  for (let i = Math.min(step.at, like.length - hold); i >= 0; i--) {
+    if (avgAt(like, i, hold) <= step.low + 0.25 * (high - step.low)) {
+      audible = i + hold
+      break
+    }
+  }
+  let gone = Math.min(like.length, settled + 60)
+  for (let i = settled; i + hold <= Math.min(like.length, settled + 60); i++) {
+    if (avgAt(like, i, hold) >= high) {
+      gone = i + hold
+      break
+    }
+  }
+  return { audible: Math.min(audible, settled), settled, gone: Math.max(gone, settled) }
+}
+
+export interface Transition {
+  /** When the incoming track takes over. */
+  start: number
+  /** When it starts being heard, if that could be measured. */
+  audibleAt?: number
+  /** When the outgoing track stops being heard. */
+  tailEnd: number
+}
+
+/**
+ * For each cue (seconds, sorted), the crossfade that brings that track in. The first track keeps its
+ * cue. `duration` is the length of the set.
+ */
+export function stepTakeovers(s: SpectralFrames, cues: number[], duration: number): Transition[] {
+  return cues.map((cue, k): Transition => {
+    if (k === 0) return { start: cue, tailEnd: cue }
     const prev = cues[k - 1]
     const next = k + 1 < cues.length ? cues[k + 1] : duration
     const end = Math.min(next, cue + TAKEOVER_WINDOW)
-    const fallback = Math.min(cue + FALLBACK_TAKEOVER, (cue + end) / 2)
+    const at = Math.min(cue + FALLBACK_TAKEOVER, (cue + end) / 2)
+    const fallback = { start: at, tailEnd: Math.min(end, at + FALLBACK_TAIL) }
     // Outgoing track: up to 90s before the cue. Incoming: the last minute before the next one comes in.
     const a = meanProfile(s, Math.max(prev + 5, cue - 90), cue)
     const b = meanProfile(s, Math.max(cue + 5, end - 60), end)
@@ -112,7 +157,8 @@ export function stepTakeovers(s: SpectralFrames, cues: number[], duration: numbe
     }
     const step = stepUp(like, 8)
     if (!step || step.contrast < MIN_CONTRAST) return fallback
-    return cue + settledAt(like, step)
+    const x = crossfade(like, step)
+    return { start: cue + x.settled, audibleAt: cue + x.audible, tailEnd: cue + x.gone }
   })
 }
 
@@ -192,16 +238,16 @@ export function dominantTracks(
 }
 
 /**
- * For each cue (seconds, sorted), where that track takes over, or null when it never does (it was
- * only layered under another track). The first track keeps its cue.
+ * For each cue (seconds, sorted), the crossfade that brings that track in, or null when it never
+ * takes over (it was only layered under another track). The first track keeps its cue.
  */
 export function detectTakeovers(
   s: SpectralFrames,
   cues: number[],
   duration: number,
   songs?: Array<{ title: string; artist: string }>
-): Array<number | null> {
-  const takeovers = stepTakeovers(s, cues, duration)
-  const dominant = dominantTracks(s, cues, takeovers, duration, songs)
-  return takeovers.map((t, k) => (dominant[k] ? t : null))
+): Array<Transition | null> {
+  const transitions = stepTakeovers(s, cues, duration)
+  const dominant = dominantTracks(s, cues, transitions.map((t) => t.start), duration, songs)
+  return transitions.map((t, k) => (dominant[k] ? t : null))
 }
