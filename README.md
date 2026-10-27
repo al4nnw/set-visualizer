@@ -17,7 +17,7 @@ npm run dev        # run the app with hot reload
 npm run dist       # build an installer for your OS into dist/
 ```
 
-ffmpeg and ffprobe come bundled (`ffmpeg-static`, `ffprobe-static`), nothing else to install. For GPU export on NVIDIA cards, `npm run fetch-ffmpeg` downloads a static ffmpeg with NVENC (BtbN's GPL build, ~150 MB) into `resources/ffmpeg/`; `npm run dist` does this automatically and ships it with the app.
+ffmpeg and ffprobe come bundled (`ffmpeg-static`, `ffprobe-static`), nothing else to install.
 
 ## Workflow
 
@@ -39,7 +39,7 @@ Projects save as `.djvis` (JSON: tracks, settings, and the analysed waveform; th
 
 `src/shared/scene.ts` draws one frame from `(project, time)`. The same function draws the live preview and the exported video, so the preview is exact.
 
-Export runs in a Web Worker that draws each frame on an `OffscreenCanvas`. With an NVIDIA GPU and an NVENC-capable ffmpeg (the downloaded one, `$SETVIS_FFMPEG_GPU`, or the system's), raw frames go to the main process and ffmpeg encodes them with `h264_nvenc` while muxing the original audio (AAC 320k). Otherwise the worker encodes H.264 with WebCodecs (the hardware encoder on macOS and Windows when available) and the main process muxes the audio afterwards.
+Export runs in a Web Worker: it draws each frame on an `OffscreenCanvas` and encodes H.264 with WebCodecs (the GPU/hardware encoder on macOS and Windows when available). The encoded stream goes to the main process, which muxes it with the original audio (AAC 320k) using ffmpeg.
 
 There is also a headless exporter (Skia + x264 in worker threads) for scripting or a future server:
 

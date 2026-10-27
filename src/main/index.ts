@@ -11,7 +11,6 @@ import { detectTakeovers } from '@shared/takeover'
 import { analyseAudio, spectralFrames } from './audio'
 import { downloadArt, importLocalArt } from './art'
 import { createAutoArt } from './autoArt'
-import { findNvencFfmpeg } from './gpuExport'
 import { ffmpegPath } from './ffmpeg'
 import { identifySet } from './identify'
 import { search } from './search'
@@ -100,8 +99,6 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      // The GPU export's writer worker runs ffmpeg itself (see writerWorker.ts).
-      nodeIntegrationInWorker: true,
       backgroundThrottling: false
     }
   })
@@ -258,9 +255,6 @@ function registerIpc() {
       await rm(job.dir, { recursive: true, force: true })
     }
   })
-
-  // GPU path: the preload pipes frames into this ffmpeg itself (see gpuEncoder.ts).
-  ipcMain.handle('export:gpuFfmpeg', () => findNvencFfmpeg())
 
   ipcMain.handle('shell:reveal', (_e, path: string) => shell.showItemInFolder(path))
   ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))

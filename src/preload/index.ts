@@ -39,10 +39,6 @@ const api = {
   onIdentifyProgress: (cb: (p: { done: number; total: number }) => void) => on('identify:progress', cb),
 
   exportBegin: (p: Project, outPath: string): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath),
-  /** True when an ffmpeg with a working NVIDIA encoder was found. */
-  gpuExportAvailable: async (): Promise<boolean> => !!(await ipcRenderer.invoke('export:gpuFfmpeg')),
-  /** Path of the NVENC ffmpeg the GPU export's writer worker runs, or null. */
-  gpuFfmpegPath: (): Promise<string | null> => ipcRenderer.invoke('export:gpuFfmpeg'),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),
   exportFinish: (): Promise<string> => ipcRenderer.invoke('export:finish'),
   exportAbort: (): Promise<void> => ipcRenderer.invoke('export:abort'),

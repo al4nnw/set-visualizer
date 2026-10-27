@@ -2,56 +2,14 @@
 import { drawFrame, prepareScene, type Ctx } from '@shared/scene'
 import { QUALITY_BPP, type Project } from '@shared/types'
 import { loadArtMap, loadSceneFonts, offscreenFactory } from '../sceneAssets'
-import { createNv12Converter } from './nv12'
 
 interface StartMsg {
   type: 'start'
   project: Project
   fonts: Array<{ weight: string; url: string }>
-  /** 'webcodecs' encodes here; 'raw' sends NV12 frames to the GPU writer worker over `port`. */
-  mode: 'webcodecs' | 'raw'
-  /** Raw mode: this worker renders frames index, index + count, index + 2 * count... */
-  index?: number
-  count?: number
-  port?: MessagePort
 }
 
 let cancelled = false
-/** Raw frames sent but not yet written by the writer worker. */
-let inFlight = 0
-let wake: (() => void) | null = null
-const MAX_IN_FLIGHT = 3
-
-const release = () => {
-  const w = wake
-  wake = null
-  w?.()
-}
-
-async function runRaw(msg: StartMsg) {
-  const { project } = msg
-  const port = msg.port!
-  const index = msg.index ?? 0
-  const count = msg.count ?? 1
-  const { width: W, height: H, fps } = project.settings
-  port.onmessage = () => {
-    inFlight--
-    release()
-  }
-  await loadSceneFonts(msg.fonts)
-  const prep = prepareScene(project, await loadArtMap(project), offscreenFactory)
-  const canvas = new OffscreenCanvas(W, H)
-  const ctx = canvas.getContext('2d', { alpha: false }) as unknown as Ctx
-  const toNv12 = createNv12Converter(W, H)
-  const total = Math.ceil(project.duration * fps)
-  for (let f = index; f < total && !cancelled; f += count) {
-    drawFrame(ctx, prep, f / fps)
-    const frame = toNv12(canvas)
-    while (inFlight >= MAX_IN_FLIGHT && !cancelled) await new Promise<void>((r) => (wake = r))
-    inFlight++
-    port.postMessage({ type: 'frame', index: f, frame }, [frame.buffer])
-  }
-}
 
 const CODECS = ['avc1.640034', 'avc1.640033', 'avc1.640032', 'avc1.640028', 'avc1.4d0034', 'avc1.42e034', 'avc1.42e028']
 
@@ -130,16 +88,6 @@ async function run(msg: StartMsg) {
 }
 
 self.onmessage = (e: MessageEvent) => {
-  if (e.data.type === 'cancel') {
-    cancelled = true
-    release()
-  }
-  if (e.data.type === 'start') {
-    const msg = e.data as StartMsg
-    const fail = (err: Error) => {
-      if (msg.mode === 'raw') msg.port?.postMessage({ type: 'error', message: err.message })
-      else postMessage({ type: 'error', message: err.message })
-    }
-    ;(msg.mode === 'raw' ? runRaw(msg) : run(msg)).catch(fail)
-  }
+  if (e.data.type === 'cancel') cancelled = true
+  if (e.data.type === 'start') run(e.data as StartMsg).catch((err: Error) => postMessage({ type: 'error', message: err.message }))
 }
