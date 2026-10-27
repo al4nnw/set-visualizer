@@ -100,6 +100,8 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
+      // The GPU export's writer worker runs ffmpeg itself (see writerWorker.ts).
+      nodeIntegrationInWorker: true,
       backgroundThrottling: false
     }
   })

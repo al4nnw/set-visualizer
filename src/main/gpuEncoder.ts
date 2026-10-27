@@ -1,10 +1,11 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import type { ChildProcessWithoutNullStreams, spawn as Spawn } from 'node:child_process'
 import { QUALITY_BPP, type Project } from '@shared/types'
 
 /**
  * Pipes raw NV12 frames into an ffmpeg with NVIDIA's encoder (h264_nvenc), which encodes them and
- * muxes the audio in one go. Runs in the preload, inside the renderer process, so the frames don't
- * have to be copied over IPC to the main process (a 4K frame is 12 MB).
+ * muxes the audio in one go. Runs in the export's writer worker (Node is enabled in workers), so the
+ * 12 MB 4K frames never go through the main thread or over IPC. `spawn` is passed in because the
+ * worker gets Node's modules through require, not imports.
  */
 export interface GpuExport {
   /** Writes one NV12 frame; resolves when ffmpeg is ready for more. */
@@ -13,7 +14,7 @@ export interface GpuExport {
   abort(): void
 }
 
-export function startGpuExport(bin: string, project: Project, outPath: string): GpuExport {
+export function startGpuExport(spawn: typeof Spawn, bin: string, project: Project, outPath: string): GpuExport {
   const { width: W, height: H, fps, quality } = project.settings
   const bitrate = Math.round(W * H * fps * (QUALITY_BPP[quality] ?? 0.13))
   const p: ChildProcessWithoutNullStreams = spawn(bin, [
@@ -50,7 +51,7 @@ export function startGpuExport(bin: string, project: Project, outPath: string): 
     write(frame) {
       if (failed) return Promise.reject(failed)
       return new Promise((resolve, reject) => {
-        const ok = p.stdin.write(Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength))
+        const ok = p.stdin.write(frame)
         if (ok) return resolve()
         const onDrain = () => {
           p.removeListener('close', onClose)

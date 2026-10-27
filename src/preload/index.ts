@@ -1,15 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IdentifyHit, Project, SearchResult, Waveform } from '@shared/types'
 import type { ParsedEntry } from '@shared/tracklist'
-import { startGpuExport, type GpuExport } from '../main/gpuEncoder'
 
 function on<T>(channel: string, cb: (payload: T) => void) {
   const fn = (_e: unknown, p: T) => cb(p)
   ipcRenderer.on(channel, fn)
   return () => void ipcRenderer.removeListener(channel, fn)
 }
-
-let gpuJob: GpuExport | null = null
 
 const api = {
   platform: process.platform,
@@ -44,28 +41,8 @@ const api = {
   exportBegin: (p: Project, outPath: string): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath),
   /** True when an ffmpeg with a working NVIDIA encoder was found. */
   gpuExportAvailable: async (): Promise<boolean> => !!(await ipcRenderer.invoke('export:gpuFfmpeg')),
-  // The GPU encoder runs from here, in the renderer process, so frames skip the IPC copy to main.
-  gpuExportBegin: async (p: Project, outPath: string): Promise<void> => {
-    const bin: string | null = await ipcRenderer.invoke('export:gpuFfmpeg')
-    if (!bin) throw new Error('No ffmpeg with NVENC found')
-    gpuJob?.abort()
-    gpuJob = startGpuExport(bin, p, outPath)
-  },
-  /** One NV12 frame; resolves when the encoder can take more. */
-  gpuExportFrame: (frame: Uint8Array): Promise<void> => (gpuJob ? gpuJob.write(frame) : Promise.reject(new Error('No export in progress'))),
-  gpuExportFinish: async (): Promise<void> => {
-    const job = gpuJob
-    if (!job) throw new Error('No export in progress')
-    try {
-      await job.finish()
-    } finally {
-      gpuJob = null
-    }
-  },
-  gpuExportAbort: async (): Promise<void> => {
-    gpuJob?.abort()
-    gpuJob = null
-  },
+  /** Path of the NVENC ffmpeg the GPU export's writer worker runs, or null. */
+  gpuFfmpegPath: (): Promise<string | null> => ipcRenderer.invoke('export:gpuFfmpeg'),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),
   exportFinish: (): Promise<string> => ipcRenderer.invoke('export:finish'),
   exportAbort: (): Promise<void> => ipcRenderer.invoke('export:abort'),
