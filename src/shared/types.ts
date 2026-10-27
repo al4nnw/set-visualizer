@@ -60,7 +60,6 @@ export interface RenderSettings {
   defaultLead: number
   /** Seconds the A/B swap animation takes. */
   swapDuration: number
-  showDeckBadges: boolean
   showTimestamps: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
@@ -130,7 +129,6 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   fps: 30,
   defaultLead: 45,
   swapDuration: 1.4,
-  showDeckBadges: true,
   showTimestamps: true,
   setTitle: '',
   djName: '',

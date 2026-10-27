@@ -66,8 +66,9 @@ export function App() {
   )
 
   /**
-   * Looks each track without artwork up on YouTube and uses the best match's thumbnail. Runs in the
-   * background, two at a time; any image can still be replaced from the track editor.
+   * Looks each track without artwork up on YouTube and uses the best match's thumbnail (cached on
+   * disk per song). Runs in the background, two at a time; any image can still be replaced from the
+   * track editor.
    */
   const autoArtwork = useCallback(
     async (tracks: Track[]) => {
@@ -75,15 +76,14 @@ export function App() {
       const worker = async () => {
         for (let t = queue.shift(); t; t = queue.shift()) {
           try {
-            const results = await api.search('youtube', [t.artist, t.title].filter(Boolean).join(' '))
-            const best = results.find((r) => sameSong(r, t)) ?? results[0]
-            if (!best?.image) continue
-            const artwork = await api.downloadArt(best.image)
+            const found = await api.autoArtwork(t.artist, t.title)
+            if (!found) continue
+            const { artwork, url } = found
             const id = t.id
             update(
               (p) => ({
                 ...p,
-                tracks: p.tracks.map((x) => (x.id === id && !x.artwork ? { ...x, artwork, sourceUrl: x.sourceUrl ?? best.url, source: x.source ?? 'YouTube' } : x))
+                tracks: p.tracks.map((x) => (x.id === id && !x.artwork ? { ...x, artwork, sourceUrl: x.sourceUrl ?? url, source: x.source ?? 'YouTube' } : x))
               }),
               undefined,
               true

@@ -30,8 +30,12 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [viewW, setViewW] = useState(800)
-  const [scrollX, setScrollX] = useState(0)
-  const [zoom, setZoom] = useState(1) // 1 = whole set fits
+  const [zoom, setZoomState] = useState(1) // 1 = whole set fits
+  /** Time and screen offset to keep fixed when the zoom changes. */
+  const zoomAnchor = useRef<{ t: number; x: number } | null>(null)
+  /** When the user last scrolled by hand; following the playhead pauses for a while after that. */
+  const userScrolledAt = useRef(0)
+  const autoScrolling = useRef(false)
   const dur = Math.max(1, project.duration)
   const fitPps = viewW / dur
   const pps = fitPps * zoom
@@ -49,10 +53,13 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
     return () => ro.disconnect()
   }, [])
 
-  // Ruler + waveform for the visible window only.
-  useEffect(() => {
+  // Ruler + waveform for the visible window only. Drawn straight from the scroll handler too, with
+  // the live scroll position, so the sticky canvas never lags a frame behind the lanes.
+  const draw = useRef<() => void>(() => {})
+  draw.current = () => {
     const c = canvasRef.current
     if (!c) return
+    const scrollX = scrollRef.current?.scrollLeft ?? 0
     const dpr = window.devicePixelRatio || 1
     c.width = Math.round(viewW * dpr)
     c.height = Math.round((RULER + WAVE_H) * dpr)
@@ -105,14 +112,40 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
     }
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
     ctx.fillRect(0, RULER - 1, viewW, 1)
-  }, [project.waveform, sorted.map((t) => t.start + t.deck).join(), viewW, scrollX, pps, time, dur, theme])
+  }
+  useLayoutEffect(() => draw.current(), [project.waveform, sorted.map((t) => t.start + t.deck).join(), viewW, pps, time, dur, theme])
 
-  // Keep the playhead in view while playing.
+  const setZoom = (next: number | ((z: number) => number), anchorClientX?: number) => {
+    const el = scrollRef.current
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      const x = anchorClientX !== undefined ? anchorClientX - rect.left : viewW / 2
+      zoomAnchor.current = { t: (el.scrollLeft + x) / pps, x }
+      userScrolledAt.current = Date.now()
+    }
+    setZoomState(next)
+  }
+
+  // Apply the zoom anchor before paint so the view doesn't jump for a frame.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const a = zoomAnchor.current
+    if (!el || !a) return
+    zoomAnchor.current = null
+    autoScrolling.current = true
+    el.scrollLeft = Math.max(0, a.t * pps - a.x)
+    draw.current()
+  }, [pps])
+
+  // Keep the playhead in view while playing, unless the user just scrolled or zoomed.
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || !playing) return
+    if (!el || !playing || Date.now() - userScrolledAt.current < 4000) return
     const x = time * pps
-    if (x < el.scrollLeft || x > el.scrollLeft + viewW - 40) el.scrollLeft = Math.max(0, x - viewW * 0.25)
+    if (x < el.scrollLeft || x > el.scrollLeft + viewW - 40) {
+      autoScrolling.current = true
+      el.scrollLeft = Math.max(0, x - viewW * 0.25)
+    }
   }, [time, playing, pps, viewW])
 
   const seekFromEvent = useCallback(
@@ -163,12 +196,7 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
 
   const onWheel = (e: React.WheelEvent) => {
     if (!(e.ctrlKey || e.metaKey)) return
-    const el = scrollRef.current!
-    const rect = el.getBoundingClientRect()
-    const cursorT = (e.clientX - rect.left + el.scrollLeft) / pps
-    const nz = Math.max(1, Math.min(400, zoom * Math.exp(-e.deltaY * 0.002)))
-    setZoom(nz)
-    requestAnimationFrame(() => (el.scrollLeft = cursorT * fitPps * nz - (e.clientX - rect.left)))
+    setZoom((z) => Math.max(1, Math.min(400, z * Math.exp(-e.deltaY * 0.002))), e.clientX)
   }
 
   return (
@@ -183,7 +211,11 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
       <div
         className="timeline-scroll"
         ref={scrollRef}
-        onScroll={(e) => setScrollX(e.currentTarget.scrollLeft)}
+        onScroll={() => {
+          draw.current()
+          if (!autoScrolling.current) userScrolledAt.current = Date.now()
+          autoScrolling.current = false
+        }}
         onWheel={onWheel}
         style={{ height: TIMELINE_HEIGHT + 12 }}
       >

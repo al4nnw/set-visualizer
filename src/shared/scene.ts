@@ -302,6 +302,9 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   }
 }
 
+/** Bounce strength of a card that's playing on the right, relative to the main card. */
+const LAYERED_BOUNCE = 0.5
+
 function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const settings = prep.project.settings
   const W = settings.width
@@ -310,7 +313,9 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const leftX = W * 0.3
   const rightX = W * 0.71
   const cx = lerp(leftX, rightX, c.slot)
-  const pulse = 1 + 0.035 * bass * c.mainness
+  // How much the card moves with the bass: fully for the main card, less for one playing underneath.
+  const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
+  const pulse = 1 + 0.035 * bass * energy
   const size = lerp(CARD_NEXT * s, CARD_MAIN * s, c.mainness) * pulse
   const cy = 395 * s
   const x = cx - size / 2
@@ -324,9 +329,9 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   // Glow, breathing with the bass on the main card
   const glow = prep.glow.get(color)
   if (glow) {
-    const k = (size / GLOW_BASE) * (1 + 0.12 * bass * c.mainness)
+    const k = (size / GLOW_BASE) * (1 + 0.12 * bass * energy)
     const gs = (GLOW_BASE + GLOW_PAD * 2) * k
-    ctx.globalAlpha = c.opacity * Math.min(1, 0.5 + 0.5 * bass * c.mainness)
+    ctx.globalAlpha = c.opacity * Math.min(1, 0.5 + 0.5 * bass * energy)
     ctx.drawImage(glow as unknown as ImageLike, cx - gs / 2, cy - gs / 2, gs, gs)
     ctx.globalAlpha = c.opacity
   }
@@ -362,22 +367,6 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.lineWidth = 2 * s
   ctx.strokeStyle = hexToRgba(color, 0.35 + 0.5 * c.mainness)
   ctx.stroke()
-
-  // Deck badge
-  if (settings.showDeckBadges) {
-    const br = 30 * s
-    const bx = x + size - br * 0.7
-    const by = y + br * 0.7
-    ctx.beginPath()
-    ctx.arc(bx, by, br, 0, Math.PI * 2)
-    ctx.fillStyle = color
-    ctx.fill()
-    ctx.fillStyle = '#0b0b10'
-    ctx.font = `800 ${28 * s}px ${f}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(c.track.deck, bx, by + 1 * s)
-  }
 
   // Text
   const tx = cx

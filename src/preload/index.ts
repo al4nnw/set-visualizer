@@ -30,6 +30,8 @@ const api = {
 
   search: (provider: SearchResult['provider'], q: string): Promise<SearchResult[]> => ipcRenderer.invoke('search', provider, q),
   downloadArt: (url: string): Promise<string> => ipcRenderer.invoke('art:download', url),
+  /** YouTube thumbnail for a song, from the local cache when it's been looked up before. */
+  autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
 
   identify: (o: { audioPath: string; duration: number; interval: number }): Promise<IdentifyHit[]> => ipcRenderer.invoke('identify:start', o),
   cancelIdentify: () => ipcRenderer.invoke('identify:cancel'),

@@ -10,6 +10,7 @@ import { parseTracklist } from '@shared/tracklist'
 import { detectTakeovers } from '@shared/takeover'
 import { analyseAudio, spectralFrames } from './audio'
 import { downloadArt, importLocalArt } from './art'
+import { createAutoArt } from './autoArt'
 import { ffmpegPath } from './ffmpeg'
 import { identifySet } from './identify'
 import { search } from './search'
@@ -205,6 +206,8 @@ function registerIpc() {
 
   ipcMain.handle('search', (_e, provider: SearchResult['provider'], q: string) => search(provider, q))
   ipcMain.handle('art:download', (_e, url: string) => downloadArt(url, artDir()))
+  const autoArt = createAutoArt(artDir())
+  ipcMain.handle('art:auto', (_e, artist: string, title: string) => autoArt(artist, title))
 
   ipcMain.handle('identify:start', async (_e, o: { audioPath: string; duration: number; interval: number }) => {
     const { auddToken } = await readSettings()

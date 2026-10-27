@@ -108,10 +108,6 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               <input type="checkbox" checked={s.showTimestamps} onChange={(e) => onChangeSettings({ showTimestamps: e.target.checked })} />
               Show elapsed / total time
             </label>
-            <label className="check">
-              <input type="checkbox" checked={s.showDeckBadges} onChange={(e) => onChangeSettings({ showDeckBadges: e.target.checked })} />
-              Show A / B deck badges
-            </label>
           </div>
           <div className="col">
             <h4>Look</h4>
