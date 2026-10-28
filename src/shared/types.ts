@@ -57,6 +57,10 @@ export interface RenderSettings {
   /** Seconds the A/B swap animation takes. */
   swapDuration: number
   showTimestamps: boolean
+  /** The scrolling close-up waveform above the full-set one. */
+  showDeckWave: boolean
+  /** The full-set waveform along the bottom, with track numbers. */
+  showSetWave: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
@@ -153,6 +157,8 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   defaultLead: 45,
   swapDuration: 1.4,
   showTimestamps: true,
+  showDeckWave: true,
+  showSetWave: true,
   setTitle: '',
   djName: '',
   theme: DEFAULT_THEME,

@@ -18,6 +18,9 @@ export const RESOLUTIONS = [
   { label: '4K', w: 3840, h: 2160 }
 ]
 
+/** A preset's size in landscape (16:9) or phone (9:16) orientation. */
+export const sizeFor = (r: { w: number; h: number }, portrait: boolean) => (portrait ? { width: r.h, height: r.w } : { width: r.w, height: r.h })
+
 /** YouTube turns "0:00 Title" lines in the description into chapters (first must be 0:00). */
 export function youtubeChapters(project: Project): string {
   const tracks = mainTracks(project.tracks)
@@ -69,7 +72,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               Resolution
               <div className="seg">
                 {RESOLUTIONS.map((r) => (
-                  <button key={r.label} className={s.width === r.w && s.height === r.h ? 'on' : ''} onClick={() => onChangeSettings({ width: r.w, height: r.h })} disabled={running}>
+                  <button key={r.label} className={Math.min(s.width, s.height) === r.h ? 'on' : ''} onClick={() => onChangeSettings(sizeFor(r, s.height > s.width))} disabled={running}>
                     {r.label}
                   </button>
                 ))}
@@ -95,7 +98,9 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
                 ))}
               </div>
             </label>
-            <p className="muted small">Text, colors and transitions are in the Style tab of the inspector.</p>
+            <p className="muted small">
+              {s.height > s.width ? '9:16 phone format' : '16:9'} · {s.width}×{s.height}. Format, text, colors and waveforms are in the Style tab.
+            </p>
           </div>
           <div className="col">
             <h4>YouTube chapters</h4>

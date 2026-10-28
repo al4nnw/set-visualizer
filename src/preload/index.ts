@@ -14,6 +14,8 @@ const api = {
   platform: process.platform,
   pathForFile: (f: File) => webUtils.getPathForFile(f),
   openAudioDialog: (): Promise<string | null> => ipcRenderer.invoke('dialog:openAudio'),
+  /** One picker for a recording (optionally with its .cue) or a .djvis project. */
+  openAnyDialog: (): Promise<string[]> => ipcRenderer.invoke('dialog:openAny'),
   openTracklistDialog: (): Promise<string | null> => ipcRenderer.invoke('dialog:openTracklist'),
   pickImage: (): Promise<string | null> => ipcRenderer.invoke('dialog:openImage'),
   chooseVideoPath: (defaultName: string): Promise<string | null> => ipcRenderer.invoke('dialog:saveVideo', defaultName),
@@ -32,6 +34,7 @@ const api = {
   recentProjects: (): Promise<RecentProject[]> => ipcRenderer.invoke('recent:list'),
   clearRecent: (): Promise<void> => ipcRenderer.invoke('recent:clear'),
 
+  tutorialFiles: (): Promise<{ audio: string; cue: string } | null> => ipcRenderer.invoke('tutorial:files'),
   getPrefs: (): Promise<Preferences> => ipcRenderer.invoke('prefs:get'),
   setPrefs: (patch: Partial<Preferences>): Promise<Preferences> => ipcRenderer.invoke('prefs:set', patch),
   chooseFolder: (current?: string): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder', current),

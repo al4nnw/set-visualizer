@@ -614,6 +614,7 @@ kbd {
 
 /* ---------- viewer ---------- */
 .viewer-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -702,26 +703,7 @@ kbd {
   gap: 14px;
   padding: 20px;
 }
-.start-drop {
-  width: min(520px, 100%);
-  aspect-ratio: 16 / 7;
-  border: 1px dashed var(--line-3);
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--muted);
-  cursor: pointer;
-  text-align: center;
-  padding: 16px;
-}
-.start-drop:hover {
-  border-color: var(--accent);
-  background: rgba(240, 165, 48, 0.03);
-}
-.start-drop .icon {
+.start-panel > .icon {
   color: var(--accent);
 }
 .start-title {
@@ -730,9 +712,11 @@ kbd {
   color: var(--text-hi);
 }
 .start-sub {
-  max-width: 380px;
+  max-width: 400px;
   font-size: 11px;
-  margin-bottom: 6px;
+  color: var(--muted);
+  text-align: center;
+  margin: -6px 0 4px;
 }
 .start-recent {
   width: min(520px, 100%);
@@ -1387,17 +1371,18 @@ kbd {
   color: var(--text);
 }
 
-.drop-overlay {
-  position: fixed;
-  inset: 34px 8px 8px;
-  border: 2px dashed var(--accent);
-  border-radius: 8px;
-  background: rgba(17, 17, 19, 0.75);
+.viewer-body.drop-target::after {
+  content: 'Drop to import';
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   font-size: 14px;
+  font-weight: 600;
   color: var(--text-hi);
-  z-index: 60;
+  background: rgba(24, 20, 14, 0.94);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 3;
   pointer-events: none;
 }
 .toast {
@@ -1414,4 +1399,76 @@ kbd {
   z-index: 100;
   max-width: 600px;
   animation: fade 0.15s;
+}
+
+/* ---------- shortcuts tutorial ---------- */
+.tutorial-card {
+  position: fixed;
+  left: 18px;
+  bottom: calc(var(--timeline-h, 250px) + 58px);
+  width: 330px;
+  z-index: 45;
+  background: #232327;
+  border: 1px solid var(--line-3);
+  border-top: 2px solid var(--accent);
+  border-radius: 5px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+  padding: 10px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fade 0.15s;
+}
+.tutorial-head {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.tutorial-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+.tutorial-title.done {
+  color: var(--ok);
+}
+.tutorial-text {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+.tutorial-keys {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tutorial-keys kbd {
+  font-size: 12px;
+  padding: 3px 8px;
+  color: var(--text-hi);
+  border-color: var(--line-3);
+  border-bottom-width: 2px;
+}
+.tutorial-dots {
+  display: flex;
+  gap: 4px;
+}
+.tutorial-dots span {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line-3);
+}
+.tutorial-dots span.past {
+  background: var(--ok);
+}
+.tutorial-dots span.now {
+  background: var(--accent);
+}
+.btn kbd {
+  font-size: 9px;
+  padding: 0 4px;
+  line-height: 13px;
 }

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream, type WriteStream } from 'node:fs'
-import { mkdir, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -128,9 +128,8 @@ function setupNativeMenu() {
         label: 'File',
         submenu: [
           { label: 'New Project', accelerator: 'Cmd+N', click: cmd('new') },
-          { label: 'Open Project…', accelerator: 'Cmd+O', click: cmd('open') },
+          { label: 'Import Set or Open Project…', accelerator: 'Cmd+O', click: cmd('open') },
           { type: 'separator' },
-          { label: 'Import Set Recording…', accelerator: 'Cmd+I', click: cmd('importAudio') },
           { label: 'Import Rekordbox Cue…', accelerator: 'Shift+Cmd+I', click: cmd('importCue') },
           { type: 'separator' },
           { label: 'Save', accelerator: 'Cmd+S', click: cmd('save') },
@@ -177,6 +176,13 @@ function registerIpc() {
   ipcMain.handle('dialog:openAudio', async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Audio', extensions: AUDIO_EXT }] })
     return r.canceled ? null : r.filePaths[0]
+  })
+  ipcMain.handle('dialog:openAny', async () => {
+    const r = await dialog.showOpenDialog(win!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Set recording, Rekordbox cue or project', extensions: [...AUDIO_EXT, 'cue', PROJECT_EXT] }]
+    })
+    return r.canceled ? [] : r.filePaths
   })
   ipcMain.handle('dialog:openTracklist', async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Rekordbox cue sheet', extensions: ['cue'] }] })
@@ -231,6 +237,14 @@ function registerIpc() {
   ipcMain.handle('recent:list', () => listRecent())
   ipcMain.handle('recent:clear', () => clearRecent())
 
+  // The shortcuts tutorial plays a clip of a real set, shipped in resources/tutorial (see scripts/make-tutorial.ts).
+  ipcMain.handle('tutorial:files', async () => {
+    const dir = app.isPackaged ? join(process.resourcesPath, 'tutorial') : join(app.getAppPath(), 'resources', 'tutorial')
+    const names = await readdir(dir).catch(() => [] as string[])
+    const audio = names.find((n) => /^tutorial\./i.test(n) && AUDIO_EXT.includes(extname(n).slice(1).toLowerCase()))
+    const cue = names.find((n) => /^tutorial\.cue$/i.test(n))
+    return audio && cue ? { audio: join(dir, audio), cue: join(dir, cue) } : null
+  })
   ipcMain.handle('prefs:get', () => getPrefs())
   ipcMain.handle('prefs:set', (_e, patch: Partial<Preferences>) => setPrefs(patch))
   ipcMain.handle('dialog:chooseFolder', async (_e, current?: string) => {

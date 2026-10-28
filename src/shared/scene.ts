@@ -30,6 +30,8 @@ export interface PreparedScene {
   /** Pre-blurred glow sprite per deck colour; real-time shadowBlur is very slow without a GPU. */
   glow: Map<string, CanvasLike>
   scale: number
+  /** Scale for text: larger than `scale` in 9:16, where the video is watched on a phone. */
+  textScale: number
   font: string
 }
 
@@ -189,7 +191,8 @@ function renderWaveLayer(
 
 export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory): PreparedScene {
   const { width: W, height: H } = project.settings
-  const s = H / 1080
+  // Sizes are designed for 1080 on the short side, so a 9:16 video uses the same scale as 16:9.
+  const s = Math.min(W, H) / 1080
   const sorted = mainTracks(project.tracks)
   const wf = project.waveform as Waveform & { _bassMax?: number }
   if (wf._bassMax === undefined) {
@@ -197,12 +200,12 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
     const copy = [...wf.bass].sort((a, b) => a - b)
     wf._bassMax = copy.length ? Math.max(1e-4, copy[Math.floor(copy.length * 0.98)]) : 1
   }
-  const base = { project, sorted, art, scale: s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
+  const base = { project, sorted, art, scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
   const x = 60 * s
   const w = W - 120 * s
   const h = 110 * s
   const y = H - 170 * s
-  const cardSize = Math.ceil(CARD_MAIN * s * 1.06)
+  const cardSize = Math.ceil(cardMain(project.settings) * s * 1.06)
   const cards = new Map<string, ArtAsset>()
   for (const [id, a] of art) cards.set(id, { ...a, image: cardImage(a.image, cardSize, factory) })
   base.art = cards
@@ -226,6 +229,12 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
 const BG_W = 384
 const CARD_MAIN = 450
 const CARD_NEXT = 330
+/** Main card size in a 9:16 (phone) video, where the cards stack vertically. */
+const CARD_MAIN_PORTRAIT = 500
+const PORTRAIT_TEXT = 1.45
+
+export const isPortrait = (settings: { width: number; height: number }) => settings.height > settings.width
+const cardMain = (settings: { width: number; height: number }) => (isPortrait(settings) ? CARD_MAIN_PORTRAIT : CARD_MAIN)
 const GLOW_BASE = 200
 const GLOW_PAD = 80
 
@@ -276,28 +285,29 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   const settings = prep.project.settings
   const W = settings.width
   const s = prep.scale
+  const ts = prep.textScale
   const f = prep.font
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
-  let y = 86 * s
+  let y = 86 * ts
   if (settings.djName) {
     ctx.fillStyle = settings.theme.text
-    ctx.font = `800 ${42 * s}px ${f}`
+    ctx.font = `800 ${42 * ts}px ${f}`
     ctx.fillText(fitText(ctx, settings.djName.toUpperCase(), W * 0.6), 60 * s, y)
-    y += 40 * s
+    y += 40 * ts
   }
   if (settings.setTitle) {
     ctx.fillStyle = hexToRgba(settings.theme.text, 0.65)
-    ctx.font = `400 ${26 * s}px ${f}`
+    ctx.font = `400 ${26 * ts}px ${f}`
     ctx.fillText(fitText(ctx, settings.setTitle, W * 0.6), 60 * s, y)
   }
   if (settings.showTimestamps) {
     ctx.textAlign = 'right'
-    ctx.font = `600 ${26 * s}px ${f}`
+    ctx.font = `600 ${26 * ts}px ${f}`
     ctx.fillStyle = hexToRgba(settings.theme.text, 0.85)
     const total = prep.project.duration
     const hours = total >= 3600
-    ctx.fillText(`${formatTime(t, hours)} / ${formatTime(total, hours)}`, W - 60 * s, 86 * s)
+    ctx.fillText(`${formatTime(t, hours)} / ${formatTime(total, hours)}`, W - 60 * s, 86 * ts)
     ctx.textAlign = 'left'
   }
 }
@@ -310,14 +320,14 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const W = settings.width
   const s = prep.scale
   const f = prep.font
-  const leftX = W * 0.3
-  const rightX = W * 0.71
-  const cx = lerp(leftX, rightX, c.slot)
+  // 16:9: main card on the left, next on the right. 9:16: main card on top, next below it.
+  const portrait = isPortrait(settings)
+  const cx = portrait ? W / 2 : lerp(W * 0.3, W * 0.71, c.slot)
+  const cy = portrait ? lerp(540 * s, 1270 * s, c.slot) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
   const pulse = 1 + 0.035 * bass * energy
-  const size = lerp(CARD_NEXT * s, CARD_MAIN * s, c.mainness) * pulse
-  const cy = 395 * s
+  const size = lerp(CARD_NEXT * s, cardMain(settings) * s, c.mainness) * pulse
   const x = cx - size / 2
   const y = cy - size / 2
   const color = deckColor(prep.project, c.track)
@@ -369,13 +379,14 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.stroke()
 
   // Text
+  const ts = prep.textScale
   const tx = cx
-  let ty = y + size + 52 * s
-  const maxW = lerp(520 * s, 620 * s, c.mainness)
+  let ty = y + size + (portrait ? 46 : 52) * ts
+  const maxW = portrait ? W - 120 * s : lerp(520 * s, 620 * s, c.mainness)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
   const num = String(c.index + 1).padStart(2, '0')
-  ctx.font = `700 ${18 * s}px ${f}`
+  ctx.font = `700 ${18 * ts}px ${f}`
   ctx.fillStyle = color
   const label =
     c.playing && c.role !== 'leaving'
@@ -386,13 +397,13 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
           ? `UP NEXT  ·  ${num}`
           : `NOW PLAYING  ·  ${num}`
   ctx.fillText(label, tx, ty)
-  ty += 46 * s
+  ty += 46 * ts
   ctx.fillStyle = settings.theme.text
-  ctx.font = `800 ${lerp(30, 40, c.mainness) * s}px ${f}`
+  ctx.font = `800 ${lerp(30, 40, c.mainness) * ts}px ${f}`
   ctx.fillText(fitText(ctx, c.track.title || 'Unknown track', maxW), tx, ty)
-  ty += lerp(36, 44, c.mainness) * s
+  ty += lerp(36, 44, c.mainness) * ts
   ctx.fillStyle = hexToRgba(settings.theme.text, 0.7)
-  ctx.font = `500 ${lerp(22, 28, c.mainness) * s}px ${f}`
+  ctx.font = `500 ${lerp(22, 28, c.mainness) * ts}px ${f}`
   ctx.fillText(fitText(ctx, c.track.artist || 'Unknown artist', maxW), tx, ty)
 
   ctx.restore()
@@ -503,7 +514,8 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   // Leaving card first, then incoming, then main on top.
   const order = [...cards].sort((a, b) => a.mainness - b.mainness)
   for (const c of order) drawCard(ctx, prep, c, bass)
-  drawZoomStrip(ctx, prep, t)
-  drawWaveform(ctx, prep, t)
+  // `!== false` so projects saved before these settings existed keep both.
+  if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t)
+  if (settings.showSetWave !== false) drawWaveform(ctx, prep, t)
   ctx.restore()
 }

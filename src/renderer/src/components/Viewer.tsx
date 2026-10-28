@@ -15,8 +15,11 @@ interface Props {
   onTogglePlay: () => void
   onSeek: (t: number) => void
   onJumpTrack: (dir: 1 | -1) => void
-  onImportAudio: () => void
-  onOpenProject: (path?: string) => void
+  /** Opens one picker for a set recording (with or without its .cue) or a project. */
+  onOpenAny: () => void
+  onOpenProject: (path: string) => void
+  /** Files are being dragged over the window. */
+  dragOver: boolean
 }
 
 function ago(iso?: string) {
@@ -29,7 +32,7 @@ function ago(iso?: string) {
 }
 
 /** Start panel shown in the viewer before a set is loaded. */
-function StartPanel({ busy, error, recent, onImportAudio, onOpenProject }: Pick<Props, 'busy' | 'error' | 'recent' | 'onImportAudio' | 'onOpenProject'>) {
+function StartPanel({ busy, error, recent, onOpenAny, onOpenProject }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject'>) {
   if (busy)
     return (
       <div className="start-panel">
@@ -44,23 +47,12 @@ function StartPanel({ busy, error, recent, onImportAudio, onOpenProject }: Pick<
     )
   return (
     <div className="start-panel">
-      <div className="start-drop" onClick={onImportAudio}>
-        <Icon name="music" size={22} />
-        <div className="start-title">Drop a set recording here</div>
-        <div className="start-sub">WAV, AIFF, FLAC, MP3 or M4A. Drop the Rekordbox .cue with it to place the tracks.</div>
-        <div className="row">
-          <button className="btn primary small">Import set recording…</button>
-          <button
-            className="btn small"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenProject()
-            }}
-          >
-            Open project…
-          </button>
-        </div>
-      </div>
+      <Icon name="music" size={22} />
+      <div className="start-title">Drop a set recording anywhere here</div>
+      <div className="start-sub">WAV, AIFF, FLAC, MP3 or M4A, with its Rekordbox .cue to place the tracks. Or drop a .djvis project.</div>
+      <button className="btn primary" onClick={onOpenAny}>
+        Import set or open project…
+      </button>
       {error && <div className="error">{error}</div>}
       {recent.length > 0 && (
         <div className="start-recent">
@@ -76,7 +68,7 @@ function StartPanel({ busy, error, recent, onImportAudio, onOpenProject }: Pick<
         </div>
       )}
       <div className="start-keys">
-        {shortcutLabel('Mod+I')} import · {shortcutLabel('Mod+O')} open · {shortcutLabel('Mod+,')} settings
+        {shortcutLabel('Mod+O')} import or open · {shortcutLabel('Mod+,')} settings
       </div>
     </div>
   )
@@ -97,7 +89,7 @@ export function Viewer(p: Props) {
           </span>
         )}
       </div>
-      <div className="viewer-body">{project && !p.busy ? <Preview project={project} audio={p.audio} time={time} /> : <StartPanel {...p} />}</div>
+      <div className={`viewer-body ${p.dragOver ? 'drop-target' : ''}`}>{project && !p.busy ? <Preview project={project} audio={p.audio} time={time} /> : <StartPanel {...p} />}</div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
         <div className="grow" />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { alternateDecks, mainTracks } from '@shared/layout'
+import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
@@ -7,7 +7,8 @@ import { api, errMsg, mediaUrl } from './api'
 import { ExportDialog } from './components/ExportDialog'
 import { Icon } from './components/icons'
 import { Inspector, type InspectorTab } from './components/Inspector'
-import { flatten, matches, MenuBar, shortcutLabel, type Menu } from './components/MenuBar'
+import { flatten, matches, MenuBar, shortcutLabel, type Menu, type MenuItem } from './components/MenuBar'
+import { TutorialCard, TUTORIAL_STEPS } from './components/Tutorial'
 import { PreferencesDialog } from './components/Preferences'
 import { SearchDialog } from './components/SearchDialog'
 import { Splitter, useStoredNumber } from './components/Splitter'
@@ -15,7 +16,7 @@ import { EmptyTimeline, Timeline, type TimelineHandle } from './components/Timel
 import { Viewer } from './components/Viewer'
 import { useHistory } from './useHistory'
 
-type Dialog = { kind: 'search'; trackId: string } | { kind: 'export' } | { kind: 'prefs' } | { kind: 'shortcuts' } | { kind: 'about' } | null
+type Dialog = { kind: 'search'; trackId: string } | { kind: 'export' } | { kind: 'prefs' } | { kind: 'shortcuts' } | { kind: 'about' } | { kind: 'noTutorial' } | null
 type SaveState = { status: 'saved' | 'saving' | 'edited' | 'error'; message?: string }
 
 const AUDIO = /\.(wav|mp3|flac|aiff?|m4a|aac|ogg|opus)$/i
@@ -45,6 +46,9 @@ export function App() {
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
   const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
   const timelineRef = useRef<TimelineHandle>(null)
+  const [tutorial, setTutorial] = useState<{ step: number; done: boolean } | null>(null)
+  const tutorialRef = useRef(tutorial)
+  tutorialRef.current = tutorial
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -118,7 +122,7 @@ export function App() {
 
   /** Before replacing or closing the project: flush autosave, or ask about unsaved edits. */
   const settle = useCallback(async (): Promise<boolean> => {
-    if (!latest.current.project || !dirty) return true
+    if (!latest.current.project || !dirty || tutorialRef.current) return true
     if (prefs?.autosave && latest.current.path) return (await saveNow()) || confirm('The project could not be saved. Continue anyway?')
     return confirm('This project has unsaved changes. Discard them?')
   }, [dirty, prefs?.autosave, saveNow])
@@ -213,8 +217,8 @@ export function App() {
   }
 
   /** Opening a set recording starts a new project, saved straight away into the projects folder. */
-  const loadAudio = async (audioPath: string, cuePath: string | null) => {
-    if (!(await settle())) return
+  const loadAudio = async (audioPath: string, cuePath: string | null, opts: { tutorial?: boolean } = {}) => {
+    if (!(await settle())) return false
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
     const off = api.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
@@ -231,25 +235,31 @@ export function App() {
         tracks: fromCue?.tracks ?? [],
         cue: fromCue?.cue,
         createdAt: new Date().toISOString(),
-        settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, setTitle: name.replace(/\.[^.]+$/, '') }
+        settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, setTitle: opts.tutorial ? 'Shortcuts tutorial' : name.replace(/\.[^.]+$/, '') }
       }
-      const saved = await api.createProject(fresh).catch((e) => {
-        showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
-        return null
-      })
+      // The tutorial works on a throwaway project: no file, nothing to save.
+      const saved = opts.tutorial
+        ? null
+        : await api.createProject(fresh).catch((e) => {
+            showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
+            return null
+          })
       reset({ ...fresh, savedAt: saved?.savedAt })
       setProjectPath(saved?.path ?? null)
-      setDirty(!saved)
-      setSaveState(saved ? { status: 'saved' } : { status: 'edited' })
+      setDirty(!saved && !opts.tutorial)
+      setSaveState(saved || opts.tutorial ? { status: 'saved' } : { status: 'edited' })
+      setTutorial(opts.tutorial ? { step: 0, done: false } : null)
       setSelectedId(null)
       setTime(0)
       refreshRecent()
       if (fromCue) {
-        showToast(`Imported ${fromCue.tracks.length} tracks from ${fromCue.cue.name}`)
+        if (!opts.tutorial) showToast(`Imported ${fromCue.tracks.length} tracks from ${fromCue.cue.name}`)
         if (p.autoArtwork) void autoArtwork(fromCue.tracks)
       } else if (saved) showToast(`New project ${saved.path.split(/[\\/]/).pop()}. Import the Rekordbox .cue next.`)
+      return true
     } catch (e) {
       setError(errMsg(e))
+      return false
     } finally {
       off()
       setBusy(null)
@@ -262,6 +272,7 @@ export function App() {
       const r = await api.openProject(path)
       if (!r) return
       reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
+      setTutorial(null)
       setProjectPath(r.path)
       setDirty(false)
       setSaveState({ status: 'saved' })
@@ -279,6 +290,7 @@ export function App() {
 
   const newProject = async () => {
     if (!(await settle())) return
+    setTutorial(null)
     reset(null)
     setProjectPath(null)
     setDirty(false)
@@ -288,9 +300,10 @@ export function App() {
     refreshRecent()
   }
 
-  const importAudio = async () => {
-    const path = await api.openAudioDialog()
-    if (path) void loadAudio(path, null)
+  /** One picker for everything that starts work: a recording (optionally with its .cue) or a project. */
+  const openAny = async () => {
+    const paths = await api.openAnyDialog()
+    if (paths.length) openPaths(paths)
   }
 
   /** Importing a cue sheet replaces the tracklist and records the cue in the project file. */
@@ -379,6 +392,87 @@ export function App() {
     [update]
   )
 
+  // ---- timing at the playhead ----------------------------------------------------------------
+  type TimingField = 'start' | 'mixIn' | 'tailEnd'
+  const TIMING_LABEL: Record<TimingField, string> = { start: 'Takes over', mixIn: 'Mix in', tailEnd: 'Plays until' }
+
+  /**
+   * The track a timing key applies to: the selected one, or else the one it most likely means at the
+   * playhead. Mix in / takes over go to the next track to take over (the closest one for takes over),
+   * plays until goes to the track that was just replaced.
+   */
+  const timingTarget = (field: TimingField): Track | undefined => {
+    if (!project) return
+    const main = mainTracks(project.tracks)
+    const ci = currentIndex(main, time)
+    const sel = project.tracks.find((t) => t.id === selectedId)
+    // "Plays until" only means something once the next track has taken over, so on the track that is
+    // main at the playhead it goes to the one it just replaced.
+    if (sel && field === 'tailEnd' && main[ci]?.id === sel.id && ci > 0) return main[ci - 1]
+    if (sel) return sel
+    if (!main.length) return
+    if (field === 'tailEnd') return main[Math.max(0, ci - 1)]
+    if (field === 'start') return main.slice(1).reduce((best, t) => (Math.abs(t.start - time) < Math.abs(best.start - time) ? t : best), main[Math.min(1, main.length - 1)])
+    return main.find((t) => t.start > time) ?? main[main.length - 1]
+  }
+
+  const setTimingAtPlayhead = (field: TimingField, clear = false) => {
+    const tr = timingTarget(field)
+    if (!tr) return showToast('Import the Rekordbox .cue first')
+    const name = tr.title || 'Untitled'
+    const at = formatTime(time, project!.duration >= 3600)
+    let patch: Partial<Track>
+    if (clear) {
+      if (field === 'start') return
+      patch = { [field]: undefined }
+    } else if (field === 'start') {
+      patch = { start: time, ...(tr.mixIn !== undefined && tr.mixIn > time ? { mixIn: undefined } : {}) }
+    } else if (field === 'mixIn') {
+      if (time > tr.start) return showToast(`Mix in has to be before "${name}" takes over (${formatTime(tr.start)})`)
+      patch = { mixIn: time }
+    } else {
+      if (time < tr.start) return showToast(`"${name}" takes over at ${formatTime(tr.start)}, so it can only play until a later point`)
+      patch = { tailEnd: time }
+    }
+    changeTrack(tr.id, patch)
+    setSelectedId(tr.id)
+    setTab('tracks')
+    showToast(clear ? `${TIMING_LABEL[field]} cleared for "${name}"` : `${TIMING_LABEL[field]} for "${name}" set to ${at}`)
+  }
+
+  const selectStep = (dir: 1 | -1) => {
+    if (!project?.tracks.length) return
+    const sorted = sortTracks(project.tracks)
+    const i = sorted.findIndex((t) => t.id === selectedId)
+    const next = i < 0 ? sorted[Math.max(0, currentIndex(sorted, time))] : sorted[Math.max(0, Math.min(sorted.length - 1, i + dir))]
+    setSelectedId(next.id)
+    setTab('tracks')
+  }
+
+  // ---- tutorial ------------------------------------------------------------------------------
+  /** Opens the tutorial clip (a few minutes of a real set with its .cue) as a throwaway project. */
+  const startTutorial = async () => {
+    const files = await api.tutorialFiles()
+    if (!files) return setDialog({ kind: 'noTutorial' })
+    if (await loadAudio(files.audio, files.cue, { tutorial: true })) setTab('tracks')
+  }
+
+  /** Called whenever a menu command runs; completes the tutorial step that asks for it. */
+  const onCommand = useCallback((label: string) => {
+    const t = tutorialRef.current
+    if (!t || t.done || t.step >= TUTORIAL_STEPS.length || !TUTORIAL_STEPS[t.step].accepts.includes(label)) return
+    setTutorial({ step: t.step, done: true })
+    setTimeout(() => setTutorial((cur) => (cur && cur.step === t.step ? { step: t.step + 1, done: false } : cur)), 1100)
+  }, [])
+
+  const endTutorial = () => {
+    setTutorial(null)
+    reset(null)
+    setProjectPath(null)
+    setDirty(false)
+    setSelectedId(null)
+  }
+
   // ---- menus -------------------------------------------------------------------------------
   const has = !!project
   const fileName = projectPath?.split(/[\\/]/).pop()?.replace(PROJECT, '')
@@ -388,7 +482,7 @@ export function App() {
       onOpen: refreshRecent,
       items: [
         { label: 'New Project', shortcut: 'Mod+N', global: true, run: newProject },
-        { label: 'Open Project…', shortcut: 'Mod+O', global: true, run: () => openProject() },
+        { label: 'Import Set or Open Project…', shortcut: 'Mod+O', alsoKeys: ['Mod+I'], global: true, run: openAny },
         {
           label: 'Open Recent',
           submenu: recent.length
@@ -400,7 +494,6 @@ export function App() {
             : [{ label: 'No recent projects', disabled: true }]
         },
         'sep',
-        { label: 'Import Set Recording…', shortcut: 'Mod+I', global: true, run: importAudio },
         { label: 'Import Rekordbox Cue…', shortcut: 'Mod+Shift+I', global: true, run: () => importCue(), disabled: !has },
         'sep',
         { label: 'Save', shortcut: 'Mod+S', global: true, run: save, disabled: !has },
@@ -424,6 +517,21 @@ export function App() {
         { label: 'Re-alternate Decks A/B', run: () => update((p) => ({ ...p, tracks: alternateDecks(p.tracks) })), disabled: !has },
         'sep',
         { label: 'Settings…', shortcut: 'Mod+,', global: true, run: () => setDialog({ kind: 'prefs' }) }
+      ]
+    },
+    {
+      label: 'Timing',
+      items: [
+        { label: 'Takes Over at Playhead', shortcut: 'T', run: () => setTimingAtPlayhead('start'), disabled: !has },
+        { label: 'Mix In at Playhead', shortcut: 'I', run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
+        { label: 'Plays Until at Playhead', shortcut: 'O', run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
+        'sep',
+        { label: 'Clear Mix In', shortcut: 'Shift+I', run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
+        { label: 'Clear Plays Until', shortcut: 'Shift+O', run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
+        'sep',
+        { label: 'Select Previous Track', shortcut: '[', run: () => selectStep(-1), disabled: !has },
+        { label: 'Select Next Track', shortcut: ']', run: () => selectStep(1), disabled: !has },
+        { label: 'Deselect Track', shortcut: 'Escape', run: () => setSelectedId(null), disabled: !selectedId },
       ]
     },
     {
@@ -468,13 +576,26 @@ export function App() {
       label: 'Help',
       items: [
         { label: 'Keyboard Shortcuts', shortcut: 'Mod+/', global: true, run: () => setDialog({ kind: 'shortcuts' }) },
+        { label: 'Shortcuts Tutorial…', run: startTutorial },
         { label: 'About Set Visualizer', run: () => setDialog({ kind: 'about' }) }
       ]
     }
   ]
 
-  const menusRef = useRef(menus)
-  menusRef.current = menus
+  // Every command reports to the tutorial, whether it ran from a key or a menu click.
+  const withHooks = (items: MenuItem[]): MenuItem[] =>
+    items.map((it) =>
+      it === 'sep'
+        ? it
+        : {
+            ...it,
+            run: it.run && (() => (it.run!(), onCommand(it.label))),
+            submenu: it.submenu && withHooks(it.submenu)
+          }
+    )
+  const hooked = menus.map((m) => ({ ...m, items: withHooks(m.items) }))
+  const menusRef = useRef(hooked)
+  menusRef.current = hooked
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -499,8 +620,7 @@ export function App() {
       api.onMenuCommand((id) => {
         const by: Record<string, () => void> = {
           new: newProject,
-          open: () => openProject(),
-          importAudio,
+          open: openAny,
           importCue: () => importCue(),
           save,
           saveAs,
@@ -521,7 +641,9 @@ export function App() {
   const searchTrack = dialog?.kind === 'search' && project ? project.tracks.find((t) => t.id === dialog.trackId) : undefined
 
   const status =
-    !project ? null : saveState.status === 'saving' ? (
+    !project ? null : tutorial ? (
+      <span className="save-state">Tutorial · nothing is saved</span>
+    ) : saveState.status === 'saving' ? (
       <span className="save-state">Saving…</span>
     ) : saveState.status === 'error' ? (
       <span className="save-state error" title={saveState.message}>
@@ -551,12 +673,12 @@ export function App() {
       }}
     >
       <MenuBar
-        menus={menus}
+        menus={hooked}
         center={
           project && (
             <>
               <span className="doc-name" title={projectPath ?? undefined}>
-                {fileName ?? project.audioName.replace(/\.[^.]+$/, '')}
+                {tutorial ? 'Shortcuts tutorial' : fileName ?? project.audioName.replace(/\.[^.]+$/, '')}
               </span>
               {status}
             </>
@@ -586,8 +708,9 @@ export function App() {
           onTogglePlay={togglePlay}
           onSeek={seek}
           onJumpTrack={jumpTrack}
-          onImportAudio={importAudio}
+          onOpenAny={openAny}
           onOpenProject={openProject}
+          dragOver={dragOver}
         />
         <Splitter dir="col" value={inspectorW} min={280} max={640} sign={-1} onChange={setInspectorW} onReset={() => setInspectorW(INSPECTOR_W)} />
         <Inspector
@@ -648,15 +771,26 @@ export function App() {
       {dialog?.kind === 'export' && project && <ExportDialog project={project} onClose={() => setDialog(null)} onChangeSettings={changeSettings} />}
       {dialog?.kind === 'prefs' && prefs && <PreferencesDialog prefs={prefs} onChange={changePrefs} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'shortcuts' && <ShortcutsDialog menus={menus} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'noTutorial' && (
+        <SimpleDialog title="Shortcuts tutorial" onClose={() => setDialog(null)}>
+          <p className="muted">
+            The tutorial clip isn't installed. Create it from one of your recordings with <code>npm run make-tutorial -- set.wav set.cue</code>, then rebuild the app.
+          </p>
+        </SimpleDialog>
+      )}
+      {tutorial && (
+        <TutorialCard
+          step={tutorial.step}
+          done={tutorial.done}
+          onNext={() => setTutorial((t) => t && { step: t.step + 1, done: false })}
+          onBack={() => setTutorial((t) => t && { step: Math.max(0, t.step - 1), done: false })}
+          onClose={endTutorial}
+        />
+      )}
       {dialog?.kind === 'about' && (
         <SimpleDialog title="Set Visualizer" onClose={() => setDialog(null)}>
           <p className="muted">Turns a recorded DJ set and its Rekordbox .cue into a visualizer video for YouTube. Projects are saved as .djvis files.</p>
         </SimpleDialog>
-      )}
-      {dragOver && (
-        <div className="drop-overlay">
-          <div>Drop a set recording, a Rekordbox .cue or a .djvis project</div>
-        </div>
       )}
       {toast && <div className="toast">{toast}</div>}
     </div>

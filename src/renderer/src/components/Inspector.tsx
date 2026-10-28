@@ -176,23 +176,23 @@ function TracksTab(p: Props & { project: Project }) {
               </div>
             </Prop>
           </Section>
-          <Section title="Timing">
+          <Section title="Timing" right={<span className="muted small">I · T · O at the playhead</span>}>
             <Prop label="Takes over" title="Where this track becomes the main track (moves to the left).">
               <TimeInput value={sel.start} onChange={(v) => v !== undefined && p.onChangeTrack(sel.id, { start: v })} />
-              <button className="btn tiny ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { start: time })}>
-                Playhead
+              <button className="btn tiny ghost" title="Set to the playhead (T)" onClick={() => p.onChangeTrack(sel.id, { start: time })}>
+                Playhead <kbd>T</kbd>
               </button>
             </Prop>
             <Prop label="Mix in" title="When it starts being heard. It appears on the right as 'now playing' from here.">
               <TimeInput value={sel.mixIn} placeholder={`auto (−${project.settings.defaultLead}s)`} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
-              <button className="btn tiny ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
-                Playhead
+              <button className="btn tiny ghost" title="Set to the playhead (I)" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
+                Playhead <kbd>I</kbd>
               </button>
             </Prop>
             <Prop label="Plays until" title="When it stops being heard, if it keeps playing under the next track after the swap.">
               <TimeInput value={sel.tailEnd} placeholder="leaves at the swap" onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
-              <button className="btn tiny ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
-                Playhead
+              <button className="btn tiny ghost" title="Set to the playhead (O)" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
+                Playhead <kbd>O</kbd>
               </button>
             </Prop>
           </Section>
@@ -207,6 +207,18 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
   return (
     <div className="scroll">
+      <Section title="Format">
+        <Prop label="Aspect" title="16:9 for YouTube, 9:16 for phones (Shorts, Reels, TikTok)">
+          <div className="seg">
+            <button className={s.height <= s.width ? 'on' : ''} onClick={() => s.height > s.width && onChangeSettings({ width: s.height, height: s.width })}>
+              16:9 YouTube
+            </button>
+            <button className={s.height > s.width ? 'on' : ''} onClick={() => s.height <= s.width && onChangeSettings({ width: s.height, height: s.width })}>
+              9:16 Phone
+            </button>
+          </div>
+        </Prop>
+      </Section>
       <Section title="Text">
         <Prop label="DJ name">
           <input value={s.djName} onChange={(e) => onChangeSettings({ djName: e.target.value }, 'dj')} placeholder="shown top-left" />
@@ -219,6 +231,30 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
             <input type="checkbox" checked={s.showTimestamps} onChange={(e) => onChangeSettings({ showTimestamps: e.target.checked })} />
             Show elapsed / total time
           </label>
+        </Prop>
+      </Section>
+      <Section title="Waveforms">
+        <Prop label="Top" title="The close-up waveform that scrolls past the playhead">
+          <div className="seg">
+            <button className={s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: true })}>
+              Show
+            </button>
+            <button className={!s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: false })}>
+              Hide
+            </button>
+          </div>
+          <span className="muted small">close-up, scrolls</span>
+        </Prop>
+        <Prop label="Bottom" title="The whole set's waveform with the track numbers under it">
+          <div className="seg">
+            <button className={s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: true })}>
+              Show
+            </button>
+            <button className={!s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: false })}>
+              Hide
+            </button>
+          </div>
+          <span className="muted small">whole set, track numbers</span>
         </Prop>
       </Section>
       <Section title="Colors">
