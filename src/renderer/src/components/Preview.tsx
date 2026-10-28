@@ -10,7 +10,8 @@ interface Props {
   time: number
 }
 
-const PREVIEW_HEIGHT = 720
+/** The preview renders with 720 px on the short side and is scaled to fit the viewer. */
+const PREVIEW_SHORT = 720
 
 /** Live preview drawn with the exact same scene code as the exported video. */
 export function Preview({ project, audio, time }: Props) {
@@ -33,13 +34,15 @@ export function Preview({ project, audio, time }: Props) {
   }, [artKey])
 
   const { width, height } = project.settings
-  const pw = Math.round((width / height) * PREVIEW_HEIGHT)
+  const k = PREVIEW_SHORT / Math.min(width, height)
+  const pw = Math.round(width * k)
+  const ph = Math.round(height * k)
   const prep = useMemo(() => {
-    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: PREVIEW_HEIGHT } }
+    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: ph } }
     return prepareScene(p, art, offscreenFactory)
     // fontsReady forces a redraw once Inter has loaded
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, fontsReady])
+  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, ph, fontsReady])
 
   const timeRef = useRef(time)
   timeRef.current = time
@@ -48,9 +51,14 @@ export function Preview({ project, audio, time }: Props) {
     const ctx = canvasRef.current?.getContext('2d') as Ctx | null
     if (!ctx) return
     let raf = 0
+    let drawn = NaN
     const loop = () => {
       const t = audio && !audio.paused ? audio.currentTime : timeRef.current
-      drawFrame(ctx, prep, t)
+      // Only redraw when time moves, so an idle preview doesn't compete with an export for the GPU.
+      if (t !== drawn) {
+        drawFrame(ctx, prep, t)
+        drawn = t
+      }
       raf = requestAnimationFrame(loop)
     }
     loop()
@@ -59,7 +67,7 @@ export function Preview({ project, audio, time }: Props) {
 
   return (
     <div className="preview">
-      <canvas ref={canvasRef} width={pw} height={PREVIEW_HEIGHT} />
+      <canvas ref={canvasRef} width={pw} height={ph} />
     </div>
   )
 }

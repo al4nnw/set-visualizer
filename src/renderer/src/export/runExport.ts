@@ -1,22 +1,33 @@
-import type { ExportProgress, Project } from '@shared/types'
+import { forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
 import { api, errMsg } from '../api'
 import { SCENE_FONTS } from '../fonts'
 
 export const webCodecsAvailable = () => typeof VideoEncoder !== 'undefined'
 
+/** Frames [firstFrame, endFrame) of the set, or of `range` within it. */
+export function frameSpan(project: Project, range?: ExportRange) {
+  const { fps } = project.settings
+  const from = Math.max(0, range?.from ?? 0)
+  const to = Math.min(project.duration, range?.to ?? project.duration)
+  const firstFrame = Math.floor(from * fps)
+  return { firstFrame, endFrame: Math.max(firstFrame + 1, Math.ceil(to * fps)) }
+}
+
 /**
  * Renders the project to `outPath`: a worker draws every frame with the same scene code as the
  * preview and encodes it with WebCodecs (hardware encoder when available); the main process then
- * adds the original audio.
+ * adds the original audio. With `range`, only that stretch of the set (a clip).
  */
 export async function runExport(
   project: Project,
   outPath: string,
   onProgress: (p: ExportProgress) => void,
-  signal: AbortSignal
+  signal: AbortSignal,
+  range?: ExportRange
 ): Promise<string> {
   const { fps } = project.settings
-  const totalFrames = Math.ceil(project.duration * fps)
+  const { firstFrame, endFrame } = frameSpan(project, range)
+  const totalFrames = endFrame - firstFrame
   const started = performance.now()
   let done = 0
   const report = (stage: ExportProgress['stage'], extra: Partial<ExportProgress> = {}) => {
@@ -24,7 +35,7 @@ export async function runExport(
     onProgress({ frame: done, totalFrames, fps: rate, etaSec: rate > 0 ? (totalFrames - done) / rate : 0, stage, ...extra })
   }
 
-  await api.exportBegin(project, outPath)
+  await api.exportBegin(forDisk(project), outPath, range)
   report('preparing')
   const worker = new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' })
   const abort = () => worker.postMessage({ type: 'cancel' })
@@ -46,7 +57,7 @@ export async function runExport(
         else if (m.type === 'error') reject(new Error(m.message))
       }
       worker.onerror = (e) => reject(new Error(e.message || 'Render worker crashed'))
-      worker.postMessage({ type: 'start', project, fonts: SCENE_FONTS })
+      worker.postMessage({ type: 'start', project, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')
     const out = await api.exportFinish()

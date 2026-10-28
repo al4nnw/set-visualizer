@@ -61,7 +61,6 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
         artwork,
         sourceUrl: r.url,
         source: PROVIDER_NAME[r.provider],
-        unverified: false,
         ...(useMeta ? { title: r.title, artist: r.artist } : {})
       })
       onClose()

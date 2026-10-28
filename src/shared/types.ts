@@ -7,18 +7,26 @@ export interface Track {
   /** Seconds into the set where this track becomes the main track (moves to the left). */
   start: number
   /**
-   * Seconds into the set where this track starts being mixed in (appears on the right).
-   * When undefined, the project's default lead time is used.
+   * Seconds into the set where this track starts being heard: it appears on the right as "now
+   * playing". When undefined, it appears the project's default lead time early as "up next".
    */
   mixIn?: number
+  /**
+   * Seconds into the set where it stops being heard, when it keeps playing under the next track after
+   * the swap. Until then its card stays on the right as "now playing".
+   */
+  tailEnd?: number
   deck: Deck
+  /**
+   * Only mixed in under another track and never takes over. It stays in the tracklist but never
+   * becomes the main track; `start` is when its deck started.
+   */
+  layered?: boolean
   /** Absolute path to a local image file (downloaded or picked by the user). */
   artwork?: string
   /** Where the track/art was found (YouTube, SoundCloud, ...). */
   sourceUrl?: string
   source?: string
-  /** True when the track came from audio fingerprinting and hasn't been reviewed. */
-  unverified?: boolean
 }
 
 export interface Waveform {
@@ -30,6 +38,8 @@ export interface Waveform {
   rms: number[]
   /** RMS of the low-passed signal per bucket, 0..1 (kick/bass pulse). */
   bass: number[]
+  /** RMS of the vocal band (250 Hz to 3.5 kHz) per bucket, 0..1. Missing in older projects. */
+  vocal?: number[]
 }
 
 export interface Theme {
@@ -46,16 +56,23 @@ export interface RenderSettings {
   fps: number
   /** Seconds before `start` that the next track appears on the right, when the track has no mixIn. */
   defaultLead: number
-  /** Seconds the A/B swap animation takes. */
+  /** Seconds the A/B swap animation takes; it ends on the takeover point. */
   swapDuration: number
-  showDeckBadges: boolean
+  /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
+  swapCurve?: SwapCurve
   showTimestamps: boolean
+  /** The scrolling close-up waveform above the full-set one. */
+  showDeckWave: boolean
+  /** The full-set waveform along the bottom, with track numbers. */
+  showSetWave: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
   theme: Theme
   quality: Quality
 }
+
+export type SwapCurve = 'auto' | 'smooth' | 'snappy' | 'anticipate' | 'spring'
 
 export type Quality = 'standard' | 'high' | 'max'
 
@@ -64,6 +81,16 @@ export const QUALITY_BPP: Record<Quality, number> = { standard: 0.07, high: 0.13
 /** x264 CRF used by the headless exporter. */
 export const QUALITY_CRF: Record<Quality, number> = { standard: 21, high: 18, max: 15 }
 
+/** The Rekordbox recording cue sheet a project's tracklist came from, kept in the project file. */
+export interface CueImport {
+  path: string
+  name: string
+  importedAt: string
+  /** The cue sheet as imported, so the project still has it if the original file moves. */
+  text: string
+}
+
+/** A .djvis project file (JSON). */
 export interface Project {
   version: 1
   audioPath: string
@@ -72,6 +99,40 @@ export interface Project {
   waveform: Waveform
   tracks: Track[]
   settings: RenderSettings
+  cue?: CueImport
+  createdAt?: string
+  savedAt?: string
+}
+
+/**
+ * A project as stored in its .djvis file and sent to the main process to save. The waveform is kept
+ * in the analysis cache instead (projects from before that still carry it, and are read as is).
+ */
+export type ProjectFile = Omit<Project, 'waveform'> & { waveform?: Waveform }
+
+/** The project without its waveform, for saving: cloning the waveform costs more than the rest. */
+export const forDisk = ({ waveform: _, ...rest }: Project | ProjectFile): ProjectFile => rest
+
+/** App-wide preferences, stored in the user data folder (not in projects). */
+export interface Preferences {
+  /** Save the project on every change. */
+  autosave: boolean
+  /** Where new projects are created when a set recording is opened. */
+  projectsDir: string
+  /** Look up YouTube thumbnails for imported tracks. */
+  autoArtwork: boolean
+  /** Video settings that new projects start with. */
+  defaultWidth: number
+  defaultHeight: number
+  defaultFps: number
+}
+
+export interface RecentProject {
+  path: string
+  name: string
+  audioName?: string
+  savedAt?: string
+  tracks?: number
 }
 
 export interface SearchResult {
@@ -86,12 +147,10 @@ export interface SearchResult {
   durationSec?: number
 }
 
-export interface IdentifyHit {
-  at: number
-  title: string
-  artist: string
-  artwork?: string
-  url?: string
+/** A stretch of the set to export on its own, in seconds. */
+export interface ExportRange {
+  from: number
+  to: number
 }
 
 export interface ExportProgress {
@@ -118,8 +177,10 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   fps: 30,
   defaultLead: 45,
   swapDuration: 1.4,
-  showDeckBadges: true,
+  swapCurve: 'auto',
   showTimestamps: true,
+  showDeckWave: true,
+  showSetWave: true,
   setTitle: '',
   djName: '',
   theme: DEFAULT_THEME,
