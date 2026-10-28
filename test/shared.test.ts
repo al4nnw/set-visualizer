@@ -8,6 +8,7 @@ import { planSwaps, swapLength } from '../src/shared/swapPlan'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
+import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -327,5 +328,35 @@ describe('clip trimming', () => {
     const out = applyClipEdits(clips, { b: { from: 40, to: 80 } })
     expect(out[0]).toEqual(clips[0])
     expect(out[1]).toMatchObject({ id: 'b', from: 40, to: 80, focus: 52, edited: true })
+  })
+})
+
+describe('set analysis', () => {
+  // 10 s of a 60 Hz tone that gets louder, at each stream's rate.
+  const tone = (rate: number) => Float32Array.from({ length: rate * 10 }, (_, i) => Math.sin((2 * Math.PI * 60 * i) / rate) * (0.2 + (0.8 * i) / (rate * 10)))
+  const run = (chunk: number) => {
+    const a = createSetAnalyser({ spectrum: true })
+    for (const name of ['main', 'bass', 'vocal'] as const) {
+      const x = tone(ANALYSIS_STREAMS[name].rate)
+      for (let i = 0; i < x.length; i += chunk) a.push(name, x.subarray(i, i + chunk))
+    }
+    return a.finish()
+  }
+
+  it('gives 50 waveform buckets and about 4 spectral frames per second', () => {
+    const { waveform, spectrum } = run(4096)
+    expect(waveform.rate).toBe(50)
+    expect(waveform.peaks).toHaveLength(500)
+    expect(waveform.bass).toHaveLength(500)
+    expect(Math.max(...waveform.peaks)).toBe(1)
+    expect(waveform.rms[499]).toBeGreaterThan(waveform.rms[0] * 3)
+    expect(spectrum!.frames.length).toBe(Math.floor((11025 * 10 - 2048) / 2756) + 1)
+  })
+
+  it('does not depend on how the samples are chunked', () => {
+    const a = run(333)
+    const b = run(1 << 20)
+    expect(a.waveform).toEqual(b.waveform)
+    expect(a.spectrum!.frames.map((f) => [...f])).toEqual(b.spectrum!.frames.map((f) => [...f]))
   })
 })
