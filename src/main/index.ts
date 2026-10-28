@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { Worker } from 'node:worker_threads'
-import type { ExportRange, Preferences, Project, SearchResult, Waveform } from '@shared/types'
+import type { ExportRange, Preferences, Project, ProjectFile, SearchResult, Waveform } from '@shared/types'
 import { decodeText, parseTracklist } from '@shared/tracklist'
 import type { Transition } from '@shared/takeover'
+import { readWaveform, writeWaveform } from './analysisCache'
 import type { AnalysisJob, AnalysisMessage } from './analysisWorker'
 import { downloadArt, importLocalArt } from './art'
 import { createAutoArt } from './autoArt'
@@ -28,11 +29,16 @@ const MIME: Record<string, string> = {
 }
 
 const artDir = () => join(app.getPath('userData'), 'art')
-/** Serves local files to the renderer as media://file/<encoded path>, with Range support for seeking. */
+const analysisDir = () => join(app.getPath('userData'), 'analysis')
+/**
+ * Serves local files to the renderer as media://file/<encoded path>, with Range support for seeking.
+ * Only audio and image files: the renderer has no reason to read anything else from disk.
+ */
 function registerMediaProtocol() {
   protocol.handle('media', async (req) => {
     const url = new URL(req.url)
     const file = decodeURIComponent(url.pathname.slice(1))
+    if (!MIME[extname(file).toLowerCase()]) return new Response('Forbidden', { status: 403 })
     let size: number
     try {
       size = (await stat(file)).size
@@ -76,7 +82,7 @@ function createWindow() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       backgroundThrottling: false
     }
@@ -105,7 +111,7 @@ function createWindow() {
     win?.destroy()
   })
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
 }
@@ -151,7 +157,7 @@ interface WebCodecsExport {
   videoPath: string
   stream: WriteStream
   outPath: string
-  project: Project
+  project: ProjectFile
   /** Where the video starts in the set and how long it is, in seconds. */
   from: number
   duration: number
@@ -202,6 +208,27 @@ function analyse<T>(job: AnalysisJob, onProgress?: (p: number) => void): Promise
   })
 }
 
+/**
+ * Gives a project read from disk its waveform: from the analysis cache, or analysed again when the
+ * cache doesn't have it (another computer, a cleared cache, an edited recording). Projects saved
+ * before the cache existed carry their waveform, which goes into the cache for later saves.
+ */
+async function withWaveform(file: ProjectFile): Promise<Project> {
+  const cached = await readWaveform(analysisDir(), file.audioPath).catch(() => null)
+  if (cached) return { ...file, waveform: cached }
+  if (file.waveform) {
+    await writeWaveform(analysisDir(), file.audioPath, file.waveform).catch(() => {})
+    return file as Project
+  }
+  try {
+    await stat(file.audioPath)
+  } catch {
+    throw new Error(`Can't find the set recording ${file.audioPath}. Was it moved or renamed?`)
+  }
+  const { waveform } = await analyse<{ waveform: Waveform }>({ type: 'analyse', path: file.audioPath, cacheDir: analysisDir() }, (p) => send('audio:progress', p))
+  return { ...file, waveform }
+}
+
 function registerIpc() {
   ipcMain.handle('dialog:openAudio', async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Audio', extensions: AUDIO_EXT }] })
@@ -228,11 +255,11 @@ function registerIpc() {
   })
 
   ipcMain.handle('audio:analyse', async (_e, path: string) => {
-    const { duration, waveform } = await analyse<{ duration: number; waveform: Waveform }>({ type: 'analyse', path }, (p) => send('audio:progress', p))
+    const { duration, waveform } = await analyse<{ duration: number; waveform: Waveform }>({ type: 'analyse', path, cacheDir: analysisDir() }, (p) => send('audio:progress', p))
     return { duration, waveform, name: basename(path) }
   })
   ipcMain.handle('audio:takeovers', (_e, path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>) =>
-    analyse<Array<Transition | null>>({ type: 'takeovers', path, cues, duration, songs })
+    analyse<Array<Transition | null>>({ type: 'takeovers', path, cacheDir: analysisDir(), cues, duration, songs })
   )
   // Opening something else while a set is being analysed stops that analysis.
   ipcMain.handle('audio:cancel', async () => {
@@ -246,12 +273,12 @@ function registerIpc() {
 
   // Projects (.djvis). New projects go straight into the projects folder so autosave has a file.
   const projectFilter = [{ name: 'Set Visualizer project', extensions: [PROJECT_EXT] }]
-  ipcMain.handle('project:create', async (_e, project: Project) => {
+  ipcMain.handle('project:create', async (_e, project: ProjectFile) => {
     const path = await newProjectPath(project.audioName)
     return { path, savedAt: await writeProject(path, project) }
   })
-  ipcMain.handle('project:save', async (_e, project: Project, path: string) => ({ path, savedAt: await writeProject(path, project) }))
-  ipcMain.handle('project:saveAs', async (_e, project: Project, current: string | null) => {
+  ipcMain.handle('project:save', async (_e, project: ProjectFile, path: string) => ({ path, savedAt: await writeProject(path, project) }))
+  ipcMain.handle('project:saveAs', async (_e, project: ProjectFile, current: string | null) => {
     const r = await dialog.showSaveDialog(win!, {
       defaultPath: current ?? join((await getPrefs()).projectsDir, project.audioName.replace(/\.[^.]+$/, '') + '.' + PROJECT_EXT),
       filters: projectFilter
@@ -266,7 +293,7 @@ function registerIpc() {
       if (r.canceled) return null
       target = r.filePaths[0]
     }
-    return { path: target, project: await readProject(target) }
+    return { path: target, project: await withWaveform(await readProject(target)) }
   })
   ipcMain.handle('recent:list', () => listRecent())
   ipcMain.handle('recent:clear', () => clearRecent())
@@ -292,7 +319,7 @@ function registerIpc() {
   ipcMain.handle('art:auto', (_e, artist: string, title: string) => autoArt(artist, title))
 
   // The renderer draws and encodes H.264 with WebCodecs (hardware encoder when available) and streams the chunks here.
-  ipcMain.handle('export:begin', async (_e, project: Project, outPath: string, range?: ExportRange) => {
+  ipcMain.handle('export:begin', async (_e, project: ProjectFile, outPath: string, range?: ExportRange) => {
     if (wcExport) wcExport.stream.destroy()
     const dir = join(tmpdir(), `setvis-${Date.now()}`)
     await mkdir(dir, { recursive: true })
@@ -328,13 +355,29 @@ function registerIpc() {
   })
 
   ipcMain.handle('shell:reveal', (_e, path: string) => shell.showItemInFolder(path))
-  ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))
+  // Only web links: openExternal on a file:// or custom-scheme URL could run a program.
+  ipcMain.handle('shell:open', (_e, url: string) => {
+    if (/^https?:\/\//i.test(url)) return shell.openExternal(url)
+  })
   ipcMain.handle('app:devtools', () => win?.webContents.toggleDevTools())
   ipcMain.handle('app:fullscreen', () => win?.setFullScreen(!win.isFullScreen()))
   ipcMain.handle('app:quit', () => win?.close())
 }
 
+// One app at a time: opening a project or recording while it runs (double-click, file association)
+// hands the file to the running window instead of starting a second app on the same settings.
+const primary = app.requestSingleInstanceLock()
+if (!primary) app.quit()
+app.on('second-instance', (_e, argv) => {
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.focus()
+  const file = argv.slice(1).find((a) => OPENABLE.test(a))
+  if (file) send('app:open-path', file)
+})
+
 app.whenReady().then(() => {
+  if (!primary) return
   registerMediaProtocol()
   registerIpc()
   setupNativeMenu()

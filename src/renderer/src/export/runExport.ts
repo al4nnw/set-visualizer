@@ -1,4 +1,4 @@
-import type { ExportProgress, ExportRange, Project } from '@shared/types'
+import { forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
 import { api, errMsg } from '../api'
 import { SCENE_FONTS } from '../fonts'
 
@@ -35,7 +35,7 @@ export async function runExport(
     onProgress({ frame: done, totalFrames, fps: rate, etaSec: rate > 0 ? (totalFrames - done) / rate : 0, stage, ...extra })
   }
 
-  await api.exportBegin(project, outPath, range)
+  await api.exportBegin(forDisk(project), outPath, range)
   report('preparing')
   const worker = new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' })
   const abort = () => worker.postMessage({ type: 'cancel' })

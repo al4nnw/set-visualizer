@@ -104,6 +104,15 @@ export interface Project {
   savedAt?: string
 }
 
+/**
+ * A project as stored in its .djvis file and sent to the main process to save. The waveform is kept
+ * in the analysis cache instead (projects from before that still carry it, and are read as is).
+ */
+export type ProjectFile = Omit<Project, 'waveform'> & { waveform?: Waveform }
+
+/** The project without its waveform, for saving: cloning the waveform costs more than the rest. */
+export const forDisk = ({ waveform: _, ...rest }: Project | ProjectFile): ProjectFile => rest
+
 /** App-wide preferences, stored in the user data folder (not in projects). */
 export interface Preferences {
   /** Save the project on every change. */

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { ExportRange, Preferences, Project, RecentProject, SearchResult, Waveform } from '@shared/types'
+import type { ExportRange, Preferences, Project, ProjectFile, RecentProject, SearchResult, Waveform } from '@shared/types'
 import type { ParsedEntry } from '@shared/tracklist'
 
 function on<T>(channel: string, cb: (payload: T) => void) {
@@ -29,9 +29,10 @@ const api = {
   readCue: (path: string): Promise<{ entries: ParsedEntry[]; text: string; name: string }> => ipcRenderer.invoke('tracklist:read', path),
 
   /** Writes a new project into the projects folder and returns where. */
-  createProject: (p: Project): Promise<Saved> => ipcRenderer.invoke('project:create', p),
-  saveProject: (p: Project, path: string): Promise<Saved> => ipcRenderer.invoke('project:save', p, path),
-  saveProjectAs: (p: Project, current: string | null): Promise<Saved | null> => ipcRenderer.invoke('project:saveAs', p, current),
+  // Saving takes the project without its waveform (see forDisk): it's in the analysis cache already.
+  createProject: (p: ProjectFile): Promise<Saved> => ipcRenderer.invoke('project:create', p),
+  saveProject: (p: ProjectFile, path: string): Promise<Saved> => ipcRenderer.invoke('project:save', p, path),
+  saveProjectAs: (p: ProjectFile, current: string | null): Promise<Saved | null> => ipcRenderer.invoke('project:saveAs', p, current),
   openProject: (path?: string): Promise<{ path: string; project: Project } | null> => ipcRenderer.invoke('project:open', path),
   recentProjects: (): Promise<RecentProject[]> => ipcRenderer.invoke('recent:list'),
   clearRecent: (): Promise<void> => ipcRenderer.invoke('recent:clear'),
@@ -46,7 +47,7 @@ const api = {
   /** YouTube thumbnail for a song, from the local cache when it's been looked up before. */
   autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
 
-  exportBegin: (p: Project, outPath: string, range?: ExportRange): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath, range),
+  exportBegin: (p: ProjectFile, outPath: string, range?: ExportRange): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath, range),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),
   exportFinish: (): Promise<string> => ipcRenderer.invoke('export:finish'),
   exportAbort: (): Promise<void> => ipcRenderer.invoke('export:abort'),

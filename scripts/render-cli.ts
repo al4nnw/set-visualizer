@@ -29,8 +29,9 @@ async function main() {
   if (projectPath) {
     project = JSON.parse(await readFile(projectPath, 'utf8'))
     project.settings = { ...DEFAULT_SETTINGS, ...project.settings }
-    if (!project.waveform.vocal) {
-      process.stdout.write('Analysing the vocal band (project is from an older version)… ')
+    // Projects keep their waveform in the app's analysis cache; older ones carry it, maybe without the vocal band.
+    if (!project.waveform?.vocal) {
+      process.stdout.write('Analysing audio… ')
       project.waveform = (await analyseAudio(project.audioPath)).waveform
       console.log('done')
     }

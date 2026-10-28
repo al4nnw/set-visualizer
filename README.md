@@ -36,7 +36,7 @@ Menus: **File** (new, open, open recent, import, save, save as, export), **Edit*
 
 Keyboard: `Space` play/pause, `A`/`S`/`D` or `←`/`↓`/`→` mix in / takes over / plays until at the playhead (`Shift+A`/`Shift+D` clear; `I`/`T`/`O` still work), `J`/`L` seek 5 s (`Shift` 30 s), `PageUp`/`PageDown` previous/next track, `Home/End`, `M` add a track at the playhead, `Delete` remove the selected track, `=`/`-`/`\` zoom the timeline. `Ctrl/Alt + scroll` zooms around the pointer.
 
-Projects save as `.djvis` (JSON: tracks, settings, the imported cue sheet, and the analysed waveform; the audio and art stay where they are, art is cached in the app's user-data folder). Settings and the recent projects list live in `settings.json` in the user-data folder.
+Projects save as `.djvis` (JSON: tracks, settings and the imported cue sheet; the audio and art stay where they are, art is cached in the app's user-data folder). The analysed waveform and spectrum live in the user-data folder's `analysis` cache, keyed by the recording's path, size and date, so a project file stays a few KB and autosave is instant. Opening a project on a computer without that cache analyses the set again. Projects saved by older versions carry their waveform and still open. Settings and the recent projects list live in `settings.json` in the user-data folder.
 
 ## How rendering works
 
@@ -55,7 +55,7 @@ npm run render -- --project my-set.djvis --out set.mp4 --width 1280 --height 720
 
 ```
 src/shared/     scene renderer, A/B card layout, cue sheet parser (no Node or DOM deps)
-src/main/       Electron main: audio analysis, projects/autosave, search, art download, export muxing
+src/main/       Electron main: projects/autosave, search, art download, export muxing; audio analysis runs in a worker thread (analysisWorker.ts, one ffmpeg decode per set) and is cached (analysisCache.ts)
 src/preload/    the API the UI uses (window.api)
 src/renderer/   React UI + WebCodecs export worker
 src/node/       headless Skia/x264 exporter used by the CLI

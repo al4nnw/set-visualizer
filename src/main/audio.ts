@@ -1,46 +1,75 @@
 import { spawn } from 'node:child_process'
+import type { Readable } from 'node:stream'
 import type { Waveform } from '@shared/types'
 import type { SpectralFrames } from '@shared/takeover'
-import { ffmpegPath, probeDuration, runFfmpeg } from './ffmpeg'
+import { ffmpegPath, probeDuration } from './ffmpeg'
 
 export const WAVEFORM_RATE = 50
 
+/** One mono float stream cut from the set: an optional filter, then resampled to `rate`. */
+interface Stream {
+  filter: string | null
+  rate: number
+}
+
 /**
- * Streams the decoded audio through ffmpeg and reduces it to `rate` buckets per second:
- * absolute peak and RMS of the full signal, plus RMS of a low-passed copy for the bass pulse.
+ * Decodes the file once and splits it into several mono f32 streams (one ffmpeg, one output pipe
+ * each: stdout, then fd 3, 4, ...). `onSamples` gets each stream's samples as they arrive.
  */
-function envelope(
-  file: string,
-  sampleRate: number,
-  filter: string | null,
-  rate: number,
-  duration: number,
-  onProgress?: (p: number) => void
-): Promise<{ peaks: number[]; rms: number[] }> {
+function decodeStreams(file: string, streams: Stream[], onSamples: (stream: number, samples: Float32Array) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const args = ['-hide_banner', '-loglevel', 'error', '-i', file, '-vn', '-ac', '1']
-    if (filter) args.push('-af', filter)
-    args.push('-ar', String(sampleRate), '-f', 'f32le', '-')
-    const p = spawn(ffmpegPath, args)
-    // Samples per bucket can be fractional (11025 / 50 = 220.5), so bucket edges are placed by the
-    // running sample count; rounding it per bucket would make the envelope drift away from the audio.
-    const per = sampleRate / rate
-    let total = 0
-    let edge = Math.round(per)
-    const peaks: number[] = []
-    const rms: number[] = []
-    let n = 0
-    let pk = 0
-    let sq = 0
-    let leftover: Buffer = Buffer.alloc(0)
+    const n = streams.length
+    // Downmixed once before the split, so the filters run on one channel instead of two.
+    const split = n > 1 ? `[0:a]aformat=sample_fmts=flt:channel_layouts=mono,asplit=${n}${streams.map((_, i) => `[s${i}]`).join('')};` : ''
+    const graph =
+      split +
+      streams
+        .map((s, i) => {
+          const src = n > 1 ? `[s${i}]` : '[0:a]'
+          return `${src}${s.filter ? s.filter + ',' : ''}aformat=sample_fmts=flt:sample_rates=${s.rate}:channel_layouts=mono[o${i}]`
+        })
+        .join(';')
+    const fds = streams.map((_, i) => (i === 0 ? 1 : i + 2))
+    const args = ['-hide_banner', '-loglevel', 'error', '-i', file, '-vn', '-filter_complex', graph]
+    streams.forEach((_, i) => args.push('-map', `[o${i}]`, '-f', 'f32le', `pipe:${fds[i]}`))
+    const p = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe', ...fds.slice(1).map(() => 'pipe' as const)] })
     let err = ''
-    let lastReport = 0
-    p.stdout.on('data', (chunk: Buffer) => {
-      const buf = leftover.length ? Buffer.concat([leftover, chunk]) : chunk
-      const usable = buf.length - (buf.length % 4)
-      // A Float32Array view needs 4-byte alignment; Node's pooled chunks don't always have it.
-      const samples =
-        buf.byteOffset % 4 === 0 ? new Float32Array(buf.buffer, buf.byteOffset, usable / 4) : new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + usable))
+    p.stderr!.on('data', (d) => (err += d))
+    fds.forEach((fd, i) => {
+      // Samples can straddle chunks, so carry the odd bytes over to the next one.
+      let leftover: Buffer = Buffer.alloc(0)
+      ;(p.stdio[fd] as Readable).on('data', (chunk: Buffer) => {
+        const buf = leftover.length ? Buffer.concat([leftover, chunk]) : chunk
+        const usable = buf.length - (buf.length % 4)
+        // A Float32Array view needs 4-byte alignment; Node's pooled chunks don't always have it.
+        const samples =
+          buf.byteOffset % 4 === 0 ? new Float32Array(buf.buffer, buf.byteOffset, usable / 4) : new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + usable))
+        leftover = buf.subarray(usable)
+        onSamples(i, samples)
+      })
+    })
+    p.on('error', reject)
+    p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`Could not decode audio: ${err.slice(-500)}`))))
+  })
+}
+
+/**
+ * Reduces a stream to `rate` buckets per second: absolute peak and RMS per bucket.
+ * Samples per bucket can be fractional (11025 / 50 = 220.5), so bucket edges are placed by the
+ * running sample count; rounding it per bucket would make the envelope drift away from the audio.
+ */
+function envelope(sampleRate: number, rate: number) {
+  const per = sampleRate / rate
+  let total = 0
+  let edge = Math.round(per)
+  const peaks: number[] = []
+  const rms: number[] = []
+  let n = 0
+  let pk = 0
+  let sq = 0
+  return {
+    peaks,
+    push(samples: Float32Array) {
       for (let j = 0; j < samples.length; j++) {
         const v = samples[j]
         const a = v < 0 ? -v : v
@@ -56,24 +85,15 @@ function envelope(
           sq = 0
         }
       }
-      leftover = buf.subarray(usable)
-      const progress = peaks.length / rate / Math.max(1, duration)
-      if (onProgress && progress - lastReport > 0.01) {
-        lastReport = progress
-        onProgress(Math.min(1, progress))
-      }
-    })
-    p.stderr.on('data', (d) => (err += d))
-    p.on('error', reject)
-    p.on('close', (code) => {
-      if (code !== 0) return reject(new Error(`Could not decode audio: ${err.slice(-500)}`))
+    },
+    finish() {
       if (n > 0) {
         peaks.push(pk)
         rms.push(Math.sqrt(sq / n))
       }
-      resolve({ peaks, rms })
-    })
-  })
+      return { peaks, rms }
+    }
+  }
 }
 
 const normalise = (arr: number[]) => {
@@ -83,29 +103,50 @@ const normalise = (arr: number[]) => {
   return arr.map((v) => Math.round((v / max) * 1000) / 1000)
 }
 
-export async function analyseAudio(file: string, onProgress?: (p: number) => void): Promise<{ duration: number; waveform: Waveform }> {
+const MAIN_RATE = 11025
+const BASS: Stream = { filter: 'lowpass=f=140,lowpass=f=140', rate: 2000 }
+const VOCAL: Stream = { filter: 'highpass=f=250,highpass=f=250,lowpass=f=3500', rate: 8000 }
+
+/**
+ * Builds the waveform (full signal, bass and vocal band envelopes) from one decode of the set and,
+ * with `spectrum`, the spectral frames for takeover detection from the same samples.
+ */
+export async function analyseAudio(
+  file: string,
+  onProgress?: (p: number) => void,
+  opts: { spectrum?: boolean } = {}
+): Promise<{ duration: number; waveform: Waveform; spectrum?: SpectralFrames }> {
   const duration = await probeDuration(file)
-  let full = 0
-  let low = 0
-  let mid = 0
-  const report = () => onProgress?.(full * 0.6 + low * 0.2 + mid * 0.2)
-  const [main, bass, vocal] = await Promise.all([
-    envelope(file, 11025, null, WAVEFORM_RATE, duration, (p) => ((full = p), report())),
-    envelope(file, 2000, 'lowpass=f=140,lowpass=f=140', WAVEFORM_RATE, duration, (p) => ((low = p), report())),
-    envelope(file, 8000, 'highpass=f=250,highpass=f=250,lowpass=f=3500', WAVEFORM_RATE, duration, (p) => ((mid = p), report()))
-  ])
+  const main = envelope(MAIN_RATE, WAVEFORM_RATE)
+  const bass = envelope(BASS.rate, WAVEFORM_RATE)
+  const vocal = envelope(VOCAL.rate, WAVEFORM_RATE)
+  const spectrum = opts.spectrum ? spectralAccumulator() : null
+  let lastReport = 0
+  await decodeStreams(file, [{ filter: null, rate: MAIN_RATE }, BASS, VOCAL], (i, samples) => {
+    if (i === 1) return bass.push(samples)
+    if (i === 2) return vocal.push(samples)
+    main.push(samples)
+    spectrum?.push(samples)
+    const progress = main.peaks.length / WAVEFORM_RATE / Math.max(1, duration)
+    if (onProgress && progress - lastReport > 0.01) {
+      lastReport = progress
+      onProgress(Math.min(1, progress))
+    }
+  })
+  const full = main.finish()
   // Peaks and RMS share one scale so the RMS stays a fraction of the peak.
   let max = 0
-  for (const v of main.peaks) if (v > max) max = v
+  for (const v of full.peaks) if (v > max) max = v
   const k = max > 0 ? 1 / max : 1
   const round = (v: number) => Math.round(v * k * 1000) / 1000
   return {
     duration,
-    waveform: { rate: WAVEFORM_RATE, peaks: main.peaks.map(round), rms: main.rms.map(round), bass: normalise(bass.rms), vocal: normalise(vocal.rms) }
+    waveform: { rate: WAVEFORM_RATE, peaks: full.peaks.map(round), rms: full.rms.map(round), bass: normalise(bass.finish().rms), vocal: normalise(vocal.finish().rms) },
+    spectrum: spectrum?.finish()
   }
 }
 
-const SPECTRUM_RATE = 11025
+const SPECTRUM_RATE = MAIN_RATE
 const FFT_SIZE = 2048
 const HOP = 2756 // ~4 frames per second
 const BANDS = 32
@@ -145,13 +186,11 @@ function fft(re: Float64Array, im: Float64Array) {
  * About 4 times a second: log energy in 32 bands (40 Hz to 5 kHz, log spaced) with each frame's mean
  * removed, used to tell tracks apart, and linear power in 48 bands over the same range, normalised
  * per band over the whole set, used to measure how much of each track is in the mix.
+ * Fed the mono 11,025 Hz samples as they're decoded, so the set is never held in memory whole.
  */
-export async function spectralFrames(file: string): Promise<SpectralFrames> {
-  const raw = await runFfmpeg(['-i', file, '-vn', '-ac', '1', '-ar', String(SPECTRUM_RATE), '-f', 'f32le', '-'])
-  const x = new Float32Array(raw.buffer, raw.byteOffset, Math.floor(raw.length / 4))
-  const edges: number[] = []
+function spectralAccumulator() {
   const bandEdges = (n: number) => Array.from({ length: n + 1 }, (_, b) => Math.round((40 * Math.pow(5000 / 40, b / n) * FFT_SIZE) / SPECTRUM_RATE))
-  edges.push(...bandEdges(BANDS))
+  const edges = bandEdges(BANDS)
   const powerEdges = bandEdges(POWER_BANDS)
   const power: Float32Array[] = []
   const totals = new Float64Array(POWER_BANDS)
@@ -159,7 +198,12 @@ export async function spectralFrames(file: string): Promise<SpectralFrames> {
   const re = new Float64Array(FFT_SIZE)
   const im = new Float64Array(FFT_SIZE)
   const frames: Float32Array[] = []
-  for (let o = 0; o + FFT_SIZE <= x.length; o += HOP) {
+  // Samples not yet used by a frame; `pos` is where the next frame starts within them.
+  let x = new Float32Array(FFT_SIZE * 8)
+  let len = 0
+  let pos = 0
+
+  const frame = (o: number) => {
     for (let i = 0; i < FFT_SIZE; i++) {
       re[i] = x[o + i] * win[i]
       im[i] = 0
@@ -185,7 +229,35 @@ export async function spectralFrames(file: string): Promise<SpectralFrames> {
     }
     power.push(pw)
   }
-  // Every band on the same footing, so the kick doesn't decide everything.
-  for (const pw of power) for (let b = 0; b < POWER_BANDS; b++) pw[b] /= totals[b] / power.length || 1
-  return { fps: SPECTRUM_RATE / HOP, frames, power }
+
+  return {
+    push(samples: Float32Array) {
+      if (len + samples.length > x.length) {
+        // Drop what's been used, and grow only if a chunk is bigger than the room left. The next
+        // frame can start past the samples held so far (the hop is longer than a frame).
+        const start = Math.min(pos, len)
+        const keep = x.subarray(start, len)
+        const next = keep.length + samples.length > x.length ? new Float32Array((keep.length + samples.length) * 2) : x
+        next.set(keep)
+        x = next
+        len = keep.length
+        pos -= start
+      }
+      x.set(samples, len)
+      len += samples.length
+      for (; pos + FFT_SIZE <= len; pos += HOP) frame(pos)
+    },
+    finish(): SpectralFrames {
+      // Every band on the same footing, so the kick doesn't decide everything.
+      for (const pw of power) for (let b = 0; b < POWER_BANDS; b++) pw[b] /= totals[b] / power.length || 1
+      return { fps: SPECTRUM_RATE / HOP, frames, power }
+    }
+  }
+}
+
+/** Spectral frames on their own (when they weren't kept from the analysis). */
+export async function spectralFrames(file: string): Promise<SpectralFrames> {
+  const spectrum = spectralAccumulator()
+  await decodeStreams(file, [{ filter: null, rate: SPECTRUM_RATE }], (_, samples) => spectrum.push(samples))
+  return spectrum.finish()
 }

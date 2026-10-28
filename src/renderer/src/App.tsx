@@ -4,7 +4,7 @@ import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from
 import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
-import { DEFAULT_SETTINGS, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
+import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { api, errMsg, mediaUrl } from './api'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
@@ -105,7 +105,7 @@ export function App() {
     setSaveState({ status: 'saving' })
     let ok = true
     saving.current = api
-      .saveProject(p, path)
+      .saveProject(forDisk(p), path)
       .then(({ savedAt }) => {
         if (rev.current === at) {
           setDirty(false)
@@ -139,7 +139,7 @@ export function App() {
   const saveAs = useCallback(async () => {
     if (!project) return
     try {
-      const r = await api.saveProjectAs(project, projectPath)
+      const r = await api.saveProjectAs(forDisk(project), projectPath)
       if (!r) return
       setProjectPath(r.path)
       setDirty(false)
@@ -265,7 +265,7 @@ export function App() {
       // The tutorial works on a throwaway project: no file, nothing to save.
       const saved = opts.tutorial
         ? null
-        : await api.createProject(fresh).catch((e) => {
+        : await api.createProject(forDisk(fresh)).catch((e) => {
             showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
             return null
           })
@@ -293,6 +293,12 @@ export function App() {
 
   const openProject = async (path?: string) => {
     if (!(await settle())) return
+    // Shown only when the set has to be analysed again (no cached waveform on this computer).
+    let analysing = false
+    const off = api.onAudioProgress((p) => {
+      analysing = true
+      setBusy({ label: 'Analysing the set recording…', progress: p })
+    })
     try {
       const r = await api.openProject(path)
       if (!r) return
@@ -319,6 +325,8 @@ export function App() {
       if (project) showToast(msg)
       else setError(msg)
     } finally {
+      off()
+      if (analysing) setBusy(null)
       refreshRecent()
     }
   }

@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import type { Preferences, Project, RecentProject } from '@shared/types'
+import { forDisk, type Preferences, type ProjectFile, type RecentProject } from '@shared/types'
 
 export const PROJECT_EXT = 'djvis'
 const MAX_RECENT = 12
@@ -66,7 +66,12 @@ export async function clearRecent() {
   await updateStore(() => ({ recent: [] }))
 }
 
-async function remember(path: string, project: Project) {
+/** When each project was last put at the top of the recent list, to skip rewriting it on every autosave. */
+const remembered = new Map<string, number>()
+const REMEMBER_EVERY = 30_000
+
+async function remember(path: string, project: ProjectFile) {
+  remembered.set(path, Date.now())
   const entry: RecentProject = {
     path,
     name: basename(path).replace(/\.djvis$/i, ''),
@@ -87,15 +92,16 @@ async function writeAtomic(path: string, data: string) {
   await rename(tmp, path)
 }
 
-export async function writeProject(path: string, project: Project) {
-  const stamped = { ...project, savedAt: new Date().toISOString() }
+export async function writeProject(path: string, project: ProjectFile) {
+  const stamped = { ...forDisk(project), savedAt: new Date().toISOString() }
   await writeAtomic(path, JSON.stringify(stamped))
-  await remember(path, stamped)
+  // The recent list shows the track count and save time; a little stale is fine between autosaves.
+  if (Date.now() - (remembered.get(path) ?? 0) > REMEMBER_EVERY) await remember(path, stamped)
   return stamped.savedAt
 }
 
-export async function readProject(path: string): Promise<Project> {
-  const project = JSON.parse(await readFile(path, 'utf8')) as Project
+export async function readProject(path: string): Promise<ProjectFile> {
+  const project = JSON.parse(await readFile(path, 'utf8')) as ProjectFile
   if (!project || !project.audioPath || !Array.isArray(project.tracks)) throw new Error(`${basename(path)} isn't a Set Visualizer project`)
   await remember(path, project)
   return project
