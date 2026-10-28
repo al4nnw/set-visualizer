@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseTime } from '../src/shared/layout'
-import { parseTracklist } from '../src/shared/tracklist'
+import { dropRepeatedLoads, parseTracklist } from '../src/shared/tracklist'
 import { ffmpegPath } from '../src/main/ffmpeg'
 
 const arg = (name: string) => {
@@ -25,7 +25,8 @@ const hms = (sec: number) => {
 async function main() {
   const [audio, cuePath] = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !all[i - 1]?.startsWith('--'))
   if (!audio || !cuePath) throw new Error('usage: make-tutorial <set.wav> <set.cue> [--track 3] [--from h:mm:ss] [--minutes 8]')
-  const entries = parseTracklist(await readFile(cuePath)).filter((e) => e.start !== undefined)
+  // Rekordbox logs a song again when its deck goes back on air; the app drops those repeats on import too.
+  const entries = dropRepeatedLoads(parseTracklist(await readFile(cuePath)).filter((e) => e.start !== undefined))
   if (entries.length < 3) throw new Error('The cue sheet needs at least 3 timed tracks')
   const track = Math.max(2, Math.min(entries.length, Number(arg('track') ?? 3)))
   const from = arg('from') ? parseTime(arg('from')!) : Math.max(0, entries[track - 1].start! - 20)
@@ -52,7 +53,7 @@ async function main() {
     lines.push(`\tTRACK ${String(i + 1).padStart(2, '0')} AUDIO`, `\t\tTITLE "${q(e.title)}"`, `\t\tPERFORMER "${q(e.artist)}"`, `\t\tINDEX 01 ${hms(e.start! - from)}`)
   })
   await writeFile(join(outDir, 'tutorial.cue'), lines.join('\n') + '\n')
-  console.log(`Wrote ${outAudio} (${hms(from)} + ${length / 60} min, ${kept.length} tracks) and tutorial.cue`)
+  console.log(`Wrote ${outAudio} (${length / 60} min from ${hms(from)}, ${kept.length} tracks) and tutorial.cue`)
 }
 
 main().catch((e) => {
