@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { parseCue, parsePlainList, parseRekordboxTxt, decodeText, mergeHits, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
+import { parseCue, decodeText, parseTracklist, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
 import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
-import { cardStates, parseTime, formatTime } from '../src/shared/layout'
+import { cardStates, parseTime, formatTime, formatTimecode } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
 
 describe('tracklist parsing', () => {
@@ -20,20 +20,13 @@ describe('tracklist parsing', () => {
     expect(r.map((e) => e.title)).toEqual(['Song One', 'Song Two'])
     expect(r[1].start).toBe(42 * 60 + 23)
   })
-  it('parses rekordbox utf-16 txt exports', () => {
-    const txt = '#\tArtwork\tTrack Title\tArtist\tBPM\n1\t\tStrobe\tdeadmau5\t128.00\n2\t\tOpus\tEric Prydz\t126.00\n'
-    const buf = new Uint8Array([0xff, 0xfe, ...new Uint8Array(Buffer.from(txt, 'utf16le'))])
-    const r = parseRekordboxTxt(decodeText(buf))!
-    expect(r.map((e) => e.title)).toEqual(['Strobe', 'Opus'])
-    expect(r[1].artist).toBe('Eric Prydz')
-    const tracks = entriesToTracks(r, 600)
+  it('reads UTF-16 cue sheets', () => {
+    const cue = 'TRACK 01 AUDIO\n  TITLE "Strobe"\n  PERFORMER "deadmau5"\n  INDEX 01 00:00:00\n'
+    const buf = new Uint8Array([0xff, 0xfe, ...new Uint8Array(Buffer.from(cue, 'utf16le'))])
+    expect(parseTracklist(buf)).toMatchObject([{ title: 'Strobe', artist: 'deadmau5', start: 0 }])
+    expect(decodeText(new Uint8Array(Buffer.from('abc')))).toBe('abc')
+    const tracks = entriesToTracks([{ title: 'a', artist: '' }, { title: 'b', artist: '' }], 600)
     expect(tracks.map((t) => [t.start, t.deck])).toEqual([[0, 'A'], [300, 'B']])
-  })
-  it('parses pasted tracklists', () => {
-    const r = parsePlainList('00:00 Artist A - Song One\n[1:02:03] Artist B – Song Two (Extended Mix)\n3. Artist C - Song Three (12:30)')
-    expect(r[0]).toEqual({ artist: 'Artist A', title: 'Song One', start: 0 })
-    expect(r[1]).toEqual({ artist: 'Artist B', title: 'Song Two (Extended Mix)', start: 3723 })
-    expect(r[2]).toMatchObject({ artist: 'Artist C', title: 'Song Three', start: 750 })
   })
 })
 
@@ -43,14 +36,8 @@ describe('time helpers', () => {
     expect(formatTime(3723)).toBe('1:02:03')
     expect(formatTime(65)).toBe('1:05')
     expect(parseTime('abc')).toBeNaN()
-  })
-})
-
-describe('mergeHits', () => {
-  it('collapses repeated hits and ignores short blips', () => {
-    const h = (at: number, title: string) => ({ at, title, artist: 'X' })
-    const r = mergeHits([h(0, 'A'), h(45, 'A'), h(90, 'B'), h(135, 'A'), h(180, 'C'), h(225, 'C')])
-    expect(r.map((g) => [g.title, g.at])).toEqual([['A', 0], ['C', 180]])
+    expect(formatTimecode(3723.5, 30)).toBe('01:02:03:15')
+    expect(formatTimecode(0.999, 30)).toBe('00:00:00:29')
   })
 })
 

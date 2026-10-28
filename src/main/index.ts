@@ -1,18 +1,18 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream, type WriteStream } from 'node:fs'
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { Readable } from 'node:stream'
-import type { Project, SearchResult } from '@shared/types'
-import { parseTracklist } from '@shared/tracklist'
+import type { Preferences, Project, SearchResult } from '@shared/types'
+import { decodeText, parseTracklist } from '@shared/tracklist'
 import { detectTakeovers } from '@shared/takeover'
 import { analyseAudio, spectralFrames } from './audio'
 import { downloadArt, importLocalArt } from './art'
 import { createAutoArt } from './autoArt'
 import { ffmpegPath } from './ffmpeg'
-import { identifySet } from './identify'
+import { clearRecent, getPrefs, listRecent, newProjectPath, PROJECT_EXT, readProject, setPrefs, writeProject } from './projects'
 import { search } from './search'
 
 protocol.registerSchemesAsPrivileged([
@@ -27,27 +27,6 @@ const MIME: Record<string, string> = {
 }
 
 const artDir = () => join(app.getPath('userData'), 'art')
-const settingsFile = () => join(app.getPath('userData'), 'settings.json')
-
-interface AppSettings {
-  auddToken?: string
-  recent?: string[]
-}
-
-async function readSettings(): Promise<AppSettings> {
-  try {
-    return JSON.parse(await readFile(settingsFile(), 'utf8'))
-  } catch {
-    return {}
-  }
-}
-async function writeSettings(patch: Partial<AppSettings>) {
-  const s = { ...(await readSettings()), ...patch }
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(settingsFile(), JSON.stringify(s, null, 2))
-  return s
-}
-
 /** Serves local files to the renderer as media://file/<encoded path>, with Range support for seeking. */
 function registerMediaProtocol() {
   protocol.handle('media', async (req) => {
@@ -92,9 +71,8 @@ function createWindow() {
     height: 940,
     minWidth: 1100,
     minHeight: 700,
-    backgroundColor: '#0a0a10',
+    backgroundColor: '#161618',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -109,6 +87,22 @@ function createWindow() {
     pendingOpen = null
     if (file) send('app:open-path', file)
   })
+  // Let the renderer finish an autosave (or ask about unsaved changes) before the window goes.
+  let closing = false
+  win.on('close', (e) => {
+    if (closing || !win) return
+    e.preventDefault()
+    send('app:before-close', null)
+    setTimeout(() => {
+      closing = true
+      win?.destroy()
+    }, 5000)
+  })
+  ipcMain.removeAllListeners('app:close-ok')
+  ipcMain.on('app:close-ok', () => {
+    closing = true
+    win?.destroy()
+  })
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -117,8 +111,39 @@ function createWindow() {
 
 const send = (channel: string, payload: unknown) => win?.webContents.send(channel, payload)
 
-// ---- Identification -------------------------------------------------------------------------
-let identifyAbort: AbortController | null = null
+/**
+ * The menu bar is drawn by the renderer. macOS still needs a native menu for the app menu and for
+ * copy/paste in text fields; its File items forward to the renderer's commands.
+ */
+function setupNativeMenu() {
+  if (process.platform !== 'darwin') return Menu.setApplicationMenu(null)
+  const cmd = (id: string) => () => send('menu:command', id)
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        role: 'appMenu',
+        submenu: [{ role: 'about' }, { type: 'separator' }, { label: 'Settings…', accelerator: 'Cmd+,', click: cmd('preferences') }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'quit' }]
+      },
+      {
+        label: 'File',
+        submenu: [
+          { label: 'New Project', accelerator: 'Cmd+N', click: cmd('new') },
+          { label: 'Open Project…', accelerator: 'Cmd+O', click: cmd('open') },
+          { type: 'separator' },
+          { label: 'Import Set Recording…', accelerator: 'Cmd+I', click: cmd('importAudio') },
+          { label: 'Import Rekordbox Cue…', accelerator: 'Shift+Cmd+I', click: cmd('importCue') },
+          { type: 'separator' },
+          { label: 'Save', accelerator: 'Cmd+S', click: cmd('save') },
+          { label: 'Save As…', accelerator: 'Shift+Cmd+S', click: cmd('saveAs') },
+          { type: 'separator' },
+          { label: 'Export Video…', accelerator: 'Cmd+E', click: cmd('export') }
+        ]
+      },
+      { role: 'editMenu' },
+      { role: 'windowMenu' }
+    ])
+  )
+}
 
 // ---- Export -------------------------------------------------------------------------------
 interface WebCodecsExport {
@@ -154,10 +179,7 @@ function registerIpc() {
     return r.canceled ? null : r.filePaths[0]
   })
   ipcMain.handle('dialog:openTracklist', async () => {
-    const r = await dialog.showOpenDialog(win!, {
-      properties: ['openFile'],
-      filters: [{ name: 'Tracklist', extensions: ['cue', 'txt', 'm3u', 'm3u8', 'csv'] }]
-    })
+    const r = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Rekordbox cue sheet', extensions: ['cue'] }] })
     return r.canceled ? null : r.filePaths[0]
   })
   ipcMain.handle('dialog:openImage', async () => {
@@ -176,53 +198,50 @@ function registerIpc() {
   ipcMain.handle('audio:takeovers', async (_e, path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>) =>
     detectTakeovers(await spectralFrames(path), cues, duration, songs)
   )
-  ipcMain.handle('tracklist:parse', async (_e, path: string) => parseTracklist(basename(path), await readFile(path)))
 
-  ipcMain.handle('project:save', async (_e, project: Project, path: string | null) => {
-    let target = path
-    if (!target) {
-      const r = await dialog.showSaveDialog(win!, {
-        defaultPath: project.audioName.replace(/\.[^.]+$/, '') + '.djvis',
-        filters: [{ name: 'Set Visualizer project', extensions: ['djvis'] }]
-      })
-      if (r.canceled || !r.filePath) return null
-      target = r.filePath
-    }
-    await writeFile(target, JSON.stringify(project))
-    return target
+  ipcMain.handle('tracklist:read', async (_e, path: string) => {
+    const buf = await readFile(path)
+    return { entries: parseTracklist(buf), text: decodeText(buf), name: basename(path) }
+  })
+
+  // Projects (.djvis). New projects go straight into the projects folder so autosave has a file.
+  const projectFilter = [{ name: 'Set Visualizer project', extensions: [PROJECT_EXT] }]
+  ipcMain.handle('project:create', async (_e, project: Project) => {
+    const path = await newProjectPath(project.audioName)
+    return { path, savedAt: await writeProject(path, project) }
+  })
+  ipcMain.handle('project:save', async (_e, project: Project, path: string) => ({ path, savedAt: await writeProject(path, project) }))
+  ipcMain.handle('project:saveAs', async (_e, project: Project, current: string | null) => {
+    const r = await dialog.showSaveDialog(win!, {
+      defaultPath: current ?? join((await getPrefs()).projectsDir, project.audioName.replace(/\.[^.]+$/, '') + '.' + PROJECT_EXT),
+      filters: projectFilter
+    })
+    if (r.canceled || !r.filePath) return null
+    return { path: r.filePath, savedAt: await writeProject(r.filePath, project) }
   })
   ipcMain.handle('project:open', async (_e, path?: string) => {
     let target = path
     if (!target) {
-      const r = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Set Visualizer project', extensions: ['djvis'] }] })
+      const r = await dialog.showOpenDialog(win!, { defaultPath: (await getPrefs()).projectsDir, properties: ['openFile'], filters: projectFilter })
       if (r.canceled) return null
       target = r.filePaths[0]
     }
-    return { path: target, project: JSON.parse(await readFile(target, 'utf8')) as Project }
+    return { path: target, project: await readProject(target) }
   })
+  ipcMain.handle('recent:list', () => listRecent())
+  ipcMain.handle('recent:clear', () => clearRecent())
 
-  ipcMain.handle('settings:get', () => readSettings())
-  ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => writeSettings(patch))
+  ipcMain.handle('prefs:get', () => getPrefs())
+  ipcMain.handle('prefs:set', (_e, patch: Partial<Preferences>) => setPrefs(patch))
+  ipcMain.handle('dialog:chooseFolder', async (_e, current?: string) => {
+    const r = await dialog.showOpenDialog(win!, { defaultPath: current, properties: ['openDirectory', 'createDirectory'] })
+    return r.canceled ? null : r.filePaths[0]
+  })
 
   ipcMain.handle('search', (_e, provider: SearchResult['provider'], q: string) => search(provider, q))
   ipcMain.handle('art:download', (_e, url: string) => downloadArt(url, artDir()))
   const autoArt = createAutoArt(artDir())
   ipcMain.handle('art:auto', (_e, artist: string, title: string) => autoArt(artist, title))
-
-  ipcMain.handle('identify:start', async (_e, o: { audioPath: string; duration: number; interval: number }) => {
-    const { auddToken } = await readSettings()
-    if (!auddToken) throw new Error('Add your AudD API token in Settings first.')
-    identifyAbort?.abort()
-    identifyAbort = new AbortController()
-    return identifySet({
-      ...o,
-      token: auddToken,
-      signal: identifyAbort.signal,
-      onHit: (hit) => send('identify:hit', hit),
-      onProgress: (done, total) => send('identify:progress', { done, total })
-    })
-  })
-  ipcMain.handle('identify:cancel', () => identifyAbort?.abort())
 
   // The renderer draws and encodes H.264 with WebCodecs (hardware encoder when available) and streams the chunks here.
   ipcMain.handle('export:begin', async (_e, project: Project, outPath: string) => {
@@ -258,11 +277,15 @@ function registerIpc() {
 
   ipcMain.handle('shell:reveal', (_e, path: string) => shell.showItemInFolder(path))
   ipcMain.handle('shell:open', (_e, url: string) => shell.openExternal(url))
+  ipcMain.handle('app:devtools', () => win?.webContents.toggleDevTools())
+  ipcMain.handle('app:fullscreen', () => win?.setFullScreen(!win.isFullScreen()))
+  ipcMain.handle('app:quit', () => win?.close())
 }
 
 app.whenReady().then(() => {
   registerMediaProtocol()
   registerIpc()
+  setupNativeMenu()
   createWindow()
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow())
 })

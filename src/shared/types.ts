@@ -27,8 +27,6 @@ export interface Track {
   /** Where the track/art was found (YouTube, SoundCloud, ...). */
   sourceUrl?: string
   source?: string
-  /** True when the track came from audio fingerprinting and hasn't been reviewed. */
-  unverified?: boolean
 }
 
 export interface Waveform {
@@ -73,6 +71,16 @@ export const QUALITY_BPP: Record<Quality, number> = { standard: 0.07, high: 0.13
 /** x264 CRF used by the headless exporter. */
 export const QUALITY_CRF: Record<Quality, number> = { standard: 21, high: 18, max: 15 }
 
+/** The Rekordbox recording cue sheet a project's tracklist came from, kept in the project file. */
+export interface CueImport {
+  path: string
+  name: string
+  importedAt: string
+  /** The cue sheet as imported, so the project still has it if the original file moves. */
+  text: string
+}
+
+/** A .djvis project file (JSON). */
 export interface Project {
   version: 1
   audioPath: string
@@ -81,6 +89,31 @@ export interface Project {
   waveform: Waveform
   tracks: Track[]
   settings: RenderSettings
+  cue?: CueImport
+  createdAt?: string
+  savedAt?: string
+}
+
+/** App-wide preferences, stored in the user data folder (not in projects). */
+export interface Preferences {
+  /** Save the project on every change. */
+  autosave: boolean
+  /** Where new projects are created when a set recording is opened. */
+  projectsDir: string
+  /** Look up YouTube thumbnails for imported tracks. */
+  autoArtwork: boolean
+  /** Video settings that new projects start with. */
+  defaultWidth: number
+  defaultHeight: number
+  defaultFps: number
+}
+
+export interface RecentProject {
+  path: string
+  name: string
+  audioName?: string
+  savedAt?: string
+  tracks?: number
 }
 
 export interface SearchResult {
@@ -93,14 +126,6 @@ export interface SearchResult {
   image: string
   thumbnail: string
   durationSec?: number
-}
-
-export interface IdentifyHit {
-  at: number
-  title: string
-  artist: string
-  artwork?: string
-  url?: string
 }
 
 export interface ExportProgress {

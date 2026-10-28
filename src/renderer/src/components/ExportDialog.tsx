@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import { formatTime, mainTracks } from '@shared/layout'
-import type { ExportProgress, Project, Quality, RenderSettings, Theme } from '@shared/types'
+import type { ExportProgress, Project, Quality, RenderSettings } from '@shared/types'
 import { api } from '../api'
 import { runExport, webCodecsAvailable } from '../export/runExport'
+import { Icon } from './icons'
 
 interface Props {
   project: Project
@@ -10,7 +11,7 @@ interface Props {
   onChangeSettings: (patch: Partial<RenderSettings>, mergeKey?: string) => void
 }
 
-const RESOLUTIONS = [
+export const RESOLUTIONS = [
   { label: '720p', w: 1280, h: 720 },
   { label: '1080p', w: 1920, h: 1080 },
   { label: '1440p', w: 2560, h: 1440 },
@@ -34,7 +35,6 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
   const abortRef = useRef<AbortController | null>(null)
   const running = progress !== null && ['preparing', 'rendering', 'finishing'].includes(progress.stage)
   const chapters = youtubeChapters(project)
-  const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
 
   const start = async () => {
     const name = (s.setTitle || project.audioName.replace(/\.[^.]+$/, '')).replace(/[\\/:*?"<>|]+/g, '-') + '.mp4'
@@ -58,7 +58,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
         <div className="modal-head">
           <h3>Export video</h3>
           <button className="icon-btn" onClick={onClose} disabled={running}>
-            ✕
+            <Icon name="close" />
           </button>
         </div>
 
@@ -95,46 +95,11 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
                 ))}
               </div>
             </label>
-            <h4>Text</h4>
-            <label>
-              DJ name
-              <input value={s.djName} onChange={(e) => onChangeSettings({ djName: e.target.value }, 'dj')} placeholder="shown top-left" />
-            </label>
-            <label>
-              Set title
-              <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder="e.g. Live from the studio — October 2026" />
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={s.showTimestamps} onChange={(e) => onChangeSettings({ showTimestamps: e.target.checked })} />
-              Show elapsed / total time
-            </label>
+            <p className="muted small">Text, colors and transitions are in the Style tab of the inspector.</p>
           </div>
           <div className="col">
-            <h4>Look</h4>
-            <div className="row">
-              <label className="color">
-                Deck A
-                <input type="color" value={s.theme.accent} onChange={(e) => setTheme({ accent: e.target.value })} />
-              </label>
-              <label className="color">
-                Deck B
-                <input type="color" value={s.theme.accentB} onChange={(e) => setTheme({ accentB: e.target.value })} />
-              </label>
-              <label className="color">
-                Background
-                <input type="color" value={s.theme.background} onChange={(e) => setTheme({ background: e.target.value })} />
-              </label>
-            </div>
-            <label>
-              Next track appears {s.defaultLead}s before it takes over
-              <input type="range" min={0} max={120} step={5} value={s.defaultLead} onChange={(e) => onChangeSettings({ defaultLead: +e.target.value }, 'lead')} />
-            </label>
-            <label>
-              Swap animation: {s.swapDuration.toFixed(1)}s
-              <input type="range" min={0.4} max={4} step={0.1} value={s.swapDuration} onChange={(e) => onChangeSettings({ swapDuration: +e.target.value }, 'swap')} />
-            </label>
             <h4>YouTube chapters</h4>
-            <textarea readOnly value={chapters} rows={6} />
+            <textarea readOnly value={chapters} rows={12} />
             <button
               className="btn small"
               onClick={() => {

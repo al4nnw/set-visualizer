@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { IdentifyHit, Project, SearchResult, Waveform } from '@shared/types'
+import type { Preferences, Project, RecentProject, SearchResult, Waveform } from '@shared/types'
 import type { ParsedEntry } from '@shared/tracklist'
 
 function on<T>(channel: string, cb: (payload: T) => void) {
@@ -7,6 +7,8 @@ function on<T>(channel: string, cb: (payload: T) => void) {
   ipcRenderer.on(channel, fn)
   return () => void ipcRenderer.removeListener(channel, fn)
 }
+
+type Saved = { path: string; savedAt: string }
 
 const api = {
   platform: process.platform,
@@ -20,23 +22,24 @@ const api = {
   onAudioProgress: (cb: (p: number) => void) => on('audio:progress', cb),
   detectTakeovers: (path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>): Promise<Array<{ start: number; audibleAt: number; tailEnd: number } | null>> =>
     ipcRenderer.invoke('audio:takeovers', path, cues, duration, songs),
-  parseTracklist: (path: string): Promise<ParsedEntry[]> => ipcRenderer.invoke('tracklist:parse', path),
+  readCue: (path: string): Promise<{ entries: ParsedEntry[]; text: string; name: string }> => ipcRenderer.invoke('tracklist:read', path),
 
-  saveProject: (p: Project, path: string | null): Promise<string | null> => ipcRenderer.invoke('project:save', p, path),
+  /** Writes a new project into the projects folder and returns where. */
+  createProject: (p: Project): Promise<Saved> => ipcRenderer.invoke('project:create', p),
+  saveProject: (p: Project, path: string): Promise<Saved> => ipcRenderer.invoke('project:save', p, path),
+  saveProjectAs: (p: Project, current: string | null): Promise<Saved | null> => ipcRenderer.invoke('project:saveAs', p, current),
   openProject: (path?: string): Promise<{ path: string; project: Project } | null> => ipcRenderer.invoke('project:open', path),
+  recentProjects: (): Promise<RecentProject[]> => ipcRenderer.invoke('recent:list'),
+  clearRecent: (): Promise<void> => ipcRenderer.invoke('recent:clear'),
 
-  getSettings: (): Promise<{ auddToken?: string }> => ipcRenderer.invoke('settings:get'),
-  setSettings: (patch: { auddToken?: string }) => ipcRenderer.invoke('settings:set', patch),
+  getPrefs: (): Promise<Preferences> => ipcRenderer.invoke('prefs:get'),
+  setPrefs: (patch: Partial<Preferences>): Promise<Preferences> => ipcRenderer.invoke('prefs:set', patch),
+  chooseFolder: (current?: string): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder', current),
 
   search: (provider: SearchResult['provider'], q: string): Promise<SearchResult[]> => ipcRenderer.invoke('search', provider, q),
   downloadArt: (url: string): Promise<string> => ipcRenderer.invoke('art:download', url),
   /** YouTube thumbnail for a song, from the local cache when it's been looked up before. */
   autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
-
-  identify: (o: { audioPath: string; duration: number; interval: number }): Promise<IdentifyHit[]> => ipcRenderer.invoke('identify:start', o),
-  cancelIdentify: () => ipcRenderer.invoke('identify:cancel'),
-  onIdentifyHit: (cb: (h: IdentifyHit) => void) => on('identify:hit', cb),
-  onIdentifyProgress: (cb: (p: { done: number; total: number }) => void) => on('identify:progress', cb),
 
   exportBegin: (p: Project, outPath: string): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),
@@ -44,6 +47,14 @@ const api = {
   exportAbort: (): Promise<void> => ipcRenderer.invoke('export:abort'),
 
   onOpenPath: (cb: (path: string) => void) => on('app:open-path', cb),
+  /** Commands from the native macOS menu. */
+  onMenuCommand: (cb: (id: string) => void) => on('menu:command', cb),
+  /** The window is about to close: save, then call closeOk(). */
+  onBeforeClose: (cb: () => void) => on('app:before-close', cb),
+  closeOk: () => ipcRenderer.send('app:close-ok'),
+  quit: () => ipcRenderer.invoke('app:quit'),
+  toggleDevTools: () => ipcRenderer.invoke('app:devtools'),
+  toggleFullScreen: () => ipcRenderer.invoke('app:fullscreen'),
   reveal: (path: string) => ipcRenderer.invoke('shell:reveal', path),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open', url)
 }

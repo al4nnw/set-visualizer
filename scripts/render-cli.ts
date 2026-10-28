@@ -27,7 +27,7 @@ async function main() {
     const { duration, waveform } = await analyseAudio(resolve(audio))
     console.log(`${duration.toFixed(1)}s`)
     const tl = arg('tracklist')
-    const tracks = tl ? entriesToTracks(parseTracklist(tl, await readFile(tl)), duration) : []
+    const tracks = tl ? entriesToTracks(parseTracklist(await readFile(tl)), duration) : []
     project = { version: 1, audioPath: resolve(audio), audioName: basename(audio), duration, waveform, tracks, settings: { ...DEFAULT_SETTINGS } }
   }
   const s = project.settings

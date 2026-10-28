@@ -1,5 +1,5 @@
-import type { IdentifyHit, Track } from './types'
-import { alternateDecks, parseTime } from './layout'
+import type { Track } from './types'
+import { alternateDecks } from './layout'
 
 export interface ParsedEntry {
   title: string
@@ -31,12 +31,6 @@ export function decodeText(buf: Uint8Array): string {
   for (let i = 1; i < n; i += 2) if (buf[i] === 0) zeros++
   if (n > 10 && zeros > n / 4) return new TextDecoder('utf-16le').decode(buf)
   return new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '')
-}
-
-function splitArtistTitle(s: string): { artist: string; title: string } {
-  const m = /^(.*?)\s+[-–—]\s+(.*)$/.exec(s.trim())
-  if (m) return { artist: m[1].trim(), title: m[2].trim() }
-  return { artist: '', title: s.trim() }
 }
 
 /**
@@ -139,68 +133,9 @@ export function parseCue(text: string): ParsedEntry[] {
   return out
 }
 
-/** Rekordbox "Export playlist (.txt)": tab separated with a header row ("Track Title", "Artist", ...). */
-export function parseRekordboxTxt(text: string): ParsedEntry[] | null {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim())
-  if (!lines.length || !lines[0].includes('\t')) return null
-  const header = lines[0].split('\t').map((h) => h.trim().toLowerCase())
-  const ti = header.findIndex((h) => h === 'track title' || h === 'title' || h === 'name')
-  const ai = header.findIndex((h) => h === 'artist')
-  if (ti < 0) return null
-  // Some exports (and third-party history tools) include a time column.
-  const timeIdx = header.findIndex((h) => ['start time', 'start', 'time played', 'played at', 'cue'].includes(h))
-  return lines.slice(1).map((l) => {
-    const cols = l.split('\t')
-    const e: ParsedEntry = { title: (cols[ti] ?? '').trim(), artist: ai >= 0 ? (cols[ai] ?? '').trim() : '' }
-    if (timeIdx >= 0) {
-      const t = parseTime(cols[timeIdx] ?? '')
-      if (!Number.isNaN(t)) e.start = t
-    }
-    return e
-  })
-}
-
-/** M3U/M3U8: "#EXTINF:duration,Artist - Title" lines. No start times. */
-export function parseM3u(text: string): ParsedEntry[] {
-  const out: ParsedEntry[] = []
-  for (const line of text.split(/\r?\n/)) {
-    const m = /^#EXTINF:[^,]*,(.*)$/.exec(line.trim())
-    if (m) out.push(splitArtistTitle(m[1]))
-  }
-  return out
-}
-
-/**
- * Free-form tracklists as people paste them in YouTube descriptions:
- *   "00:00 Artist - Title", "[1:02:03] Artist - Title", "1. Artist - Title (12:30)"
- */
-export function parsePlainList(text: string): ParsedEntry[] {
-  const out: ParsedEntry[] = []
-  const timeRe = /(\d{1,2}:\d{2}(?::\d{2})?)/
-  for (const raw of text.split(/\r?\n/)) {
-    let line = raw.trim()
-    if (!line || line.startsWith('#')) continue
-    let start: number | undefined
-    const tm = timeRe.exec(line)
-    if (tm) {
-      start = parseTime(tm[1])
-      line = (line.slice(0, tm.index) + line.slice(tm.index + tm[1].length))
-        .replace(/[\[(]\s*[\])]/g, ' ')
-        .trim()
-    }
-    line = line.replace(/^\d{1,3}[.)]\s+/, '').replace(/^[-–—|:]\s*/, '').replace(/\s*[-–—|]$/, '').trim()
-    if (!line) continue
-    out.push({ ...splitArtistTitle(line), start })
-  }
-  return out
-}
-
-export function parseTracklist(fileName: string, buf: Uint8Array): ParsedEntry[] {
-  const text = decodeText(buf)
-  const ext = fileName.toLowerCase().split('.').pop()
-  if (ext === 'cue') return parseCue(text)
-  if (ext === 'm3u' || ext === 'm3u8') return parseM3u(text)
-  return parseRekordboxTxt(text) ?? parsePlainList(text)
+/** Reads a Rekordbox recording's .cue sheet, the only tracklist format the app imports. */
+export function parseTracklist(buf: Uint8Array): ParsedEntry[] {
+  return parseCue(decodeText(buf))
 }
 
 /**
@@ -233,29 +168,3 @@ const norm = (s: string) =>
 
 export const sameSong = (a: { title: string; artist: string }, b: { title: string; artist: string }) =>
   norm(a.title) === norm(b.title) && (norm(a.artist) === norm(b.artist) || !a.artist || !b.artist)
-
-/**
- * Collapses periodic fingerprint hits into a tracklist. A song is accepted once it's been heard
- * `minHits` times (or once if it's the only thing heard in that stretch), and starts at its first hit.
- */
-export function mergeHits(hits: IdentifyHit[], minHits = 1): Array<IdentifyHit & { count: number }> {
-  const sorted = [...hits].sort((a, b) => a.at - b.at)
-  const groups: Array<IdentifyHit & { count: number }> = []
-  for (const h of sorted) {
-    const last = groups[groups.length - 1]
-    if (last && sameSong(last, h)) {
-      last.count++
-      if (!last.artwork && h.artwork) last.artwork = h.artwork
-      continue
-    }
-    // An earlier song heard again after a short blip from another song (common in long blends).
-    const prev = groups[groups.length - 2]
-    if (prev && last && last.count === 1 && sameSong(prev, h)) {
-      groups.pop()
-      prev.count++
-      continue
-    }
-    groups.push({ ...h, count: 1 })
-  }
-  return groups.filter((g, i, all) => g.count >= minHits || all.length === 1)
-}

@@ -1,46 +1,158 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { alternateDecks, formatTime, mainTracks } from '@shared/layout'
-import { entriesToTracks, newId, placeTakeovers, sameSong } from '@shared/tracklist'
+import { alternateDecks, mainTracks } from '@shared/layout'
+import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
-import { DEFAULT_SETTINGS, type IdentifyHit, type Project, type RenderSettings, type Track } from '@shared/types'
+import { DEFAULT_SETTINGS, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { api, errMsg, mediaUrl } from './api'
-import { DropZone } from './components/DropZone'
 import { ExportDialog } from './components/ExportDialog'
-import { IdentifyDialog } from './components/IdentifyDialog'
-import { Preview } from './components/Preview'
+import { Icon } from './components/icons'
+import { Inspector, type InspectorTab } from './components/Inspector'
+import { flatten, matches, MenuBar, shortcutLabel, type Menu } from './components/MenuBar'
+import { PreferencesDialog } from './components/Preferences'
 import { SearchDialog } from './components/SearchDialog'
-import { Sidebar } from './components/Sidebar'
-import { Timeline } from './components/Timeline'
+import { Splitter, useStoredNumber } from './components/Splitter'
+import { EmptyTimeline, Timeline, type TimelineHandle } from './components/Timeline'
+import { Viewer } from './components/Viewer'
 import { useHistory } from './useHistory'
 
-type Dialog = { kind: 'search'; trackId: string } | { kind: 'identify' } | { kind: 'export' } | null
+type Dialog = { kind: 'search'; trackId: string } | { kind: 'export' } | { kind: 'prefs' } | { kind: 'shortcuts' } | { kind: 'about' } | null
+type SaveState = { status: 'saved' | 'saving' | 'edited' | 'error'; message?: string }
+
+const AUDIO = /\.(wav|mp3|flac|aiff?|m4a|aac|ogg|opus)$/i
+const CUE = /\.cue$/i
+const PROJECT = /\.djvis$/i
+const AUTOSAVE_DELAY = 800
+const INSPECTOR_W = 360
+const TIMELINE_H = 250
 
 export function App() {
   const { state: project, set, reset, undo, redo } = useHistory<Project | null>(null)
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' })
+  const [prefs, setPrefsState] = useState<Preferences | null>(null)
+  const [recent, setRecent] = useState<RecentProject[]>([])
   const [busy, setBusy] = useState<{ label: string; progress: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [tab, setTab] = useState<InspectorTab>('tracks')
   const [dialog, setDialog] = useState<Dialog>(null)
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
+  const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
+  const timelineRef = useRef<TimelineHandle>(null)
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
     setTimeout(() => setToast((t) => (t === msg ? null : t)), 4000)
   }, [])
 
+  const refreshRecent = useCallback(() => {
+    api.recentProjects().then(setRecent, () => {})
+  }, [])
+
+  useEffect(() => {
+    api.getPrefs().then(setPrefsState, () => {})
+    refreshRecent()
+  }, [refreshRecent])
+
+  const changePrefs = async (patch: Partial<Preferences>) => setPrefsState(await api.setPrefs(patch))
+
+  // ---- saving ----------------------------------------------------------------------------
+  // Each edit bumps `rev`; a save only clears `dirty` if nothing changed while it was writing.
+  const rev = useRef(0)
+  const latest = useRef<{ project: Project | null; path: string | null }>({ project: null, path: null })
+  latest.current = { project, path: projectPath }
+  const saving = useRef<Promise<void> | null>(null)
+
+  const markDirty = useCallback(() => {
+    rev.current++
+    setDirty(true)
+    setSaveState((s) => (s.status === 'saving' ? s : { status: 'edited' }))
+  }, [])
+
   const update = useCallback(
     (fn: (p: Project) => Project, mergeKey?: string, skipHistory = false) => {
       set((p) => (p ? fn(p) : p), { mergeKey, skipHistory })
-      setDirty(true)
+      markDirty()
     },
-    [set]
+    [set, markDirty]
   )
 
+  /** Writes the current project to its file. Runs one save at a time and re-saves if edits came in meanwhile. */
+  const saveNow = useCallback(async (): Promise<boolean> => {
+    while (saving.current) await saving.current
+    const { project: p, path } = latest.current
+    if (!p || !path) return false
+    const at = rev.current
+    setSaveState({ status: 'saving' })
+    let ok = true
+    saving.current = api
+      .saveProject(p, path)
+      .then(({ savedAt }) => {
+        if (rev.current === at) {
+          setDirty(false)
+          setSaveState({ status: 'saved' })
+        } else setSaveState({ status: 'edited' })
+        // Keep savedAt in memory without making it an undo step or another edit.
+        set((cur) => (cur ? { ...cur, savedAt } : cur), { skipHistory: true })
+      })
+      .catch((e) => {
+        ok = false
+        setSaveState({ status: 'error', message: errMsg(e) })
+      })
+      .finally(() => (saving.current = null))
+    await saving.current
+    return ok
+  }, [set])
+
+  useEffect(() => {
+    if (!dirty || !projectPath || !prefs?.autosave || saveState.status === 'saving') return
+    const t = setTimeout(() => void saveNow(), AUTOSAVE_DELAY)
+    return () => clearTimeout(t)
+  }, [project, dirty, projectPath, prefs?.autosave, saveState.status, saveNow])
+
+  /** Before replacing or closing the project: flush autosave, or ask about unsaved edits. */
+  const settle = useCallback(async (): Promise<boolean> => {
+    if (!latest.current.project || !dirty) return true
+    if (prefs?.autosave && latest.current.path) return (await saveNow()) || confirm('The project could not be saved. Continue anyway?')
+    return confirm('This project has unsaved changes. Discard them?')
+  }, [dirty, prefs?.autosave, saveNow])
+
+  const saveAs = useCallback(async () => {
+    if (!project) return
+    try {
+      const r = await api.saveProjectAs(project, projectPath)
+      if (!r) return
+      setProjectPath(r.path)
+      setDirty(false)
+      setSaveState({ status: 'saved' })
+      showToast(`Saved as ${r.path.split(/[\\/]/).pop()}`)
+      refreshRecent()
+    } catch (e) {
+      showToast(`Couldn't save: ${errMsg(e)}`)
+    }
+  }, [project, projectPath, showToast, refreshRecent])
+
+  const save = useCallback(async () => {
+    if (!project) return
+    if (!projectPath) return saveAs()
+    if (await saveNow()) showToast('Project saved')
+  }, [project, projectPath, saveAs, saveNow, showToast])
+
+  useEffect(
+    () =>
+      api.onBeforeClose(async () => {
+        if (await settle()) api.closeOk()
+      }),
+    [settle]
+  )
+
+  // ---- tracks ------------------------------------------------------------------------------
   const changeTrack = useCallback(
     (id: string, patch: Partial<Track>, mergeKey?: string) =>
       update((p) => ({ ...p, tracks: p.tracks.map((t) => (t.id === id ? { ...t, ...patch } : t)) }), mergeKey),
@@ -52,23 +164,10 @@ export function App() {
     [update]
   )
 
-  /** Downloads artwork for tracks in the background without adding undo steps. */
-  const fetchArtworkFor = useCallback(
-    (items: Array<{ id: string; url: string }>) => {
-      for (const it of items) {
-        api
-          .downloadArt(it.url)
-          .then((artwork) => update((p) => ({ ...p, tracks: p.tracks.map((t) => (t.id === it.id && !t.artwork ? { ...t, artwork } : t)) }), undefined, true))
-          .catch(() => {})
-      }
-    },
-    [update]
-  )
-
   /**
    * Looks each track without artwork up on YouTube and uses the best match's thumbnail (cached on
    * disk per song). Runs in the background, two at a time; any image can still be replaced from the
-   * track editor.
+   * inspector.
    */
   const autoArtwork = useCallback(
     async (tracks: Track[]) => {
@@ -105,35 +204,50 @@ export function App() {
       return api.detectTakeovers(audioPath, cues, duration, songs)
     })
 
-  const loadAudio = async (audioPath: string, tracklistPath: string | null) => {
+  /** Reads a Rekordbox cue sheet and places its tracks, ready to store in the project. */
+  const readCue = async (cuePath: string, audioPath: string, duration: number, onDetect: () => void) => {
+    const { entries, text, name } = await api.readCue(cuePath)
+    if (!entries.length) throw new Error(`No tracks found in ${name}`)
+    const tracks = entriesToTracks(await withTakeovers(entries, audioPath, duration, onDetect), duration)
+    return { tracks, cue: { path: cuePath, name, text, importedAt: new Date().toISOString() } }
+  }
+
+  /** Opening a set recording starts a new project, saved straight away into the projects folder. */
+  const loadAudio = async (audioPath: string, cuePath: string | null) => {
+    if (!(await settle())) return
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
     const off = api.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
     try {
       const { duration, waveform, name } = await api.analyseAudio(audioPath)
-      let tracks: Track[] = []
-      if (tracklistPath) {
-        const entries = await withTakeovers(await api.parseTracklist(tracklistPath), audioPath, duration, () =>
-          setBusy({ label: 'Finding where each track takes over…', progress: 1 })
-        )
-        tracks = entriesToTracks(entries, duration)
-      }
-      reset({
+      const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => setBusy({ label: 'Finding where each track takes over…', progress: 1 })) : null
+      const p = prefs ?? (await api.getPrefs())
+      const fresh: Project = {
         version: 1,
         audioPath,
         audioName: name,
         duration,
         waveform,
-        tracks,
-        settings: { ...DEFAULT_SETTINGS, setTitle: name.replace(/\.[^.]+$/, '') }
-      })
-      setProjectPath(null)
-      setDirty(true)
-      setTime(0)
-      if (tracklistPath) {
-        showToast(`Imported ${tracks.length} tracks from the tracklist. Fetching thumbnails from YouTube…`)
-        void autoArtwork(tracks)
+        tracks: fromCue?.tracks ?? [],
+        cue: fromCue?.cue,
+        createdAt: new Date().toISOString(),
+        settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, setTitle: name.replace(/\.[^.]+$/, '') }
       }
+      const saved = await api.createProject(fresh).catch((e) => {
+        showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
+        return null
+      })
+      reset({ ...fresh, savedAt: saved?.savedAt })
+      setProjectPath(saved?.path ?? null)
+      setDirty(!saved)
+      setSaveState(saved ? { status: 'saved' } : { status: 'edited' })
+      setSelectedId(null)
+      setTime(0)
+      refreshRecent()
+      if (fromCue) {
+        showToast(`Imported ${fromCue.tracks.length} tracks from ${fromCue.cue.name}`)
+        if (p.autoArtwork) void autoArtwork(fromCue.tracks)
+      } else if (saved) showToast(`New project ${saved.path.split(/[\\/]/).pop()}. Import the Rekordbox .cue next.`)
     } catch (e) {
       setError(errMsg(e))
     } finally {
@@ -143,64 +257,72 @@ export function App() {
   }
 
   const openProject = async (path?: string) => {
+    if (!(await settle())) return
     try {
       const r = await api.openProject(path)
       if (!r) return
       reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
       setProjectPath(r.path)
       setDirty(false)
+      setSaveState({ status: 'saved' })
+      setSelectedId(null)
       setTime(0)
+      setError(null)
     } catch (e) {
-      setError(errMsg(e))
+      const msg = errMsg(e)
+      if (project) showToast(msg)
+      else setError(msg)
+    } finally {
+      refreshRecent()
     }
   }
 
-  const save = useCallback(async () => {
-    if (!project) return
-    try {
-      const p = await api.saveProject(project, projectPath)
-      if (p) {
-        setProjectPath(p)
-        setDirty(false)
-        showToast('Project saved')
-      }
-    } catch (e) {
-      showToast(`Couldn't save: ${errMsg(e)}`)
-    }
-  }, [project, projectPath, showToast])
+  const newProject = async () => {
+    if (!(await settle())) return
+    reset(null)
+    setProjectPath(null)
+    setDirty(false)
+    setSaveState({ status: 'saved' })
+    setSelectedId(null)
+    setError(null)
+    refreshRecent()
+  }
 
-  const importTracklist = async () => {
-    if (!project) return
-    const path = await api.openTracklistDialog()
-    if (!path) return
+  const importAudio = async () => {
+    const path = await api.openAudioDialog()
+    if (path) void loadAudio(path, null)
+  }
+
+  /** Importing a cue sheet replaces the tracklist and records the cue in the project file. */
+  const importCue = async (path?: string) => {
+    if (!project) return showToast('Open the set recording first, then import its .cue')
+    const cuePath = path ?? (await api.openTracklistDialog())
+    if (!cuePath) return
+    if (project.tracks.length && !confirm('Replace the current tracklist with the tracks from this .cue?')) return
     try {
-      const entries = await api.parseTracklist(path)
-      if (!entries.length) return showToast('No tracks found in that file')
-      const placed = await withTakeovers(entries, project.audioPath, project.duration, () => showToast('Finding where each track takes over…'))
-      const tracks = entriesToTracks(placed, project.duration)
-      update((p) => ({ ...p, tracks }))
-      void autoArtwork(tracks)
-      const timed = entries.every((e) => e.start !== undefined)
-      showToast(timed ? `Imported ${tracks.length} tracks` : `Imported ${tracks.length} tracks. The file has no times, so they're spread evenly: drag them into place.`)
+      const { tracks, cue } = await readCue(cuePath, project.audioPath, project.duration, () => showToast('Finding where each track takes over…'))
+      update((p) => ({ ...p, tracks, cue }))
+      setSelectedId(null)
+      setTab('tracks')
+      if (prefs?.autoArtwork !== false) void autoArtwork(tracks)
+      showToast(`Imported ${tracks.length} tracks from ${cue.name}`)
     } catch (e) {
       showToast(errMsg(e))
     }
   }
 
-  const applyHits = (hits: Array<IdentifyHit & { count: number }>, mode: 'replace' | 'add') => {
-    if (!project) return
-    const fresh = hits
-      .filter((h) => mode === 'replace' || !project.tracks.some((t) => sameSong(t, h)))
-      .map((h) => ({ id: newId(), title: h.title, artist: h.artist, start: Math.max(0, Math.round(h.at)), deck: 'A' as const, unverified: true, sourceUrl: h.url, source: 'AudD', art: h.artwork }))
-    const tracks = alternateDecks([...(mode === 'replace' ? [] : project.tracks), ...fresh.map(({ art: _a, ...t }) => t)])
-    update((p) => ({ ...p, tracks }))
-    fetchArtworkFor(fresh.filter((f) => f.art).map((f) => ({ id: f.id, url: f.art! })))
-    setDialog(null)
-    showToast(`${fresh.length} tracks added. Check the times: each one starts where it was first recognised.`)
+  const openPaths = (paths: string[]) => {
+    const proj = paths.find((p) => PROJECT.test(p))
+    if (proj) return void openProject(proj)
+    const audio = paths.find((p) => AUDIO.test(p))
+    const cue = paths.find((p) => CUE.test(p)) ?? null
+    if (audio) return void loadAudio(audio, cue)
+    if (cue) return void importCue(cue)
+    showToast('Drop a set recording, a Rekordbox .cue or a .djvis project')
   }
 
   const openPathRef = useRef<(path: string) => void>(() => {})
-  openPathRef.current = (path: string) => (path.endsWith('.djvis') ? openProject(path) : loadAudio(path, null))
+  openPathRef.current = (path: string) => openPaths([path])
   useEffect(() => api.onOpenPath((p) => openPathRef.current(p)), [])
 
   // ---- playback ----------------------------------------------------------------------------
@@ -221,10 +343,11 @@ export function App() {
 
   const seek = useCallback(
     (t: number) => {
-      setTime(t)
-      if (audioEl) audioEl.currentTime = t
+      const c = Math.max(0, Math.min(project?.duration ?? 0, t))
+      setTime(c)
+      if (audioEl) audioEl.currentTime = c
     },
-    [audioEl]
+    [audioEl, project?.duration]
   )
 
   const togglePlay = useCallback(() => {
@@ -241,9 +364,11 @@ export function App() {
   }
 
   const addTrack = () => {
+    if (!project) return
     const id = newId()
     update((p) => ({ ...p, tracks: alternateDecks([...p.tracks, { id, title: '', artist: '', start: time, deck: 'A' }]) }))
     setSelectedId(id)
+    setTab('tracks')
   }
 
   const deleteTrack = useCallback(
@@ -254,123 +379,326 @@ export function App() {
     [update]
   )
 
-  // ---- keyboard ------------------------------------------------------------------------------
+  // ---- menus -------------------------------------------------------------------------------
+  const has = !!project
+  const fileName = projectPath?.split(/[\\/]/).pop()?.replace(PROJECT, '')
+  const menus: Menu[] = [
+    {
+      label: 'File',
+      onOpen: refreshRecent,
+      items: [
+        { label: 'New Project', shortcut: 'Mod+N', global: true, run: newProject },
+        { label: 'Open Project…', shortcut: 'Mod+O', global: true, run: () => openProject() },
+        {
+          label: 'Open Recent',
+          submenu: recent.length
+            ? [
+                ...recent.map((r) => ({ label: r.name, hint: r.tracks ? `${r.tracks} tracks` : undefined, run: () => openProject(r.path) })),
+                'sep' as const,
+                { label: 'Clear Recent', run: () => api.clearRecent().then(refreshRecent) }
+              ]
+            : [{ label: 'No recent projects', disabled: true }]
+        },
+        'sep',
+        { label: 'Import Set Recording…', shortcut: 'Mod+I', global: true, run: importAudio },
+        { label: 'Import Rekordbox Cue…', shortcut: 'Mod+Shift+I', global: true, run: () => importCue(), disabled: !has },
+        'sep',
+        { label: 'Save', shortcut: 'Mod+S', global: true, run: save, disabled: !has },
+        { label: 'Save As…', shortcut: 'Mod+Shift+S', global: true, run: saveAs, disabled: !has },
+        { label: 'Show Project in Folder', run: () => projectPath && api.reveal(projectPath), disabled: !projectPath },
+        'sep',
+        { label: 'Export Video…', shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has },
+        'sep',
+        { label: api.platform === 'darwin' ? 'Close Window' : 'Exit', shortcut: 'Mod+Q', global: true, run: () => api.quit() }
+      ]
+    },
+    {
+      label: 'Edit',
+      items: [
+        { label: 'Undo', shortcut: 'Mod+Z', run: undo, disabled: !has },
+        { label: 'Redo', shortcut: 'Mod+Shift+Z', alsoKeys: ['Mod+Y'], run: redo, disabled: !has },
+        'sep',
+        { label: 'Add Track at Playhead', shortcut: 'M', run: addTrack, disabled: !has },
+        { label: 'Delete Track', shortcut: 'Delete', alsoKeys: ['Backspace'], run: () => selectedId && deleteTrack(selectedId), disabled: !selectedId },
+        { label: 'Find Artwork…', run: () => selectedId && setDialog({ kind: 'search', trackId: selectedId }), disabled: !selectedId },
+        { label: 'Re-alternate Decks A/B', run: () => update((p) => ({ ...p, tracks: alternateDecks(p.tracks) })), disabled: !has },
+        'sep',
+        { label: 'Settings…', shortcut: 'Mod+,', global: true, run: () => setDialog({ kind: 'prefs' }) }
+      ]
+    },
+    {
+      label: 'View',
+      items: [
+        { label: 'Zoom In', shortcut: '=', run: () => timelineRef.current?.zoomIn(), disabled: !has },
+        { label: 'Zoom Out', shortcut: '-', run: () => timelineRef.current?.zoomOut(), disabled: !has },
+        { label: 'Fit Set to Timeline', shortcut: '\\', run: () => timelineRef.current?.fit(), disabled: !has },
+        'sep',
+        { label: 'Tracks', checked: tab === 'tracks', run: () => setTab('tracks') },
+        { label: 'Style', checked: tab === 'style', run: () => setTab('style') },
+        { label: 'Project', checked: tab === 'project', run: () => setTab('project') },
+        'sep',
+        {
+          label: 'Reset Panel Layout',
+          run: () => {
+            setInspectorW(INSPECTOR_W)
+            setTimelineH(TIMELINE_H)
+          }
+        },
+        { label: 'Full Screen', shortcut: 'F11', global: true, run: () => api.toggleFullScreen() },
+        { label: 'Developer Tools', shortcut: 'F12', global: true, run: () => api.toggleDevTools() }
+      ]
+    },
+    {
+      label: 'Playback',
+      items: [
+        { label: playing ? 'Pause' : 'Play', shortcut: 'Space', run: togglePlay, disabled: !has },
+        'sep',
+        { label: 'Previous Track', shortcut: 'ArrowUp', run: () => jumpTrack(-1), disabled: !has },
+        { label: 'Next Track', shortcut: 'ArrowDown', run: () => jumpTrack(1), disabled: !has },
+        { label: 'Back 5 Seconds', shortcut: 'ArrowLeft', run: () => seek(time - 5), disabled: !has },
+        { label: 'Forward 5 Seconds', shortcut: 'ArrowRight', run: () => seek(time + 5), disabled: !has },
+        { label: 'Back 30 Seconds', shortcut: 'Shift+ArrowLeft', run: () => seek(time - 30), disabled: !has },
+        { label: 'Forward 30 Seconds', shortcut: 'Shift+ArrowRight', run: () => seek(time + 30), disabled: !has },
+        'sep',
+        { label: 'Go to Start', shortcut: 'Home', run: () => seek(0), disabled: !has },
+        { label: 'Go to End', shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
+      ]
+    },
+    {
+      label: 'Help',
+      items: [
+        { label: 'Keyboard Shortcuts', shortcut: 'Mod+/', global: true, run: () => setDialog({ kind: 'shortcuts' }) },
+        { label: 'About Set Visualizer', run: () => setDialog({ kind: 'about' }) }
+      ]
+    }
+  ]
+
+  const menusRef = useRef(menus)
+  menusRef.current = menus
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)
-      const mod = e.metaKey || e.ctrlKey
-      if (mod && e.key.toLowerCase() === 's') {
+      if (dialog && e.key === 'Escape') return setDialog(null)
+      for (const it of flatten(menusRef.current)) {
+        const combos = [it.shortcut, ...(it.alsoKeys ?? [])].filter(Boolean) as string[]
+        if (!combos.some((c) => matches(e, c))) continue
+        if ((typing || dialog) && !it.global) return
         e.preventDefault()
-        save()
-      } else if (mod && e.key.toLowerCase() === 'z' && !typing) {
-        e.preventDefault()
-        e.shiftKey ? redo() : undo()
-      } else if (mod && e.key.toLowerCase() === 'y' && !typing) {
-        e.preventDefault()
-        redo()
-      } else if (typing || dialog) {
+        if (!it.disabled) it.run?.()
         return
-      } else if (e.code === 'Space') {
-        e.preventDefault()
-        togglePlay()
-      } else if (e.key === 'ArrowLeft') seek(Math.max(0, time - (e.shiftKey ? 30 : 5)))
-      else if (e.key === 'ArrowRight') seek(time + (e.shiftKey ? 30 : 5))
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) deleteTrack(selectedId)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [save, undo, redo, togglePlay, seek, time, dialog, selectedId, deleteTrack])
+  }, [dialog])
+
+  // Commands from the native macOS menu.
+  useEffect(
+    () =>
+      api.onMenuCommand((id) => {
+        const by: Record<string, () => void> = {
+          new: newProject,
+          open: () => openProject(),
+          importAudio,
+          importCue: () => importCue(),
+          save,
+          saveAs,
+          export: () => setDialog({ kind: 'export' }),
+          preferences: () => setDialog({ kind: 'prefs' })
+        }
+        by[id]?.()
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [project, projectPath, save, saveAs]
+  )
 
   useEffect(() => {
-    document.title = project ? `${dirty ? '• ' : ''}${project.audioName} — Set Visualizer` : 'Set Visualizer'
-  }, [project, dirty])
+    const name = project ? fileName ?? project.audioName : null
+    document.title = name ? `${name}${dirty && !prefs?.autosave ? ' *' : ''} — Set Visualizer` : 'Set Visualizer'
+  }, [project, fileName, dirty, prefs?.autosave])
 
-  if (!project) return <DropZone busy={busy} error={error} onFiles={loadAudio} onOpenProject={openProject} />
+  const searchTrack = dialog?.kind === 'search' && project ? project.tracks.find((t) => t.id === dialog.trackId) : undefined
 
-  const searchTrack = dialog?.kind === 'search' ? project.tracks.find((t) => t.id === dialog.trackId) : undefined
+  const status =
+    !project ? null : saveState.status === 'saving' ? (
+      <span className="save-state">Saving…</span>
+    ) : saveState.status === 'error' ? (
+      <span className="save-state error" title={saveState.message}>
+        Not saved
+      </span>
+    ) : dirty || !projectPath ? (
+      <span className="save-state edited">{prefs?.autosave && projectPath ? 'Edited' : 'Unsaved changes'}</span>
+    ) : (
+      <span className="save-state ok">
+        <Icon name="check" size={12} /> {prefs?.autosave ? 'Autosaved' : 'Saved'}
+      </span>
+    )
 
   return (
-    <div className={`app ${api.platform === 'darwin' ? 'mac' : ''}`}>
-      <header className="topbar">
-        <div className="brand">
-          <div className="logo-mark small" />
-          <span>Set Visualizer</span>
-        </div>
-        <div className="file-name" title={project.audioPath}>
-          {project.audioName}
-          {dirty && <span className="dot" />}
-        </div>
-        <div className="grow" />
-        <button className="btn ghost" onClick={() => (!dirty || confirm('Discard unsaved changes?')) && reset(null)}>
-          New
-        </button>
-        <button className="btn ghost" onClick={importTracklist}>
-          Import tracklist
-        </button>
-        <button className="btn" onClick={() => setDialog({ kind: 'identify' })}>
-          Identify tracks
-        </button>
-        <button className="btn" onClick={save}>
-          Save
-        </button>
-        <button className="btn primary" onClick={() => setDialog({ kind: 'export' })}>
-          Export video
-        </button>
-      </header>
+    <div
+      className={`app ${api.platform === 'darwin' ? 'mac' : ''}`}
+      style={{ ['--inspector-w' as string]: `${inspectorW}px`, ['--timeline-h' as string]: `${timelineH}px` }}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={(e) => e.relatedTarget === null && setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        openPaths([...e.dataTransfer.files].map((f) => api.pathForFile(f)))
+      }}
+    >
+      <MenuBar
+        menus={menus}
+        center={
+          project && (
+            <>
+              <span className="doc-name" title={projectPath ?? undefined}>
+                {fileName ?? project.audioName.replace(/\.[^.]+$/, '')}
+              </span>
+              {status}
+            </>
+          )
+        }
+        right={
+          <>
+            <button className="icon-btn small" title={`Settings (${shortcutLabel('Mod+,')})`} onClick={() => setDialog({ kind: 'prefs' })}>
+              <Icon name="gear" size={14} />
+            </button>
+            <button className="btn export-btn" disabled={!project} onClick={() => setDialog({ kind: 'export' })}>
+              <Icon name="export" size={13} /> Export
+            </button>
+          </>
+        }
+      />
 
       <main className="workspace">
-        <section className="stage">
-          <Preview project={project} audio={audioEl} time={time} />
-          <div className="transport">
-            <button className="icon-btn" onClick={() => jumpTrack(-1)} title="Previous track">
-              ⏮
-            </button>
-            <button className="play-btn" onClick={togglePlay} title="Play / pause (space)">
-              {playing ? '❚❚' : '▶'}
-            </button>
-            <button className="icon-btn" onClick={() => jumpTrack(1)} title="Next track">
-              ⏭
-            </button>
-            <div className="clock">
-              {formatTime(time, project.duration >= 3600)} <span className="muted">/ {formatTime(project.duration)}</span>
-            </div>
-            <div className="grow" />
-            <span className="muted small hint">Space play · ←/→ seek · ⌘/Ctrl+Z undo</span>
-          </div>
-        </section>
-        <Sidebar
+        <Viewer
           project={project}
+          audio={audioEl}
+          time={time}
+          playing={playing}
+          busy={busy}
+          error={error}
+          recent={recent}
+          onTogglePlay={togglePlay}
+          onSeek={seek}
+          onJumpTrack={jumpTrack}
+          onImportAudio={importAudio}
+          onOpenProject={openProject}
+        />
+        <Splitter dir="col" value={inspectorW} min={280} max={640} sign={-1} onChange={setInspectorW} onReset={() => setInspectorW(INSPECTOR_W)} />
+        <Inspector
+          project={project}
+          projectPath={projectPath}
+          tab={tab}
+          onTab={setTab}
           time={time}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onSeek={seek}
           onChangeTrack={changeTrack}
+          onChangeSettings={changeSettings}
           onDelete={deleteTrack}
           onAdd={addTrack}
           onSearch={(id) => setDialog({ kind: 'search', trackId: id })}
           onAlternateDecks={() => update((p) => ({ ...p, tracks: alternateDecks(p.tracks) }))}
+          onImportCue={() => importCue()}
         />
       </main>
 
+      <Splitter dir="row" value={timelineH} min={170} max={520} sign={-1} onChange={setTimelineH} onReset={() => setTimelineH(TIMELINE_H)} />
+
       <footer className="timeline-wrap">
-        <Timeline project={project} time={time} playing={playing} selectedId={selectedId} onSeek={seek} onSelect={setSelectedId} onChangeTrack={changeTrack} />
+        {project ? (
+          <Timeline
+            ref={timelineRef}
+            project={project}
+            time={time}
+            playing={playing}
+            selectedId={selectedId}
+            onSeek={seek}
+            onSelect={(id) => {
+              setSelectedId(id)
+              setTab('tracks')
+            }}
+            onChangeTrack={changeTrack}
+          />
+        ) : (
+          <EmptyTimeline />
+        )}
       </footer>
 
-      <audio
-        ref={setAudioEl}
-        src={mediaUrl(project.audioPath)}
-        preload="auto"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-        onSeeked={(e) => setTime(e.currentTarget.currentTime)}
-        onError={() => showToast("Can't play the audio file. Was it moved or renamed?")}
-      />
+      {project && (
+        <audio
+          ref={setAudioEl}
+          src={mediaUrl(project.audioPath)}
+          preload="auto"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+          onSeeked={(e) => setTime(e.currentTarget.currentTime)}
+          onError={() => showToast("Can't play the audio file. Was it moved or renamed?")}
+        />
+      )}
 
       {searchTrack && <SearchDialog track={searchTrack} onClose={() => setDialog(null)} onApply={(patch) => changeTrack(searchTrack.id, patch)} />}
-      {dialog?.kind === 'identify' && <IdentifyDialog project={project} onClose={() => setDialog(null)} onApply={applyHits} />}
-      {dialog?.kind === 'export' && <ExportDialog project={project} onClose={() => setDialog(null)} onChangeSettings={changeSettings} />}
+      {dialog?.kind === 'export' && project && <ExportDialog project={project} onClose={() => setDialog(null)} onChangeSettings={changeSettings} />}
+      {dialog?.kind === 'prefs' && prefs && <PreferencesDialog prefs={prefs} onChange={changePrefs} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'shortcuts' && <ShortcutsDialog menus={menus} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'about' && (
+        <SimpleDialog title="Set Visualizer" onClose={() => setDialog(null)}>
+          <p className="muted">Turns a recorded DJ set and its Rekordbox .cue into a visualizer video for YouTube. Projects are saved as .djvis files.</p>
+        </SimpleDialog>
+      )}
+      {dragOver && (
+        <div className="drop-overlay">
+          <div>Drop a set recording, a Rekordbox .cue or a .djvis project</div>
+        </div>
+      )}
       {toast && <div className="toast">{toast}</div>}
     </div>
+  )
+}
+
+function SimpleDialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal small-modal">
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button className="icon-btn" onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ShortcutsDialog({ menus, onClose }: { menus: Menu[]; onClose: () => void }) {
+  return (
+    <SimpleDialog title="Keyboard shortcuts" onClose={onClose}>
+      <div className="shortcut-grid">
+        {menus.map((m) => {
+          const items = flatten([m]).filter((it) => it.shortcut)
+          if (!items.length) return null
+          return (
+            <div key={m.label}>
+              <h4>{m.label}</h4>
+              {items.map((it) => (
+                <div key={it.label} className="shortcut-row">
+                  <span>{it.label}</span>
+                  <kbd>{shortcutLabel(it.shortcut!)}</kbd>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </SimpleDialog>
   )
 }

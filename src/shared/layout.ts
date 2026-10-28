@@ -137,3 +137,12 @@ export function parseTime(text: string): number {
   if (parts.some((p) => !/^\d+(\.\d+)?$/.test(p))) return NaN
   return parts.reduce((acc, p) => acc * 60 + parseFloat(p), 0)
 }
+
+/** Editor-style timecode, "01:02:03:12" (hours:minutes:seconds:frames). */
+export function formatTimecode(sec: number, fps: number): string {
+  const total = Math.max(0, Math.floor(sec * fps + 1e-6))
+  const f = total % fps
+  const s = Math.floor(total / fps)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}:${p(f)}`
+}
