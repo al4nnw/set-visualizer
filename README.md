@@ -26,14 +26,15 @@ ffmpeg and ffprobe come bundled (`ffmpeg-static`, `ffprobe-static`), nothing els
 1. **Record** your set in Rekordbox (REC panel). It saves the audio and a `.cue` next to it.
 2. **Drop the recording** on the window (or File ▸ Import Set Recording, `Ctrl+I`). Drop the `.cue` with it to place the tracks in one go. This creates `<recording name>.djvis` in the projects folder (`Documents/Set Visualizer` by default, change it in Settings) and from then on every change is autosaved.
 3. **Import the .cue** later if you didn't drop it (File ▸ Import Rekordbox Cue, `Ctrl+Shift+I`). The cue sheet is stored in the project, and the app finds where each track takes over in the audio.
-4. **Fix the timing** if needed: select a track and use **Playhead** next to "Takes over", "Mix in" or "Plays until", or drag it on the timeline.
-5. **Artwork**: thumbnails are looked up on YouTube automatically. To change one, select the track ▸ **Find artwork…** (YouTube, SoundCloud, Apple Music, Deezer), paste an image URL, or choose a local image.
-6. **Style** tab: DJ name, set title, deck colours, transition timing.
-7. **Export** (top right, `Ctrl+E`): resolution (720p–4K), fps, quality. Copy the YouTube chapters into your video description.
+4. **Fix the timing** if needed: play the transition and press `A` (or `←`) where the next track mixes in, `S` (or `↓`) where it takes over and `D` (or `→`) where the old one stops. Or select a track and use **Playhead** next to "Mix in", "Takes over" or "Plays until", or drag it on the timeline.
+5. **Clips** tab (next to Program): once the .cue is in, the app suggests short clips of the set's best moments, the transitions, the drops after a breakdown and the most driving stretch of each track, ranked best first. **Play** loops a clip in Program in the clip format; **Export** renders just that clip in 9:16 (only the close-up waveform) or 16:9.
+6. **Artwork**: thumbnails are looked up on YouTube automatically. To change one, select the track ▸ **Find artwork…** (YouTube, SoundCloud, Apple Music, Deezer), paste an image URL, or choose a local image.
+7. **Style** tab: DJ name, set title, deck colours, transition timing.
+8. **Export** (top right, `Ctrl+E`): resolution (720p–4K), fps, quality. Copy the YouTube chapters into your video description.
 
 Menus: **File** (new, open, open recent, import, save, save as, export), **Edit** (undo/redo, tracks, Settings `Ctrl+,`), **View** (timeline zoom, panels), **Playback**, **Help ▸ Keyboard Shortcuts** (`Ctrl+/`). On macOS the shortcuts use `⌘`.
 
-Keyboard: `Space` play/pause, `←/→` seek 5 s (`Shift` 30 s), `↑/↓` previous/next track, `Home/End`, `M` add a track at the playhead, `Delete` remove the selected track, `=`/`-`/`\` zoom the timeline. `Ctrl/Alt + scroll` zooms around the pointer.
+Keyboard: `Space` play/pause, `A`/`S`/`D` or `←`/`↓`/`→` mix in / takes over / plays until at the playhead (`Shift+A`/`Shift+D` clear; `I`/`T`/`O` still work), `J`/`L` seek 5 s (`Shift` 30 s), `PageUp`/`PageDown` previous/next track, `Home/End`, `M` add a track at the playhead, `Delete` remove the selected track, `=`/`-`/`\` zoom the timeline. `Ctrl/Alt + scroll` zooms around the pointer.
 
 Projects save as `.djvis` (JSON: tracks, settings, the imported cue sheet, and the analysed waveform; the audio and art stay where they are, art is cached in the app's user-data folder). Settings and the recent projects list live in `settings.json` in the user-data folder.
 

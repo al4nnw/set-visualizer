@@ -1472,3 +1472,169 @@ kbd {
   padding: 0 4px;
   line-height: 13px;
 }
+
+/* ---------- clips ---------- */
+.panel-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tab-count {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--muted);
+  font: 10px/15px var(--mono);
+}
+.clips-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+.clips-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.clips-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+.clips-card {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 5px;
+  background: var(--field);
+  border: 1px solid var(--line-2);
+  min-width: 0;
+}
+.clips-card.on {
+  border-color: var(--accent);
+}
+.clips-thumb {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.clips-thumb canvas {
+  display: block;
+}
+.clips-grid.portrait .clips-thumb canvas {
+  width: 90px;
+  height: 160px;
+}
+.clips-grid.landscape .clips-thumb canvas {
+  width: 144px;
+  height: 81px;
+}
+.clips-thumb:hover {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.clips-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.clips-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.clips-kind,
+.clips-best {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--muted);
+}
+.clips-kind.transition {
+  color: #7fc8ff;
+}
+.clips-kind.drop {
+  color: #ff8fb1;
+}
+.clips-kind.peak {
+  color: #b5e48c;
+}
+.clips-best {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.clips-score {
+  font: 500 11px var(--mono);
+  color: var(--muted);
+}
+.clips-title {
+  color: var(--text-hi);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clips-time {
+  font: 11px var(--mono);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.clips-reason {
+  font-size: 11px;
+  color: var(--text);
+}
+.clips-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.clips-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  padding: 20px;
+  text-align: center;
+}
+.loop-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 0 2px 0 8px;
+  height: 24px;
+  max-width: 340px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
+.loop-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

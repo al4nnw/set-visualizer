@@ -1,6 +1,9 @@
-import { formatTimecode } from '@shared/layout'
+import { useState } from 'react'
+import type { ClipSuggestion } from '@shared/clips'
+import { formatTime, formatTimecode } from '@shared/layout'
 import type { Project, RecentProject } from '@shared/types'
 import { Icon } from './icons'
+import { ClipsPanel, clipProject, type ClipFormat } from './Clips'
 import { Preview } from './Preview'
 import { shortcutLabel } from './MenuBar'
 
@@ -18,8 +21,17 @@ interface Props {
   /** Opens one picker for a set recording (with or without its .cue) or a project. */
   onOpenAny: () => void
   onOpenProject: (path: string) => void
+  /** Stops the analysis shown in the busy panel. */
+  onCancelBusy: () => void
   /** Files are being dragged over the window. */
   dragOver: boolean
+  clips: ClipSuggestion[]
+  /** The clip looping in Program; Program shows it in the clip format. */
+  loop: ClipSuggestion | null
+  onPlayClip: (clip: ClipSuggestion) => void
+  onStopLoop: () => void
+  clipFormat: ClipFormat
+  onClipFormat: (f: ClipFormat) => void
 }
 
 function ago(iso?: string) {
@@ -32,7 +44,7 @@ function ago(iso?: string) {
 }
 
 /** Start panel shown in the viewer before a set is loaded. */
-function StartPanel({ busy, error, recent, onOpenAny, onOpenProject }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject'>) {
+function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
   if (busy)
     return (
       <div className="start-panel">
@@ -42,6 +54,10 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject }: Pick<Prop
           <div className="bar">
             <div style={{ width: `${Math.round(busy.progress * 100)}%` }} />
           </div>
+          <div className="muted small">The editor stays usable. Opening another set or project stops this.</div>
+          <button className="btn small" onClick={onCancelBusy}>
+            Cancel
+          </button>
         </div>
       </div>
     )
@@ -74,24 +90,63 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject }: Pick<Prop
   )
 }
 
-/** Program monitor: the live render of the video with transport controls under it. */
+/**
+ * Program monitor (the live render of the video) and the Clips tab with suggested clips of the set,
+ * with transport controls under both.
+ */
 export function Viewer(p: Props) {
-  const { project, time } = p
+  const { project, time, loop } = p
+  const [tab, setTab] = useState<'program' | 'clips'>('program')
   const fps = project?.settings.fps ?? 30
+  const shown = project && loop ? clipProject(project, p.clipFormat) : project
+  const hours = (project?.duration ?? 0) >= 3600
   return (
     <section className="panel viewer">
       <div className="panel-tabs">
-        <div className="panel-tab on">Program</div>
+        <button className={`panel-tab ${tab === 'program' ? 'on' : ''}`} onClick={() => setTab('program')}>
+          Program
+        </button>
+        <button className={`panel-tab ${tab === 'clips' ? 'on' : ''}`} onClick={() => setTab('clips')} disabled={!project}>
+          Clips{project && p.clips.length ? <span className="tab-count">{p.clips.length}</span> : null}
+        </button>
         <div className="grow" />
-        {project && (
+        {shown && (
           <span className="panel-meta">
-            {project.settings.width}×{project.settings.height} · {project.settings.fps} fps
+            {shown.settings.width}×{shown.settings.height} · {shown.settings.fps} fps
           </span>
         )}
       </div>
-      <div className={`viewer-body ${p.dragOver ? 'drop-target' : ''}`}>{project && !p.busy ? <Preview project={project} audio={p.audio} time={time} /> : <StartPanel {...p} />}</div>
+      <div className={`viewer-body ${p.dragOver ? 'drop-target' : ''}`}>
+        {!project || p.busy ? (
+          <StartPanel {...p} />
+        ) : tab === 'clips' ? (
+          <ClipsPanel
+            project={project}
+            clips={p.clips}
+            playingId={loop?.id ?? null}
+            onPlay={(c) => {
+              p.onPlayClip(c)
+              setTab('program')
+            }}
+            format={p.clipFormat}
+            onFormat={p.onClipFormat}
+          />
+        ) : (
+          <Preview project={shown!} audio={p.audio} time={time} />
+        )}
+      </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
+        {loop && (
+          <div className="loop-chip" title={loop.title}>
+            <span>
+              Looping {formatTime(loop.from, hours)}–{formatTime(loop.to, hours)} · {loop.title}
+            </span>
+            <button className="icon-btn small" title="Stop looping" onClick={p.onStopLoop}>
+              <Icon name="close" size={12} />
+            </button>
+          </div>
+        )}
         <div className="grow" />
         <div className="transport-btns">
           <button className="tbtn" title="Go to start (Home)" disabled={!project} onClick={() => p.onSeek(0)}>

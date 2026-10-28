@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { suggestClips, type ClipSuggestion } from '@shared/clips'
 import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
+import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { api, errMsg, mediaUrl } from './api'
 import { ExportDialog } from './components/ExportDialog'
+import type { ClipFormat } from './components/Clips'
 import { Icon } from './components/icons'
 import { Inspector, type InspectorTab } from './components/Inspector'
-import { flatten, matches, MenuBar, shortcutLabel, type Menu, type MenuItem } from './components/MenuBar'
+import { flatten, keysLabel, matches, MenuBar, shortcutLabel, type Menu, type MenuItem } from './components/MenuBar'
 import { TutorialCard, TUTORIAL_STEPS } from './components/Tutorial'
 import { PreferencesDialog } from './components/Preferences'
 import { SearchDialog } from './components/SearchDialog'
@@ -43,6 +46,12 @@ export function App() {
   const [playing, setPlaying] = useState(false)
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [loop, setLoop] = useState<ClipSuggestion | null>(null)
+  const loopRef = useRef(loop)
+  loopRef.current = loop
+  const [clipFormat, setClipFormat] = useState<ClipFormat>('portrait')
+  // A clip belongs to the set it came from.
+  useEffect(() => setLoop(null), [project?.audioPath])
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
   const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
   const timelineRef = useRef<TimelineHandle>(null)
@@ -216,15 +225,31 @@ export function App() {
     return { tracks, cue: { path: cuePath, name, text, importedAt: new Date().toISOString() } }
   }
 
-  /** Opening a set recording starts a new project, saved straight away into the projects folder. */
+  // Each load bumps this; a load that finds it changed was replaced by opening something else.
+  const loadGen = useRef(0)
+  const cancelLoad = () => {
+    loadGen.current++
+    setBusy(null)
+    return api.cancelAnalysis()
+  }
+
+  /**
+   * Opening a set recording starts a new project, saved straight away into the projects folder.
+   * The analysis runs in a worker, so the editor stays usable; opening something else cancels it.
+   */
   const loadAudio = async (audioPath: string, cuePath: string | null, opts: { tutorial?: boolean } = {}) => {
     if (!(await settle())) return false
+    await cancelLoad()
+    const gen = loadGen.current
+    const stale = () => gen !== loadGen.current
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
     const off = api.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
     try {
       const { duration, waveform, name } = await api.analyseAudio(audioPath)
-      const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => setBusy({ label: 'Finding where each track takes over…', progress: 1 })) : null
+      if (stale()) return false
+      const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => !stale() && setBusy({ label: 'Finding where each track takes over…', progress: 1 })) : null
+      if (stale()) return false
       const p = prefs ?? (await api.getPrefs())
       const fresh: Project = {
         version: 1,
@@ -258,11 +283,11 @@ export function App() {
       } else if (saved) showToast(`New project ${saved.path.split(/[\\/]/).pop()}. Import the Rekordbox .cue next.`)
       return true
     } catch (e) {
-      setError(errMsg(e))
+      if (!stale()) setError(errMsg(e))
       return false
     } finally {
       off()
-      setBusy(null)
+      if (!stale()) setBusy(null)
     }
   }
 
@@ -271,6 +296,7 @@ export function App() {
     try {
       const r = await api.openProject(path)
       if (!r) return
+      await cancelLoad()
       reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
       setTutorial(null)
       // Projects from before the vocal band was analysed: add it in the background so the cards
@@ -353,6 +379,9 @@ export function App() {
     let raf = 0
     let last = 0
     const tick = (now: number) => {
+      // A playing clip loops: back to its start at its end.
+      const l = loopRef.current
+      if (l && audioEl.currentTime >= l.to) audioEl.currentTime = l.from
       if (now - last > 66) {
         last = now
         setTime(audioEl.currentTime)
@@ -363,9 +392,18 @@ export function App() {
     return () => cancelAnimationFrame(raf)
   }, [audioEl, playing])
 
+  // Clips are found again whenever the tracklist or the audio changes; it's a few ms, nothing is rendered.
+  const clips = useMemo(
+    () => (project?.tracks.length ? suggestClips(project.tracks, project.duration, buildMotion(project.waveform)) : []),
+    [project?.tracks, project?.duration, project?.waveform]
+  )
+
   const seek = useCallback(
     (t: number) => {
       const c = Math.max(0, Math.min(project?.duration ?? 0, t))
+      // Seeking out of a looping clip ends the loop.
+      const l = loopRef.current
+      if (l && (c < l.from - 0.5 || c > l.to + 0.5)) setLoop(null)
       setTime(c)
       if (audioEl) audioEl.currentTime = c
     },
@@ -377,6 +415,13 @@ export function App() {
     if (audioEl.paused) audioEl.play().catch((e) => showToast(`Can't play this file: ${errMsg(e)}`))
     else audioEl.pause()
   }, [audioEl, showToast])
+
+  const playClip = (c: ClipSuggestion) => {
+    setLoop(c)
+    loopRef.current = c
+    seek(c.from)
+    audioEl?.play().catch((e) => showToast(`Can't play this file: ${errMsg(e)}`))
+  }
 
   const jumpTrack = (dir: 1 | -1) => {
     if (!project) return
@@ -531,12 +576,13 @@ export function App() {
     {
       label: 'Timing',
       items: [
-        { label: 'Takes Over at Playhead', shortcut: 'T', run: () => setTimingAtPlayhead('start'), disabled: !has },
-        { label: 'Mix In at Playhead', shortcut: 'I', run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
-        { label: 'Plays Until at Playhead', shortcut: 'O', run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
+        // Left to right is the order of a transition: mix in, takes over, plays until.
+        { label: 'Mix In at Playhead', shortcut: 'A', altShortcut: 'ArrowLeft', alsoKeys: ['I'], run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
+        { label: 'Takes Over at Playhead', shortcut: 'S', altShortcut: 'ArrowDown', alsoKeys: ['T'], run: () => setTimingAtPlayhead('start'), disabled: !has },
+        { label: 'Plays Until at Playhead', shortcut: 'D', altShortcut: 'ArrowRight', alsoKeys: ['O'], run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
         'sep',
-        { label: 'Clear Mix In', shortcut: 'Shift+I', run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
-        { label: 'Clear Plays Until', shortcut: 'Shift+O', run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
+        { label: 'Clear Mix In', shortcut: 'Shift+A', alsoKeys: ['Shift+I'], run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
+        { label: 'Clear Plays Until', shortcut: 'Shift+D', alsoKeys: ['Shift+O'], run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
         'sep',
         { label: 'Select Previous Track', shortcut: '[', run: () => selectStep(-1), disabled: !has },
         { label: 'Select Next Track', shortcut: ']', run: () => selectStep(1), disabled: !has },
@@ -570,12 +616,12 @@ export function App() {
       items: [
         { label: playing ? 'Pause' : 'Play', shortcut: 'Space', run: togglePlay, disabled: !has },
         'sep',
-        { label: 'Previous Track', shortcut: 'ArrowUp', run: () => jumpTrack(-1), disabled: !has },
-        { label: 'Next Track', shortcut: 'ArrowDown', run: () => jumpTrack(1), disabled: !has },
-        { label: 'Back 5 Seconds', shortcut: 'ArrowLeft', run: () => seek(time - 5), disabled: !has },
-        { label: 'Forward 5 Seconds', shortcut: 'ArrowRight', run: () => seek(time + 5), disabled: !has },
-        { label: 'Back 30 Seconds', shortcut: 'Shift+ArrowLeft', run: () => seek(time - 30), disabled: !has },
-        { label: 'Forward 30 Seconds', shortcut: 'Shift+ArrowRight', run: () => seek(time + 30), disabled: !has },
+        { label: 'Previous Track', shortcut: 'PageUp', run: () => jumpTrack(-1), disabled: !has },
+        { label: 'Next Track', shortcut: 'PageDown', run: () => jumpTrack(1), disabled: !has },
+        { label: 'Back 5 Seconds', shortcut: 'J', run: () => seek(time - 5), disabled: !has },
+        { label: 'Forward 5 Seconds', shortcut: 'L', run: () => seek(time + 5), disabled: !has },
+        { label: 'Back 30 Seconds', shortcut: 'Shift+J', run: () => seek(time - 30), disabled: !has },
+        { label: 'Forward 30 Seconds', shortcut: 'Shift+L', run: () => seek(time + 30), disabled: !has },
         'sep',
         { label: 'Go to Start', shortcut: 'Home', run: () => seek(0), disabled: !has },
         { label: 'Go to End', shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
@@ -611,7 +657,7 @@ export function App() {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)
       if (dialog && e.key === 'Escape') return setDialog(null)
       for (const it of flatten(menusRef.current)) {
-        const combos = [it.shortcut, ...(it.alsoKeys ?? [])].filter(Boolean) as string[]
+        const combos = [it.shortcut, it.altShortcut, ...(it.alsoKeys ?? [])].filter(Boolean) as string[]
         if (!combos.some((c) => matches(e, c))) continue
         if ((typing || dialog) && !it.global) return
         e.preventDefault()
@@ -719,7 +765,14 @@ export function App() {
           onJumpTrack={jumpTrack}
           onOpenAny={openAny}
           onOpenProject={openProject}
+          onCancelBusy={() => void cancelLoad()}
           dragOver={dragOver}
+          clips={clips}
+          loop={loop}
+          onPlayClip={playClip}
+          onStopLoop={() => setLoop(null)}
+          clipFormat={clipFormat}
+          onClipFormat={setClipFormat}
         />
         <Splitter dir="col" value={inspectorW} min={280} max={640} sign={-1} onChange={setInspectorW} onReset={() => setInspectorW(INSPECTOR_W)} />
         <Inspector
@@ -835,7 +888,7 @@ function ShortcutsDialog({ menus, onClose }: { menus: Menu[]; onClose: () => voi
               {items.map((it) => (
                 <div key={it.label} className="shortcut-row">
                   <span>{it.label}</span>
-                  <kbd>{shortcutLabel(it.shortcut!)}</kbd>
+                  <kbd>{keysLabel(it)}</kbd>
                 </div>
               ))}
             </div>

@@ -6,6 +6,8 @@ export type MenuItem =
       label: string
       /** Key combo like "Mod+Shift+S", "Space" or "ArrowLeft"; Mod is Cmd on macOS, Ctrl elsewhere. */
       shortcut?: string
+      /** A second combo, shown next to the first ("A / ←"). */
+      altShortcut?: string
       /** More combos that run the same command without being shown. */
       alsoKeys?: string[]
       /** Fires even while a text field has focus. */
@@ -31,6 +33,8 @@ const KEY_NAMES: Record<string, string> = {
   ArrowRight: '→',
   ArrowUp: '↑',
   ArrowDown: '↓',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
   Delete: 'Del',
   Space: 'Space'
 }
@@ -43,12 +47,17 @@ export function shortcutLabel(combo: string): string {
   return isMac ? mods.join('') + k : [...mods, k].join('+')
 }
 
+/** The shortcut as shown in menus, with its second combo if it has one. */
+export const keysLabel = (it: { shortcut?: string; altShortcut?: string }) => [it.shortcut, it.altShortcut].filter(Boolean).map((c) => shortcutLabel(c!)).join(' / ')
+
 /** Whether a keydown matches a combo such as "Mod+Shift+S". */
 export function matches(e: KeyboardEvent, combo: string): boolean {
   const parts = combo.split('+')
   const key = parts.pop()!
   const mod = parts.includes('Mod')
   if (mod !== (isMac ? e.metaKey : e.ctrlKey)) return false
+  // Plain keys (A, S, D, arrows...) never fire with Ctrl or Cmd held.
+  if (!mod && (e.ctrlKey || e.metaKey)) return false
   // Symbols like "=" may need Shift to type on some layouts, so only letters and named keys are strict.
   const strictShift = key.length > 1 || /[a-z0-9]/i.test(key)
   if (strictShift && parts.includes('Shift') !== e.shiftKey) return false
@@ -93,7 +102,7 @@ function Items({ items, close }: { items: MenuItem[]; close: () => void }) {
             <span className="menu-check">{it.checked ? '✓' : ''}</span>
             <span className="menu-label">{it.label}</span>
             {it.hint && <span className="menu-hint">{it.hint}</span>}
-            {it.shortcut && <span className="menu-key">{shortcutLabel(it.shortcut)}</span>}
+            {it.shortcut && <span className="menu-key">{keysLabel(it)}</span>}
             {it.submenu && <span className="menu-arrow">›</span>}
             {it.submenu && sub === i && (
               <div className="menu-sub">

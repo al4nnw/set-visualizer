@@ -38,8 +38,11 @@ function envelope(
     p.stdout.on('data', (chunk: Buffer) => {
       const buf = leftover.length ? Buffer.concat([leftover, chunk]) : chunk
       const usable = buf.length - (buf.length % 4)
-      for (let o = 0; o < usable; o += 4) {
-        const v = buf.readFloatLE(o)
+      // A Float32Array view needs 4-byte alignment; Node's pooled chunks don't always have it.
+      const samples =
+        buf.byteOffset % 4 === 0 ? new Float32Array(buf.buffer, buf.byteOffset, usable / 4) : new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + usable))
+      for (let j = 0; j < samples.length; j++) {
+        const v = samples[j]
         const a = v < 0 ? -v : v
         if (a > pk) pk = a
         sq += v * v

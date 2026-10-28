@@ -7,6 +7,7 @@ import type { SwapCurve, Track } from '../src/shared/types'
 import { planSwaps, swapLength } from '../src/shared/swapPlan'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
+import { findDrops, suggestClips } from '../src/shared/clips'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -258,5 +259,44 @@ describe('card motion', () => {
     const vals = Array.from({ length: 50 }, (_, i) => at(50 + i * 0.01))
     expect(Math.max(...vals)).toBeGreaterThan(0.25)
     expect(Math.max(...vals) - Math.min(...vals)).toBeGreaterThan(0.15)
+  })
+})
+
+describe('clip suggestions', () => {
+  // 100 s at 10 buckets/s: bass all the way except a breakdown from 40 s to 60 s, with kicks every 0.5 s.
+  const rate = 10
+  const n = 1000
+  const bassy = new Float32Array(n).map((_, i) => (i >= 400 && i < 600 ? 0.05 : 0.9))
+  const kick = new Float32Array(n).map((_, i) => (bassy[i] > 0.5 && i % 5 === 0 ? 1 : bassy[i] > 0.5 ? 0.5 : 0))
+  const motion: Motion = { rate, kick, bassy, vocal: new Float32Array(n) }
+  const tr = (id: string, start: number, mixIn?: number): Track => ({ id, title: id, artist: '', start, mixIn, deck: 'A' })
+
+  it('finds the drop after a breakdown', () => {
+    const drops = findDrops(motion, 100)
+    expect(drops).toHaveLength(1)
+    expect(drops[0].at).toBeCloseTo(60, 0)
+    expect(drops[0].breakdown).toBeGreaterThanOrEqual(15)
+  })
+
+  it('stretches a transition to a drop right after it and ranks it first', () => {
+    const clips = suggestClips([tr('one', 0), tr('two', 50, 30), tr('three', 85, 80)], 100, motion)
+    const best = clips[0]
+    expect(best.kind).toBe('transition')
+    expect(best.title).toBe('one → two')
+    expect(best.from).toBeCloseTo(42)
+    expect(best.to).toBeCloseTo(64, 0)
+    expect(best.reason).toMatch(/drop/)
+    // The drop on its own overlaps that transition, so it isn't suggested twice.
+    expect(clips.filter((c) => c.kind === 'drop')).toHaveLength(0)
+    expect(clips.some((c) => c.title === 'two → three')).toBe(true)
+  })
+
+  it('keeps clips inside the set and never overlapping by half', () => {
+    const clips = suggestClips([tr('one', 0), tr('two', 3)], 100, motion)
+    for (const c of clips) {
+      expect(c.from).toBeGreaterThanOrEqual(0)
+      expect(c.to).toBeLessThanOrEqual(100)
+      expect(c.to - c.from).toBeGreaterThanOrEqual(6)
+    }
   })
 })

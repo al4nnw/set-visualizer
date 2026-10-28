@@ -5,10 +5,11 @@ import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { Readable } from 'node:stream'
-import type { Preferences, Project, SearchResult } from '@shared/types'
+import { Worker } from 'node:worker_threads'
+import type { ExportRange, Preferences, Project, SearchResult, Waveform } from '@shared/types'
 import { decodeText, parseTracklist } from '@shared/tracklist'
-import { detectTakeovers } from '@shared/takeover'
-import { analyseAudio, spectralFrames } from './audio'
+import type { Transition } from '@shared/takeover'
+import type { AnalysisJob, AnalysisMessage } from './analysisWorker'
 import { downloadArt, importLocalArt } from './art'
 import { createAutoArt } from './autoArt'
 import { ffmpegPath } from './ffmpeg'
@@ -151,16 +152,20 @@ interface WebCodecsExport {
   stream: WriteStream
   outPath: string
   project: Project
+  /** Where the video starts in the set and how long it is, in seconds. */
+  from: number
+  duration: number
 }
 let wcExport: WebCodecsExport | null = null
 
-function mux(videoPath: string, fps: number, audioPath: string, duration: number, outPath: string): Promise<void> {
+/** Muxes the raw H.264 with the set audio from `from` seconds on, `duration` seconds long. */
+function mux(videoPath: string, fps: number, audioPath: string, from: number, duration: number, outPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn(ffmpegPath, [
       '-hide_banner', '-loglevel', 'error', '-y',
       // The raw stream's own timing info can be off (OpenH264 reports 60/1), so force the rate.
       '-fflags', '+genpts', '-r', String(fps), '-f', 'h264', '-i', videoPath,
-      '-i', audioPath,
+      '-ss', String(from), '-i', audioPath,
       '-map', '0:v:0', '-map', '1:a:0',
       '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k', '-ar', '48000',
       '-t', String(duration), '-movflags', '+faststart', outPath
@@ -169,6 +174,31 @@ function mux(videoPath: string, fps: number, audioPath: string, duration: number
     p.stderr.on('data', (d) => (err += d))
     p.on('error', reject)
     p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg mux failed: ${err.slice(-800)}`))))
+  })
+}
+
+// ---- Analysis ------------------------------------------------------------------------------
+const analyses = new Set<Worker>()
+
+/** Runs one analysis job in its own worker thread (built next to index.js), with progress. */
+function analyse<T>(job: AnalysisJob, onProgress?: (p: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(join(__dirname, 'analysisWorker.js'), { workerData: job })
+    analyses.add(w)
+    let settled = false
+    const finish = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      analyses.delete(w)
+      fn()
+    }
+    w.on('message', (m: AnalysisMessage) => {
+      if (m.type === 'progress') onProgress?.(m.p)
+      else if (m.type === 'done') finish(() => resolve(m.result as T))
+      else finish(() => reject(new Error(m.message)))
+    })
+    w.on('error', (e) => finish(() => reject(e)))
+    w.on('exit', () => finish(() => reject(new Error('Analysis cancelled'))))
   })
 }
 
@@ -198,12 +228,16 @@ function registerIpc() {
   })
 
   ipcMain.handle('audio:analyse', async (_e, path: string) => {
-    const { duration, waveform } = await analyseAudio(path, (p) => send('audio:progress', p))
+    const { duration, waveform } = await analyse<{ duration: number; waveform: Waveform }>({ type: 'analyse', path }, (p) => send('audio:progress', p))
     return { duration, waveform, name: basename(path) }
   })
-  ipcMain.handle('audio:takeovers', async (_e, path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>) =>
-    detectTakeovers(await spectralFrames(path), cues, duration, songs)
+  ipcMain.handle('audio:takeovers', (_e, path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>) =>
+    analyse<Array<Transition | null>>({ type: 'takeovers', path, cues, duration, songs })
   )
+  // Opening something else while a set is being analysed stops that analysis.
+  ipcMain.handle('audio:cancel', async () => {
+    await Promise.all([...analyses].map((w) => w.terminate()))
+  })
 
   ipcMain.handle('tracklist:read', async (_e, path: string) => {
     const buf = await readFile(path)
@@ -258,12 +292,16 @@ function registerIpc() {
   ipcMain.handle('art:auto', (_e, artist: string, title: string) => autoArt(artist, title))
 
   // The renderer draws and encodes H.264 with WebCodecs (hardware encoder when available) and streams the chunks here.
-  ipcMain.handle('export:begin', async (_e, project: Project, outPath: string) => {
+  ipcMain.handle('export:begin', async (_e, project: Project, outPath: string, range?: ExportRange) => {
     if (wcExport) wcExport.stream.destroy()
     const dir = join(tmpdir(), `setvis-${Date.now()}`)
     await mkdir(dir, { recursive: true })
     const videoPath = join(dir, 'video.h264')
-    wcExport = { dir, videoPath, stream: createWriteStream(videoPath), outPath, project }
+    // The video starts on a frame boundary, so the audio does too.
+    const { fps } = project.settings
+    const first = Math.floor(Math.max(0, range?.from ?? 0) * fps)
+    const end = Math.max(first + 1, Math.ceil(Math.min(project.duration, range?.to ?? project.duration) * fps))
+    wcExport = { dir, videoPath, stream: createWriteStream(videoPath), outPath, project, from: first / fps, duration: (end - first) / fps }
   })
   ipcMain.on('export:chunk', (_e, data: Uint8Array) => {
     wcExport?.stream.write(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
@@ -273,7 +311,7 @@ function registerIpc() {
     if (!job) throw new Error('No export in progress')
     await new Promise<void>((r) => job.stream.end(r))
     try {
-      await mux(job.videoPath, job.project.settings.fps, job.project.audioPath, job.project.duration, job.outPath)
+      await mux(job.videoPath, job.project.settings.fps, job.project.audioPath, job.from, job.duration, job.outPath)
     } finally {
       await rm(job.dir, { recursive: true, force: true })
       wcExport = null

@@ -7,6 +7,9 @@ interface StartMsg {
   type: 'start'
   project: Project
   fonts: Array<{ weight: string; url: string }>
+  /** Frames [firstFrame, endFrame) of the set. */
+  firstFrame: number
+  endFrame: number
 }
 
 let cancelled = false
@@ -60,10 +63,10 @@ async function run(msg: StartMsg) {
   encoder.configure(config)
   postMessage({ type: 'info', codec: config.codec, hardware: config.hardwareAcceleration })
 
-  const total = Math.ceil(project.duration * fps)
   const frameDur = 1e6 / fps
   let pending = 0
-  for (let f = 0; f < total; f++) {
+  for (let f = msg.firstFrame; f < msg.endFrame; f++) {
+    const n = f - msg.firstFrame
     if (cancelled) {
       encoder.close()
       postMessage({ type: 'cancelled' })
@@ -71,8 +74,8 @@ async function run(msg: StartMsg) {
     }
     if (encodeError) throw encodeError
     drawFrame(ctx, prep, f / fps)
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(f * frameDur), duration: Math.round(frameDur) })
-    encoder.encode(frame, { keyFrame: f % (fps * 2) === 0 })
+    const frame = new VideoFrame(canvas, { timestamp: Math.round(n * frameDur), duration: Math.round(frameDur) })
+    encoder.encode(frame, { keyFrame: n % (fps * 2) === 0 })
     frame.close()
     if (++pending >= 15) {
       postMessage({ type: 'progress', frames: pending })

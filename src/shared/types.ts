@@ -138,6 +138,12 @@ export interface SearchResult {
   durationSec?: number
 }
 
+/** A stretch of the set to export on its own, in seconds. */
+export interface ExportRange {
+  from: number
+  to: number
+}
+
 export interface ExportProgress {
   frame: number
   totalFrames: number

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { Preferences, Project, RecentProject, SearchResult, Waveform } from '@shared/types'
+import type { ExportRange, Preferences, Project, RecentProject, SearchResult, Waveform } from '@shared/types'
 import type { ParsedEntry } from '@shared/tracklist'
 
 function on<T>(channel: string, cb: (payload: T) => void) {
@@ -24,6 +24,8 @@ const api = {
   onAudioProgress: (cb: (p: number) => void) => on('audio:progress', cb),
   detectTakeovers: (path: string, cues: number[], duration: number, songs?: Array<{ title: string; artist: string }>): Promise<Array<{ start: number; audibleAt: number; tailEnd: number } | null>> =>
     ipcRenderer.invoke('audio:takeovers', path, cues, duration, songs),
+  /** Stops any analysis in progress (its promise rejects with "Analysis cancelled"). */
+  cancelAnalysis: (): Promise<void> => ipcRenderer.invoke('audio:cancel'),
   readCue: (path: string): Promise<{ entries: ParsedEntry[]; text: string; name: string }> => ipcRenderer.invoke('tracklist:read', path),
 
   /** Writes a new project into the projects folder and returns where. */
@@ -44,7 +46,7 @@ const api = {
   /** YouTube thumbnail for a song, from the local cache when it's been looked up before. */
   autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
 
-  exportBegin: (p: Project, outPath: string): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath),
+  exportBegin: (p: Project, outPath: string, range?: ExportRange): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath, range),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),
   exportFinish: (): Promise<string> => ipcRenderer.invoke('export:finish'),
   exportAbort: (): Promise<void> => ipcRenderer.invoke('export:abort'),
