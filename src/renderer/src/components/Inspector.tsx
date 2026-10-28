@@ -176,22 +176,22 @@ function TracksTab(p: Props & { project: Project }) {
               </div>
             </Prop>
           </Section>
-          <Section title="Timing" right={<span className="muted small">A · S · D (← ↓ →) at the playhead</span>}>
+          <Section title="Timing" right={<span className="muted small">A · S · D at the playhead</span>}>
             <Prop label="Takes over" title="Where this track becomes the main track (moves to the left).">
               <TimeInput value={sel.start} onChange={(v) => v !== undefined && p.onChangeTrack(sel.id, { start: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (S or ↓)" onClick={() => p.onChangeTrack(sel.id, { start: time })}>
+              <button className="btn tiny ghost" title="Set to the playhead (S)" onClick={() => p.onChangeTrack(sel.id, { start: time })}>
                 Playhead <kbd>S</kbd>
               </button>
             </Prop>
             <Prop label="Mix in" title="When it starts being heard. It appears on the right as 'now playing' from here.">
               <TimeInput value={sel.mixIn} placeholder={`auto (−${project.settings.defaultLead}s)`} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (A or ←)" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
+              <button className="btn tiny ghost" title="Set to the playhead (A)" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
                 Playhead <kbd>A</kbd>
               </button>
             </Prop>
             <Prop label="Plays until" title="When it stops being heard, if it keeps playing under the next track after the swap.">
               <TimeInput value={sel.tailEnd} placeholder="leaves at the swap" onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (D or →)" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
+              <button className="btn tiny ghost" title="Set to the playhead (D)" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
                 Playhead <kbd>D</kbd>
               </button>
             </Prop>

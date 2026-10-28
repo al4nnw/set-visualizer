@@ -7,7 +7,7 @@ import type { SwapCurve, Track } from '../src/shared/types'
 import { planSwaps, swapLength } from '../src/shared/swapPlan'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
-import { findDrops, suggestClips } from '../src/shared/clips'
+import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -298,5 +298,34 @@ describe('clip suggestions', () => {
       expect(c.to).toBeLessThanOrEqual(100)
       expect(c.to - c.from).toBeGreaterThanOrEqual(6)
     }
+  })
+})
+
+describe('clip trimming', () => {
+  const clip = { from: 100, to: 115, focus: 105 }
+  it('resizes around the key moment', () => {
+    // The takeover is a third of the way in and stays there.
+    expect(resizeClip(clip, 30, 3600)).toEqual({ from: 95, to: 125 })
+    expect(resizeClip(clip, 60, 3600)).toEqual({ from: 85, to: 145 })
+  })
+  it('keeps resized clips inside the set', () => {
+    expect(resizeClip({ from: 0, to: 15, focus: 2 }, 60, 3600).from).toBe(0)
+    expect(resizeClip({ from: 3580, to: 3595, focus: 3590 }, 60, 3600)).toEqual({ from: 3540, to: 3600 })
+  })
+  it('nudges one end and never goes below the minimum length', () => {
+    expect(nudgeClip(clip, 'from', -5, 3600)).toEqual({ from: 95, to: 115 })
+    expect(nudgeClip(clip, 'to', 1, 3600)).toEqual({ from: 100, to: 116 })
+    expect(nudgeClip(clip, 'from', 20, 3600)).toEqual({ from: 115 - CLIP_MIN, to: 115 })
+    expect(nudgeClip(clip, 'to', -30, 3600)).toEqual({ from: 100, to: 100 + CLIP_MIN })
+    expect(nudgeClip({ from: 3590, to: 3598 }, 'to', 5, 3600).to).toBe(3600)
+  })
+  it('applies the saved edits by clip id', () => {
+    const clips = [
+      { id: 'a', kind: 'drop' as const, from: 10, to: 25, focus: 15, title: '', reason: '', score: 1 },
+      { id: 'b', kind: 'peak' as const, from: 50, to: 65, focus: 52, title: '', reason: '', score: 0.5 }
+    ]
+    const out = applyClipEdits(clips, { b: { from: 40, to: 80 } })
+    expect(out[0]).toEqual(clips[0])
+    expect(out[1]).toMatchObject({ id: 'b', from: 40, to: 80, focus: 52, edited: true })
   })
 })

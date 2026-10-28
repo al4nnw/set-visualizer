@@ -11,30 +11,30 @@ export interface TutorialStep {
 
 export const TUTORIAL_STEPS: TutorialStep[] = [
   { title: 'Play the set', text: 'Start and stop playback. The preview shows exactly what the exported video will look like.', keys: ['Space'], accepts: ['Play', 'Pause'] },
-  { title: 'Jump between tracks', text: 'Jump to where the next track takes over, or back to the previous one.', keys: ['PageDown', 'PageUp'], accepts: ['Next Track', 'Previous Track'] },
+  { title: 'Jump between tracks', text: 'Jump to where the next track takes over, or back to the previous one.', keys: ['ArrowDown', 'ArrowUp'], accepts: ['Next Track', 'Previous Track'] },
   {
     title: 'Seek',
-    text: 'J and L move the playhead 5 seconds back or forward, or 30 with Shift. Home and End go to the start and end.',
-    keys: ['J', 'L', 'Shift+L'],
+    text: 'Move the playhead 5 seconds back or forward, or 30 with Shift. Home and End go to the start and end.',
+    keys: ['ArrowLeft', 'ArrowRight', 'Shift+ArrowRight'],
     accepts: ['Back 5 Seconds', 'Forward 5 Seconds', 'Back 30 Seconds', 'Forward 30 Seconds']
   },
   { title: 'Pick a track', text: 'Select the previous or next track in the list. Its timing shows in the inspector on the right.', keys: ['[', ']'], accepts: ['Select Previous Track', 'Select Next Track'] },
   {
     title: 'Mix in',
-    text: 'Play up to where you start hearing the next track and press A (or ←). Its card appears on the right from there. With no track selected, it goes to the next track to take over.',
-    keys: ['A', 'ArrowLeft'],
+    text: 'Play up to where you start hearing the next track and press A. Its card appears on the right from there. With no track selected, it goes to the next track to take over.',
+    keys: ['A'],
     accepts: ['Mix In at Playhead']
   },
   {
     title: 'Takes over',
-    text: 'Press S (or ↓) where the new track becomes the main one. Its card slides to the left there.',
-    keys: ['S', 'ArrowDown'],
+    text: 'Press S where the new track becomes the main one. Its card slides to the left there.',
+    keys: ['S'],
     accepts: ['Takes Over at Playhead']
   },
   {
     title: 'Plays until',
-    text: 'If the old track keeps playing underneath, press D (or →) where it fades out. It stays on the right as "now playing" until then.',
-    keys: ['D', 'ArrowRight'],
+    text: 'If the old track keeps playing underneath, press D where it fades out. It stays on the right as "now playing" until then.',
+    keys: ['D'],
     accepts: ['Plays Until at Playhead']
   },
   { title: 'Undo', text: 'Every change can be undone and redone.', keys: ['Mod+Z', 'Mod+Shift+Z'], accepts: ['Undo', 'Redo'] },

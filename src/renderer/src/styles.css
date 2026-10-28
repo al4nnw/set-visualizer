@@ -1594,10 +1594,111 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.clips-time {
-  font: 11px var(--mono);
-  color: var(--muted);
+.clips-trim {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.clips-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+.clips-edge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.clips-edge .mono {
+  padding: 0 4px;
+  color: var(--text);
+}
+.trim-btn {
+  width: 18px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.trim-btn:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.clips-len {
+  flex: 1;
+  text-align: center;
+  color: var(--muted);
+}
+.clips-lengths {
+  display: flex;
+  gap: 4px;
+}
+.clips-lengths button {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.clips-lengths button:hover:not(:disabled) {
+  color: var(--text);
+}
+.clips-lengths button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.clips-lengths button.reset {
+  margin-left: auto;
+  border-color: transparent;
+}
+.panel-tabs {
+  position: relative;
+}
+.clips-hint {
+  position: absolute;
+  top: 34px;
+  left: 70px;
+  z-index: 20;
+  width: 290px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--raised);
+  border: 1px solid var(--accent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.clips-hint::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 22px;
+  width: 10px;
+  height: 10px;
+  background: var(--raised);
+  border-left: 1px solid var(--accent);
+  border-top: 1px solid var(--accent);
+  transform: rotate(45deg);
+}
+.clips-hint-title {
+  color: var(--text-hi);
+  font-weight: 600;
+}
+.clips-hint-text {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
 }
 .clips-reason {
   font-size: 11px;
@@ -1627,7 +1728,7 @@ kbd {
   margin-left: 10px;
   padding: 0 2px 0 8px;
   height: 24px;
-  max-width: 340px;
+  max-width: 480px;
   border-radius: 12px;
   background: var(--accent-soft);
   color: var(--accent);

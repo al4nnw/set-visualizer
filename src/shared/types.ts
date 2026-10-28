@@ -100,6 +100,8 @@ export interface Project {
   tracks: Track[]
   settings: RenderSettings
   cue?: CueImport
+  /** Suggested clips the user lengthened or shortened, by clip id. */
+  clipEdits?: Record<string, { from: number; to: number }>
   createdAt?: string
   savedAt?: string
 }
@@ -125,6 +127,8 @@ export interface Preferences {
   defaultWidth: number
   defaultHeight: number
   defaultFps: number
+  /** The one-time note about the Clips tab was shown. */
+  clipsHintSeen?: boolean
 }
 
 export interface RecentProject {
