@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatTime, parseTime, sortTracks } from '@shared/layout'
+import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
 import type { Project, Track } from '@shared/types'
 import { api, mediaUrl } from '../api'
 
@@ -48,7 +48,8 @@ export function Sidebar(p: Props) {
   const { project, selectedId, time } = p
   const sorted = sortTracks(project.tracks)
   const sel = sorted.find((t) => t.id === selectedId) ?? null
-  const currentIdx = sorted.reduce((acc, t, i) => (t.start <= time ? i : acc), 0)
+  const main = mainTracks(project.tracks)
+  const currentId = main.reduce<string | undefined>((acc, t) => (t.start <= time ? t.id : acc), main[0]?.id)
   const { theme } = project.settings
 
   return (
@@ -73,7 +74,7 @@ export function Sidebar(p: Props) {
         {sorted.map((t, i) => (
           <div
             key={t.id}
-            className={`track-row ${t.id === selectedId ? 'selected' : ''} ${i === currentIdx ? 'current' : ''}`}
+            className={`track-row ${t.id === selectedId ? 'selected' : ''} ${t.id === currentId ? 'current' : ''}`}
             onClick={() => p.onSelect(t.id)}
             onDoubleClick={() => p.onSeek(t.start)}
           >
@@ -87,6 +88,7 @@ export function Sidebar(p: Props) {
               <span className="deck-pill" style={{ background: t.deck === 'B' ? theme.accentB : theme.accent }}>
                 {t.deck}
               </span>
+              {t.layered && <span className="layered-tag" title="Mixed in under another track, never takes over">layered</span>}
               <span className="tr-time">{formatTime(t.start)}</span>
               {t.unverified && <span className="warn-dot" title="Found by fingerprinting — please check" />}
             </div>
@@ -143,11 +145,22 @@ export function Sidebar(p: Props) {
                 </button>
               </div>
             </label>
-            <label className="grow">
-              Mix-in (appears right)
+          </div>
+          <div className="row">
+            <label className="grow" title="When it starts being heard. It appears on the right as 'now playing' from here.">
+              Heard from (mix-in)
               <div className="row">
                 <TimeInput value={sel.mixIn} placeholder={`auto (−${project.settings.defaultLead}s)`} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
                 <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
+                  ⇤ now
+                </button>
+              </div>
+            </label>
+            <label className="grow" title="When it stops being heard, if it keeps playing under the next track after the swap. Until then it stays on the right as 'now playing'.">
+              Plays under next until
+              <div className="row">
+                <TimeInput value={sel.tailEnd} placeholder="leaves at the swap" onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
+                <button className="btn small ghost" title="Set to playhead" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
                   ⇤ now
                 </button>
               </div>

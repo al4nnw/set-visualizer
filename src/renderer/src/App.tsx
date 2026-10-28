@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { alternateDecks, formatTime, sortTracks } from '@shared/layout'
-import { entriesToTracks, newId, sameSong } from '@shared/tracklist'
+import { alternateDecks, formatTime, mainTracks } from '@shared/layout'
+import { entriesToTracks, newId, placeTakeovers, sameSong } from '@shared/tracklist'
+import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, type IdentifyHit, type Project, type RenderSettings, type Track } from '@shared/types'
 import { api, errMsg, mediaUrl } from './api'
 import { DropZone } from './components/DropZone'
@@ -64,7 +65,46 @@ export function App() {
     [update]
   )
 
+  /**
+   * Looks each track without artwork up on YouTube and uses the best match's thumbnail (cached on
+   * disk per song). Runs in the background, two at a time; any image can still be replaced from the
+   * track editor.
+   */
+  const autoArtwork = useCallback(
+    async (tracks: Track[]) => {
+      const queue = tracks.filter((t) => !t.artwork && (t.title || t.artist))
+      const worker = async () => {
+        for (let t = queue.shift(); t; t = queue.shift()) {
+          try {
+            const found = await api.autoArtwork(t.artist, t.title)
+            if (!found) continue
+            const { artwork, url } = found
+            const id = t.id
+            update(
+              (p) => ({
+                ...p,
+                tracks: p.tracks.map((x) => (x.id === id && !x.artwork ? { ...x, artwork, sourceUrl: x.sourceUrl ?? url, source: x.source ?? 'YouTube' } : x))
+              }),
+              undefined,
+              true
+            )
+          } catch {
+            // No match or offline: leave it for the user.
+          }
+        }
+      }
+      await Promise.all([worker(), worker()])
+    },
+    [update]
+  )
+
   // ---- loading ---------------------------------------------------------------------------
+  const withTakeovers = (entries: ParsedEntry[], audioPath: string, duration: number, onDetect: () => void) =>
+    placeTakeovers(entries, (cues, songs) => {
+      onDetect()
+      return api.detectTakeovers(audioPath, cues, duration, songs)
+    })
+
   const loadAudio = async (audioPath: string, tracklistPath: string | null) => {
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
@@ -72,7 +112,12 @@ export function App() {
     try {
       const { duration, waveform, name } = await api.analyseAudio(audioPath)
       let tracks: Track[] = []
-      if (tracklistPath) tracks = entriesToTracks(await api.parseTracklist(tracklistPath), duration)
+      if (tracklistPath) {
+        const entries = await withTakeovers(await api.parseTracklist(tracklistPath), audioPath, duration, () =>
+          setBusy({ label: 'Finding where each track takes over…', progress: 1 })
+        )
+        tracks = entriesToTracks(entries, duration)
+      }
       reset({
         version: 1,
         audioPath,
@@ -85,7 +130,10 @@ export function App() {
       setProjectPath(null)
       setDirty(true)
       setTime(0)
-      if (tracklistPath) showToast(`Imported ${tracks.length} tracks from the tracklist`)
+      if (tracklistPath) {
+        showToast(`Imported ${tracks.length} tracks from the tracklist. Fetching thumbnails from YouTube…`)
+        void autoArtwork(tracks)
+      }
     } catch (e) {
       setError(errMsg(e))
     } finally {
@@ -128,8 +176,10 @@ export function App() {
     try {
       const entries = await api.parseTracklist(path)
       if (!entries.length) return showToast('No tracks found in that file')
-      const tracks = entriesToTracks(entries, project.duration)
+      const placed = await withTakeovers(entries, project.audioPath, project.duration, () => showToast('Finding where each track takes over…'))
+      const tracks = entriesToTracks(placed, project.duration)
       update((p) => ({ ...p, tracks }))
+      void autoArtwork(tracks)
       const timed = entries.every((e) => e.start !== undefined)
       showToast(timed ? `Imported ${tracks.length} tracks` : `Imported ${tracks.length} tracks. The file has no times, so they're spread evenly: drag them into place.`)
     } catch (e) {
@@ -185,7 +235,7 @@ export function App() {
 
   const jumpTrack = (dir: 1 | -1) => {
     if (!project) return
-    const starts = sortTracks(project.tracks).map((t) => t.start)
+    const starts = mainTracks(project.tracks).map((t) => t.start)
     const target = dir > 0 ? starts.find((s) => s > time + 0.5) : [...starts].reverse().find((s) => s < time - 2)
     seek(target ?? (dir > 0 ? project.duration : 0))
   }

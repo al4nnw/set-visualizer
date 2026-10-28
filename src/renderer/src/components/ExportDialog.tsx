@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { formatTime, sortTracks } from '@shared/layout'
+import { formatTime, mainTracks } from '@shared/layout'
 import type { ExportProgress, Project, Quality, RenderSettings, Theme } from '@shared/types'
 import { api } from '../api'
 import { runExport, webCodecsAvailable } from '../export/runExport'
@@ -19,7 +19,7 @@ const RESOLUTIONS = [
 
 /** YouTube turns "0:00 Title" lines in the description into chapters (first must be 0:00). */
 export function youtubeChapters(project: Project): string {
-  const tracks = sortTracks(project.tracks)
+  const tracks = mainTracks(project.tracks)
   const hours = project.duration >= 3600
   return tracks
     .map((t, i) => `${formatTime(i === 0 ? 0 : t.start, hours)} ${[t.artist, t.title].filter(Boolean).join(' - ')}`)
@@ -107,10 +107,6 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             <label className="check">
               <input type="checkbox" checked={s.showTimestamps} onChange={(e) => onChangeSettings({ showTimestamps: e.target.checked })} />
               Show elapsed / total time
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={s.showDeckBadges} onChange={(e) => onChangeSettings({ showDeckBadges: e.target.checked })} />
-              Show A / B deck badges
             </label>
           </div>
           <div className="col">

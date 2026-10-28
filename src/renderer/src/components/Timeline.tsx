@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { appearTime, formatTime, sortTracks } from '@shared/layout'
+import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@shared/layout'
 import type { Project, Track } from '@shared/types'
 import { mediaUrl } from '../api'
 
@@ -30,13 +30,18 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [viewW, setViewW] = useState(800)
-  const [scrollX, setScrollX] = useState(0)
-  const [zoom, setZoom] = useState(1) // 1 = whole set fits
+  const [zoom, setZoomState] = useState(1) // 1 = whole set fits
+  /** Time and screen offset to keep fixed when the zoom changes. */
+  const zoomAnchor = useRef<{ t: number; x: number } | null>(null)
+  /** When the user last scrolled by hand; following the playhead pauses for a while after that. */
+  const userScrolledAt = useRef(0)
+  const autoScrolling = useRef(false)
   const dur = Math.max(1, project.duration)
   const fitPps = viewW / dur
   const pps = fitPps * zoom
   const innerW = Math.max(viewW, dur * pps)
-  const sorted = sortTracks(project.tracks)
+  const sorted = mainTracks(project.tracks)
+  const layered = project.tracks.filter((t) => t.layered)
   const { theme } = project.settings
 
   useLayoutEffect(() => {
@@ -48,10 +53,13 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
     return () => ro.disconnect()
   }, [])
 
-  // Ruler + waveform for the visible window only.
-  useEffect(() => {
+  // Ruler + waveform for the visible window only. Drawn straight from the scroll handler too, with
+  // the live scroll position, so the sticky canvas never lags a frame behind the lanes.
+  const draw = useRef<() => void>(() => {})
+  draw.current = () => {
     const c = canvasRef.current
     if (!c) return
+    const scrollX = scrollRef.current?.scrollLeft ?? 0
     const dpr = window.devicePixelRatio || 1
     c.width = Math.round(viewW * dpr)
     c.height = Math.round((RULER + WAVE_H) * dpr)
@@ -104,14 +112,40 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
     }
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
     ctx.fillRect(0, RULER - 1, viewW, 1)
-  }, [project.waveform, sorted.map((t) => t.start + t.deck).join(), viewW, scrollX, pps, time, dur, theme])
+  }
+  useLayoutEffect(() => draw.current(), [project.waveform, sorted.map((t) => t.start + t.deck).join(), viewW, pps, time, dur, theme])
 
-  // Keep the playhead in view while playing.
+  const setZoom = (next: number | ((z: number) => number), anchorClientX?: number) => {
+    const el = scrollRef.current
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      const x = anchorClientX !== undefined ? anchorClientX - rect.left : viewW / 2
+      zoomAnchor.current = { t: (el.scrollLeft + x) / pps, x }
+      userScrolledAt.current = Date.now()
+    }
+    setZoomState(next)
+  }
+
+  // Apply the zoom anchor before paint so the view doesn't jump for a frame.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const a = zoomAnchor.current
+    if (!el || !a) return
+    zoomAnchor.current = null
+    autoScrolling.current = true
+    el.scrollLeft = Math.max(0, a.t * pps - a.x)
+    draw.current()
+  }, [pps])
+
+  // Keep the playhead in view while playing, unless the user just scrolled or zoomed.
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || !playing) return
+    if (!el || !playing || Date.now() - userScrolledAt.current < 4000) return
     const x = time * pps
-    if (x < el.scrollLeft || x > el.scrollLeft + viewW - 40) el.scrollLeft = Math.max(0, x - viewW * 0.25)
+    if (x < el.scrollLeft || x > el.scrollLeft + viewW - 40) {
+      autoScrolling.current = true
+      el.scrollLeft = Math.max(0, x - viewW * 0.25)
+    }
   }, [time, playing, pps, viewW])
 
   const seekFromEvent = useCallback(
@@ -162,12 +196,7 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
 
   const onWheel = (e: React.WheelEvent) => {
     if (!(e.ctrlKey || e.metaKey)) return
-    const el = scrollRef.current!
-    const rect = el.getBoundingClientRect()
-    const cursorT = (e.clientX - rect.left + el.scrollLeft) / pps
-    const nz = Math.max(1, Math.min(400, zoom * Math.exp(-e.deltaY * 0.002)))
-    setZoom(nz)
-    requestAnimationFrame(() => (el.scrollLeft = cursorT * fitPps * nz - (e.clientX - rect.left)))
+    setZoom((z) => Math.max(1, Math.min(400, z * Math.exp(-e.deltaY * 0.002))), e.clientX)
   }
 
   return (
@@ -182,7 +211,11 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
       <div
         className="timeline-scroll"
         ref={scrollRef}
-        onScroll={(e) => setScrollX(e.currentTarget.scrollLeft)}
+        onScroll={() => {
+          draw.current()
+          if (!autoScrolling.current) userScrolledAt.current = Date.now()
+          autoScrolling.current = false
+        }}
         onWheel={onWheel}
         style={{ height: TIMELINE_HEIGHT + 12 }}
       >
@@ -198,8 +231,16 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
             const color = tr.deck === 'B' ? theme.accentB : theme.accent
             const left = start * pps
             const width = Math.max(4, (end - start) * pps)
+            const tail = tailTime(sorted, i, project.settings)
             return (
               <div key={tr.id}>
+                {tail !== undefined && (
+                  <div
+                    className="mix-tail"
+                    title="Still playing under the next track until here (shown on the right as 'now playing')"
+                    style={{ left: end * pps, width: (tail - end) * pps, top: top + 6, height: LANE_H - 12, ['--c' as string]: color }}
+                  />
+                )}
                 {i > 0 && tr.start - appear > 0.5 && (
                   <div
                     className="mix-lead"
@@ -226,6 +267,25 @@ export function Timeline({ project, time, playing, selectedId, onSeek, onSelect,
                     </div>
                   )}
                 </div>
+              </div>
+            )
+          })}
+          {layered.map((tr) => {
+            // Shown under the main lanes' blocks, from its cue to when the next main track takes over.
+            const next = sorted[currentIndex(sorted, tr.start) + 1]
+            const end = next && next.start > tr.start ? next.start : Math.min(dur, tr.start + 30)
+            const color = tr.deck === 'B' ? theme.accentB : theme.accent
+            const width = Math.max(4, (end - tr.start) * pps)
+            return (
+              <div
+                key={tr.id}
+                className={`track-block layered ${selectedId === tr.id ? 'selected' : ''}`}
+                style={{ left: tr.start * pps, width, top: (tr.deck === 'B' ? LANE_B : LANE_A) + LANE_H - 18, height: 16, ['--c' as string]: color }}
+                onPointerDown={(e) => startDrag(e, tr, 'move')}
+                onDoubleClick={() => onSeek(tr.start)}
+                title={`${tr.artist} – ${tr.title}\nLayered: mixed in under another track, never takes over`}
+              >
+                {width > 60 && <div className="tb-title">{tr.title || 'Untitled'}</div>}
               </div>
             )
           })}

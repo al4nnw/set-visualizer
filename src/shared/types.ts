@@ -7,11 +7,21 @@ export interface Track {
   /** Seconds into the set where this track becomes the main track (moves to the left). */
   start: number
   /**
-   * Seconds into the set where this track starts being mixed in (appears on the right).
-   * When undefined, the project's default lead time is used.
+   * Seconds into the set where this track starts being heard: it appears on the right as "now
+   * playing". When undefined, it appears the project's default lead time early as "up next".
    */
   mixIn?: number
+  /**
+   * Seconds into the set where it stops being heard, when it keeps playing under the next track after
+   * the swap. Until then its card stays on the right as "now playing".
+   */
+  tailEnd?: number
   deck: Deck
+  /**
+   * Only mixed in under another track and never takes over. It stays in the tracklist but never
+   * becomes the main track; `start` is when its deck started.
+   */
+  layered?: boolean
   /** Absolute path to a local image file (downloaded or picked by the user). */
   artwork?: string
   /** Where the track/art was found (YouTube, SoundCloud, ...). */
@@ -48,7 +58,6 @@ export interface RenderSettings {
   defaultLead: number
   /** Seconds the A/B swap animation takes. */
   swapDuration: number
-  showDeckBadges: boolean
   showTimestamps: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
@@ -118,7 +127,6 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   fps: 30,
   defaultLead: 45,
   swapDuration: 1.4,
-  showDeckBadges: true,
   showTimestamps: true,
   setTitle: '',
   djName: '',

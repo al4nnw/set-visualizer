@@ -48,9 +48,14 @@ export function Preview({ project, audio, time }: Props) {
     const ctx = canvasRef.current?.getContext('2d') as Ctx | null
     if (!ctx) return
     let raf = 0
+    let drawn = NaN
     const loop = () => {
       const t = audio && !audio.paused ? audio.currentTime : timeRef.current
-      drawFrame(ctx, prep, t)
+      // Only redraw when time moves, so an idle preview doesn't compete with an export for the GPU.
+      if (t !== drawn) {
+        drawFrame(ctx, prep, t)
+        drawn = t
+      }
       raf = requestAnimationFrame(loop)
     }
     loop()

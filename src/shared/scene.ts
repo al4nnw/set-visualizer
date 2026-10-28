@@ -3,7 +3,7 @@
  * canvas) and in the exporter (Skia canvas in Node), so what you see is what gets rendered.
  */
 import type { Project, Track, Waveform } from './types'
-import { cardStates, currentIndex, formatTime, lerp, sortTracks, type CardState } from './layout'
+import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
 
 export type Ctx = CanvasRenderingContext2D
 export type ImageLike = CanvasImageSource & { width: number; height: number }
@@ -190,7 +190,7 @@ function renderWaveLayer(
 export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory): PreparedScene {
   const { width: W, height: H } = project.settings
   const s = H / 1080
-  const sorted = sortTracks(project.tracks)
+  const sorted = mainTracks(project.tracks)
   const wf = project.waveform as Waveform & { _bassMax?: number }
   if (wf._bassMax === undefined) {
     // 98th percentile so a single spike doesn't flatten the pulse.
@@ -302,6 +302,9 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   }
 }
 
+/** Bounce strength of a card that's playing on the right, relative to the main card. */
+const LAYERED_BOUNCE = 0.5
+
 function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const settings = prep.project.settings
   const W = settings.width
@@ -310,7 +313,9 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const leftX = W * 0.3
   const rightX = W * 0.71
   const cx = lerp(leftX, rightX, c.slot)
-  const pulse = 1 + 0.035 * bass * c.mainness
+  // How much the card moves with the bass: fully for the main card, less for one playing underneath.
+  const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
+  const pulse = 1 + 0.035 * bass * energy
   const size = lerp(CARD_NEXT * s, CARD_MAIN * s, c.mainness) * pulse
   const cy = 395 * s
   const x = cx - size / 2
@@ -324,9 +329,9 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   // Glow, breathing with the bass on the main card
   const glow = prep.glow.get(color)
   if (glow) {
-    const k = (size / GLOW_BASE) * (1 + 0.12 * bass * c.mainness)
+    const k = (size / GLOW_BASE) * (1 + 0.12 * bass * energy)
     const gs = (GLOW_BASE + GLOW_PAD * 2) * k
-    ctx.globalAlpha = c.opacity * Math.min(1, 0.5 + 0.5 * bass * c.mainness)
+    ctx.globalAlpha = c.opacity * Math.min(1, 0.5 + 0.5 * bass * energy)
     ctx.drawImage(glow as unknown as ImageLike, cx - gs / 2, cy - gs / 2, gs, gs)
     ctx.globalAlpha = c.opacity
   }
@@ -363,22 +368,6 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.strokeStyle = hexToRgba(color, 0.35 + 0.5 * c.mainness)
   ctx.stroke()
 
-  // Deck badge
-  if (settings.showDeckBadges) {
-    const br = 30 * s
-    const bx = x + size - br * 0.7
-    const by = y + br * 0.7
-    ctx.beginPath()
-    ctx.arc(bx, by, br, 0, Math.PI * 2)
-    ctx.fillStyle = color
-    ctx.fill()
-    ctx.fillStyle = '#0b0b10'
-    ctx.font = `800 ${28 * s}px ${f}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(c.track.deck, bx, by + 1 * s)
-  }
-
   // Text
   const tx = cx
   let ty = y + size + 52 * s
@@ -389,7 +378,13 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.font = `700 ${18 * s}px ${f}`
   ctx.fillStyle = color
   const label =
-    c.role === 'leaving' ? `PREVIOUS  ·  ${num}` : c.role === 'incoming' || c.mainness < 0.5 ? `UP NEXT  ·  ${num}` : `NOW PLAYING  ·  ${num}`
+    c.playing && c.role !== 'leaving'
+      ? `NOW PLAYING  ·  ${num}`
+      : c.role === 'leaving' || c.role === 'tail'
+        ? `PREVIOUS  ·  ${num}`
+        : c.role === 'incoming' || c.mainness < 0.5
+          ? `UP NEXT  ·  ${num}`
+          : `NOW PLAYING  ·  ${num}`
   ctx.fillText(label, tx, ty)
   ty += 46 * s
   ctx.fillStyle = settings.theme.text
@@ -418,11 +413,16 @@ function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number) {
   const step = bar + Math.max(1, Math.round(s))
   const cx = x0 + w / 2
 
-  for (let x = 0; x < w; x += step) {
-    const tt = t + (x - w / 2) / pxPerSec
-    if (tt < 0 || tt > project.duration) continue
-    const i = Math.floor(tt * wf.rate)
-    const pk = wf.peaks[i] ?? 0
+  // Bars sit on a fixed time grid that scrolls with t, and each shows the loudest bucket in its
+  // slice, so kicks don't flicker in and out as the window moves.
+  const barSec = step / pxPerSec
+  const first = Math.floor((t - windowSec) / barSec)
+  for (let k = first; k * barSec <= t + windowSec; k++) {
+    const tt = k * barSec
+    const x = (tt - t) * pxPerSec + w / 2
+    if (x < 0 || x > w || tt < 0 || tt > project.duration) continue
+    let pk = 0
+    for (let i = Math.floor(tt * wf.rate), end = Math.floor((tt + barSec) * wf.rate); i <= end; i++) pk = Math.max(pk, wf.peaks[i] ?? 0)
     const edge = Math.min(1, Math.min(x, w - x) / (w * 0.18))
     const ph = Math.max(1, pk * (h / 2))
     if (tt <= t) {

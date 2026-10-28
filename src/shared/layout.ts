@@ -7,6 +7,11 @@ export function sortTracks(tracks: Track[]): Track[] {
   return [...tracks].sort((a, b) => a.start - b.start)
 }
 
+/** Tracks that take the main spot at some point, in play order (layered ones left out). */
+export function mainTracks(tracks: Track[]): Track[] {
+  return sortTracks(tracks.filter((t) => !t.layered))
+}
+
 /** Time the track shows up on the right, clamped so it never collides with the previous swap. */
 export function appearTime(tracks: Track[], i: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): number {
   const t = tracks[i]
@@ -28,15 +33,31 @@ export interface CardState {
   /** Horizontal slot: 0 = left (main), 1 = right (next). Values < 0 mean leaving to the left. */
   slot: number
   opacity: number
-  /** 1 while the track is the main one, 0 while it's the incoming one (interpolates during the swap). */
+  /** 1 while the track is the main one, 0 while it's on the right (interpolates during the swap). */
   mainness: number
-  role: 'incoming' | 'main' | 'leaving'
+  role: 'incoming' | 'main' | 'leaving' | 'tail'
+  /** Audible right now. The right card says "now playing" instead of "up next" while this is true. */
+  playing: boolean
+}
+
+/**
+ * When track i stops being heard, if it keeps playing under the next one after the swap. Clamped so
+ * that it's gone before the track after next shows up (two decks, two cards). Undefined when it
+ * leaves with the swap.
+ */
+export function tailTime(sorted: Track[], i: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): number | undefined {
+  const tr = sorted[i]
+  if (tr.tailEnd === undefined || i + 1 >= sorted.length) return undefined
+  const leave = sorted[i + 1].start
+  const limit = i + 2 < sorted.length ? appearTime(sorted, i + 2, settings) - APPEAR_DURATION : Number.POSITIVE_INFINITY
+  const end = Math.min(tr.tailEnd, limit)
+  return end >= leave + settings.swapDuration + 0.5 ? end : undefined
 }
 
 /**
  * Where each visible track card is at time `t`. Left is the main track, right is the one being
- * mixed in. When the right track becomes the main one it slides to the left while the old main
- * track slides out.
+ * mixed in. When the right track becomes the main one it slides to the left. The old main track
+ * either slides out, or, if it keeps playing underneath, swaps over to the right until it's gone.
  */
 export function cardStates(sorted: Track[], t: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): CardState[] {
   const out: CardState[] = []
@@ -46,22 +67,30 @@ export function cardStates(sorted: Track[], t: number, settings: Pick<RenderSett
     const appear = appearTime(sorted, i, settings)
     const start = i === 0 ? Math.min(tr.start, 0) : tr.start
     const leave = i + 1 < sorted.length ? sorted[i + 1].start : Number.POSITIVE_INFINITY
+    const tail = tailTime(sorted, i, settings)
+    const gone = tail !== undefined ? tail + APPEAR_DURATION : leave + swap
 
     if (t < appear) continue
-    if (t >= leave + swap) continue
+    if (t >= gone) continue
 
     if (t < start) {
       // Incoming on the right.
       const p = easeOut(clamp01((t - appear) / APPEAR_DURATION))
-      out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming' })
+      const playing = tr.mixIn !== undefined
+      out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming', playing })
     } else if (t < start + swap && i > 0) {
       const p = easeInOut(clamp01((t - start) / swap))
-      out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity: 1, mainness: p, role: 'main' })
+      out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity: 1, mainness: p, role: 'main', playing: true })
     } else if (t < leave) {
-      out.push({ track: tr, index: i, slot: 0, opacity: 1, mainness: 1, role: 'main' })
+      out.push({ track: tr, index: i, slot: 0, opacity: 1, mainness: 1, role: 'main', playing: true })
+    } else if (tail !== undefined) {
+      // Still playing under the new main track: over to the right, then fade out when it's gone.
+      const p = easeInOut(clamp01((t - leave) / swap))
+      const q = t < tail ? 0 : easeOut(clamp01((t - tail) / APPEAR_DURATION))
+      out.push({ track: tr, index: i, slot: lerp(0, 1, p) + 0.25 * q, opacity: 1 - q, mainness: 1 - p, role: 'tail', playing: t < tail })
     } else {
       const p = easeInOut(clamp01((t - leave) / swap))
-      out.push({ track: tr, index: i, slot: lerp(0, -0.7, p), opacity: 1 - p, mainness: 1 - p, role: 'leaving' })
+      out.push({ track: tr, index: i, slot: lerp(0, -0.7, p), opacity: 1 - p, mainness: 1 - p, role: 'leaving', playing: false })
     }
   }
   return out
@@ -75,9 +104,19 @@ export function currentIndex(sorted: Track[], t: number): number {
   return idx
 }
 
-/** Deck letters alternating A, B, A, B... in play order. */
+/**
+ * Deck letters alternating A, B, A, B... in play order. A layered track gets the other deck from the
+ * main track playing when it comes in.
+ */
 export function alternateDecks(tracks: Track[]): Track[] {
-  return sortTracks(tracks).map((t, i) => ({ ...t, deck: i % 2 === 0 ? 'A' : 'B' }))
+  const main = mainTracks(tracks).map((t, i): Track => ({ ...t, deck: i % 2 === 0 ? 'A' : 'B' }))
+  const layered = tracks
+    .filter((t) => t.layered)
+    .map((t): Track => {
+      const under = main[Math.max(0, currentIndex(main, t.start))]
+      return { ...t, deck: under?.deck === 'A' ? 'B' : 'A' }
+    })
+  return sortTracks([...main, ...layered])
 }
 
 export function formatTime(sec: number, forceHours = false): string {
