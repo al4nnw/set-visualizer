@@ -3,6 +3,8 @@ import { platform } from '../platform'
 
 export type MenuItem =
   | {
+      /** Stable command id (the label changes with the UI language). */
+      id?: string
       label: string
       /** Key combo like "Mod+Shift+S", "Space" or "ArrowLeft"; Mod is Cmd on macOS, Ctrl elsewhere. */
       shortcut?: string

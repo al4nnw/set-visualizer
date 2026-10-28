@@ -54,17 +54,23 @@ npm run render -- --project my-set.djvis --out set.mp4 --width 1280 --height 720
 ## Project layout
 
 ```
-src/shared/     scene renderer, A/B card layout, cue sheet parser (no Node or DOM deps)
+src/shared/     scene renderer, A/B card layout, cue sheet parser, set analysis math, video text (no Node or DOM deps)
 src/main/       Electron main: projects/autosave, search, art download, export muxing; audio analysis runs in a worker thread (analysisWorker.ts, one ffmpeg decode per set) and is cached (analysisCache.ts)
 src/preload/    the API the UI uses (window.api)
-src/renderer/   React UI + WebCodecs export worker
+src/renderer/   React UI, Platform interface (platform/), UI catalogs (i18n/), WebCodecs export worker
 src/node/       headless Skia/x264 exporter used by the CLI
 scripts/        render-cli.ts
 ```
 
+## Languages
+
+The UI comes in English, Brazilian Portuguese and Spanish (Settings ▸ Language, following the system by default). The text drawn into the video ("NOW PLAYING", "UP NEXT"…) has its own language per project (Style ▸ Video language), so a set can be published for a different audience than the app's language. New projects start in the UI language.
+
+UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and `es.ts` must have every key, which the type check and `test/i18n.test.ts` enforce). Video text is in `src/shared/i18n.ts`, since the scene renderer runs in workers and the CLI too.
+
 ## Toward a web version
 
-Everything in `src/shared` and the renderer's export worker is plain web platform code (Canvas, WebCodecs). A web build would need to replace the `window.api` calls: decode audio with Web Audio for the waveform, mux in the browser (e.g. `mp4-muxer` + an `AudioEncoder`) or on a server, and move the artwork search behind a small backend (it needs a server for CORS).
+The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`), and a web build will implement the same interface with browser APIs. The set analysis math (waveform envelopes, spectral frames) is in `src/shared/analysis.ts` with no Node dependencies; the desktop app feeds it samples decoded by ffmpeg, a browser worker will feed it samples from WebCodecs/WAV parsing. Still to do for the web: browser audio decode, muxing the MP4 in the browser, and browser storage for projects (see the web study).
 
 ## Notes and limits
 

@@ -1,5 +1,6 @@
 import { currentIndex, mainTracks } from './layout'
 import type { Motion } from './motion'
+import type { Msg } from './i18n'
 import type { Track } from './types'
 
 export type ClipKind = 'transition' | 'drop' | 'peak'
@@ -12,9 +13,10 @@ export interface ClipSuggestion {
   to: number
   /** The moment the clip is built around (takeover, drop, ...); the thumbnail shows just after it. */
   focus: number
-  title: string
-  /** Why it was picked, in a few words. */
-  reason: string
+  /** Keys under clipText in the UI catalogs; `track`, `from` and `to` values are track names ('' when untitled). */
+  title: Msg
+  /** Why it was picked, in a few words (keys under clipReason). */
+  reason: Msg
   /** 0..1, higher works better. */
   score: number
 }
@@ -46,7 +48,7 @@ function mean(a: Float32Array, rate: number, from: number, to: number): number {
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
-const name = (t: Track | undefined) => (t ? t.title || t.artist || 'Untitled' : 'the set')
+const name = (t: Track) => t.title || t.artist || ''
 
 /**
  * Points where the bass comes back after at least `minBreak` seconds without it: the drops.
@@ -130,8 +132,14 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
       kind: 'transition',
       ...range,
       focus: tr.start,
-      title: `${name(prev)} → ${name(tr)}`,
-      reason: onDrop ? 'the drop lands on the takeover' : drop ? `builds into a drop ${Math.round(drop.at - tr.start)} s after the takeover` : blend >= 15 ? `${Math.round(blend)} s blend` : 'quick mix',
+      title: { key: 'transition', values: { from: name(prev), to: name(tr) } },
+      reason: onDrop
+        ? { key: 'dropOnTakeover' }
+        : drop
+          ? { key: 'buildsIntoDrop', values: { seconds: Math.round(drop.at - tr.start) } }
+          : blend >= 15
+            ? { key: 'blend', values: { seconds: Math.round(blend) } }
+            : { key: 'quickMix' },
       score
     })
   })
@@ -144,8 +152,8 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
       kind: 'drop',
       ...fit(d.at - Math.min(12, Math.max(lead, d.breakdown * 0.5)), d.at + 6),
       focus: d.at,
-      title: `Drop in ${name(tr)}`,
-      reason: `bass back after a ${Math.round(d.breakdown)} s breakdown`,
+      title: { key: 'drop', values: { track: name(tr) } },
+      reason: { key: 'bassBack', values: { seconds: Math.round(d.breakdown) } },
       score: dropScore(d)
     })
   }
@@ -163,7 +171,7 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
       }
     }
     if (best < 0.45) return
-    out.push({ id: `peak-${tr.id}`, kind: 'peak', from: at, to: at + 15, focus: at + 2, title: `${name(tr)} at full energy`, reason: 'the most driving stretch of the track', score: clamp01(best * 0.75) })
+    out.push({ id: `peak-${tr.id}`, kind: 'peak', from: at, to: at + 15, focus: at + 2, title: { key: 'peak', values: { track: name(tr) } }, reason: { key: 'peak' }, score: clamp01(best * 0.75) })
   })
 
   out.sort((a, b) => b.score - a.score || a.from - b.from)

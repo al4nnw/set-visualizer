@@ -1,8 +1,10 @@
 import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
 import type { Project, RecentProject } from '@shared/types'
+import { useTranslation } from 'react-i18next'
+import { i18n, lang } from '../i18n'
 import { Icon } from './icons'
-import { ClipsPanel, clipProject, type ClipFormat } from './Clips'
+import { ClipsPanel, clipProject, clipTitle, type ClipFormat } from './Clips'
 import { Preview } from './Preview'
 import { shortcutLabel } from './MenuBar'
 
@@ -45,14 +47,15 @@ export type ViewerTab = 'program' | 'clips'
 function ago(iso?: string) {
   if (!iso) return ''
   const d = (Date.now() - new Date(iso).getTime()) / 1000
-  if (d < 90) return 'just now'
-  if (d < 3600) return `${Math.round(d / 60)} min ago`
-  if (d < 86400) return `${Math.round(d / 3600)} h ago`
-  return new Date(iso).toLocaleDateString()
+  if (d < 90) return i18n.t('viewer.justNow')
+  if (d < 3600) return i18n.t('viewer.minAgo', { n: Math.round(d / 60) })
+  if (d < 86400) return i18n.t('viewer.hAgo', { n: Math.round(d / 3600) })
+  return new Date(iso).toLocaleDateString(lang())
 }
 
 /** Start panel shown in the viewer before a set is loaded. */
 function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
+  const { t } = useTranslation()
   if (busy)
     return (
       <div className="start-panel">
@@ -62,9 +65,9 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
           <div className="bar">
             <div style={{ width: `${Math.round(busy.progress * 100)}%` }} />
           </div>
-          <div className="muted small">The editor stays usable. Opening another set or project stops this.</div>
+          <div className="muted small">{t('viewer.busyNote')}</div>
           <button className="btn small" onClick={onCancelBusy}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </div>
@@ -72,27 +75,27 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
   return (
     <div className="start-panel">
       <Icon name="music" size={22} />
-      <div className="start-title">Drop a set recording anywhere here</div>
-      <div className="start-sub">WAV, AIFF, FLAC, MP3 or M4A, with its Rekordbox .cue to place the tracks. Or drop a .djvis project.</div>
+      <div className="start-title">{t('viewer.dropTitle')}</div>
+      <div className="start-sub">{t('viewer.dropSub')}</div>
       <button className="btn primary" onClick={onOpenAny}>
-        Import set or open project…
+        {t('viewer.importOrOpen')}
       </button>
       {error && <div className="error">{error}</div>}
       {recent.length > 0 && (
         <div className="start-recent">
-          <div className="start-recent-head">Recent projects</div>
+          <div className="start-recent-head">{t('viewer.recent')}</div>
           {recent.slice(0, 6).map((r) => (
             <button key={r.path} className="recent-row" onClick={() => onOpenProject(r.path)} title={r.path}>
               <Icon name="file" />
               <span className="recent-name">{r.name}</span>
-              <span className="recent-meta">{r.tracks ? `${r.tracks} tracks` : r.audioName}</span>
+              <span className="recent-meta">{r.tracks ? t('common.tracks', { count: r.tracks }) : r.audioName}</span>
               <span className="recent-meta">{ago(r.savedAt)}</span>
             </button>
           ))}
         </div>
       )}
       <div className="start-keys">
-        {shortcutLabel('Mod+O')} import or open · {shortcutLabel('Mod+,')} settings
+        {t('viewer.startKeys', { open: shortcutLabel('Mod+O'), settings: shortcutLabel('Mod+,') })}
       </div>
     </div>
   )
@@ -103,6 +106,7 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
  * with transport controls under both.
  */
 export function Viewer(p: Props) {
+  const { t } = useTranslation()
   const { project, time, loop, tab, onTab: setTab } = p
   const fps = project?.settings.fps ?? 30
   const shown = project && loop ? clipProject(project, p.clipFormat) : project
@@ -111,20 +115,19 @@ export function Viewer(p: Props) {
     <section className="panel viewer">
       <div className="panel-tabs">
         <button className={`panel-tab ${tab === 'program' ? 'on' : ''}`} onClick={() => setTab('program')}>
-          Program
+          {t('viewer.program')}
         </button>
         <button className={`panel-tab ${tab === 'clips' ? 'on' : ''}`} onClick={() => setTab('clips')} disabled={!project}>
-          Clips{project && p.clips.length ? <span className="tab-count">{p.clips.length}</span> : null}
+          {t('viewer.clips')}
+          {project && p.clips.length ? <span className="tab-count">{p.clips.length}</span> : null}
         </button>
         {p.clipsHint && project && tab !== 'clips' && (
           <div className="clips-hint" role="status">
-            <div className="clips-hint-title">New: clips of your best moments</div>
-            <div className="clips-hint-text">
-              We found {p.clips.length} clips in this set: transitions, drops and the most driving parts. Play them, change their length and export them for your phone.
-            </div>
+            <div className="clips-hint-title">{t('viewer.hintTitle')}</div>
+            <div className="clips-hint-text">{t('viewer.hintText', { count: p.clips.length })}</div>
             <div className="row">
               <button className="btn tiny ghost" onClick={p.onDismissClipsHint}>
-                Got it
+                {t('viewer.gotIt')}
               </button>
               <div className="grow" />
               <button
@@ -134,7 +137,7 @@ export function Viewer(p: Props) {
                   p.onDismissClipsHint()
                 }}
               >
-                Show clips
+                {t('viewer.showClips')}
               </button>
             </div>
           </div>
@@ -169,36 +172,34 @@ export function Viewer(p: Props) {
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
         {loop && (
-          <div className="loop-chip" title={loop.title}>
-            <span>
-              Looping {formatTime(loop.from, hours)}–{formatTime(loop.to, hours)} · {loop.title}
-            </span>
-            <button className="btn tiny ghost" title="Start the clip at the playhead" onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'from', time - loop.from, project?.duration ?? 0))}>
-              Start here
+          <div className="loop-chip" title={clipTitle(loop)}>
+            <span>{t('viewer.looping', { from: formatTime(loop.from, hours), to: formatTime(loop.to, hours), title: clipTitle(loop) })}</span>
+            <button className="btn tiny ghost" title={t('viewer.startHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'from', time - loop.from, project?.duration ?? 0))}>
+              {t('viewer.startHere')}
             </button>
-            <button className="btn tiny ghost" title="End the clip at the playhead" onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'to', time - loop.to, project?.duration ?? 0))}>
-              End here
+            <button className="btn tiny ghost" title={t('viewer.endHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'to', time - loop.to, project?.duration ?? 0))}>
+              {t('viewer.endHere')}
             </button>
-            <button className="icon-btn small" title="Stop looping" onClick={p.onStopLoop}>
+            <button className="icon-btn small" title={t('viewer.stopLoop')} onClick={p.onStopLoop}>
               <Icon name="close" size={12} />
             </button>
           </div>
         )}
         <div className="grow" />
         <div className="transport-btns">
-          <button className="tbtn" title="Go to start (Home)" disabled={!project} onClick={() => p.onSeek(0)}>
+          <button className="tbtn" title={t('viewer.goToStart')} disabled={!project} onClick={() => p.onSeek(0)}>
             <Icon name="start" />
           </button>
-          <button className="tbtn" title="Previous track (↑)" disabled={!project} onClick={() => p.onJumpTrack(-1)}>
+          <button className="tbtn" title={t('viewer.previousTrack')} disabled={!project} onClick={() => p.onJumpTrack(-1)}>
             <Icon name="prev" />
           </button>
-          <button className="tbtn play" title="Play / pause (Space)" disabled={!project} onClick={p.onTogglePlay}>
+          <button className="tbtn play" title={t('viewer.playPause')} disabled={!project} onClick={p.onTogglePlay}>
             <Icon name={p.playing ? 'pause' : 'play'} />
           </button>
-          <button className="tbtn" title="Next track (↓)" disabled={!project} onClick={() => p.onJumpTrack(1)}>
+          <button className="tbtn" title={t('viewer.nextTrack')} disabled={!project} onClick={() => p.onJumpTrack(1)}>
             <Icon name="next" />
           </button>
-          <button className="tbtn" title="Go to end (End)" disabled={!project} onClick={() => project && p.onSeek(project.duration)}>
+          <button className="tbtn" title={t('viewer.goToEnd')} disabled={!project} onClick={() => project && p.onSeek(project.duration)}>
             <Icon name="end" />
           </button>
         </div>

@@ -9,6 +9,7 @@ import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
+import { LOCALES, matchLocale, videoText } from '../src/shared/i18n'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -283,13 +284,13 @@ describe('clip suggestions', () => {
     const clips = suggestClips([tr('one', 0), tr('two', 50, 30), tr('three', 85, 80)], 100, motion)
     const best = clips[0]
     expect(best.kind).toBe('transition')
-    expect(best.title).toBe('one → two')
+    expect(best.title).toEqual({ key: 'transition', values: { from: 'one', to: 'two' } })
     expect(best.from).toBeCloseTo(42)
     expect(best.to).toBeCloseTo(64, 0)
-    expect(best.reason).toMatch(/drop/)
+    expect(best.reason.key).toMatch(/drop/i)
     // The drop on its own overlaps that transition, so it isn't suggested twice.
     expect(clips.filter((c) => c.kind === 'drop')).toHaveLength(0)
-    expect(clips.some((c) => c.title === 'two → three')).toBe(true)
+    expect(clips.some((c) => c.title.values?.from === 'two' && c.title.values?.to === 'three')).toBe(true)
   })
 
   it('keeps clips inside the set and never overlapping by half', () => {
@@ -322,8 +323,8 @@ describe('clip trimming', () => {
   })
   it('applies the saved edits by clip id', () => {
     const clips = [
-      { id: 'a', kind: 'drop' as const, from: 10, to: 25, focus: 15, title: '', reason: '', score: 1 },
-      { id: 'b', kind: 'peak' as const, from: 50, to: 65, focus: 52, title: '', reason: '', score: 0.5 }
+      { id: 'a', kind: 'drop' as const, from: 10, to: 25, focus: 15, title: { key: 'drop' }, reason: { key: 'bassBack' }, score: 1 },
+      { id: 'b', kind: 'peak' as const, from: 50, to: 65, focus: 52, title: { key: 'peak' }, reason: { key: 'peak' }, score: 0.5 }
     ]
     const out = applyClipEdits(clips, { b: { from: 40, to: 80 } })
     expect(out[0]).toEqual(clips[0])
@@ -358,5 +359,21 @@ describe('set analysis', () => {
     const b = run(1 << 20)
     expect(a.waveform).toEqual(b.waveform)
     expect(a.spectrum!.frames.map((f) => [...f])).toEqual(b.spectrum!.frames.map((f) => [...f]))
+  })
+})
+
+describe('i18n', () => {
+  it('maps browser languages to the supported locales', () => {
+    expect(matchLocale('pt-PT')).toBe('pt-BR')
+    expect(matchLocale('pt-BR')).toBe('pt-BR')
+    expect(matchLocale('es-MX')).toBe('es')
+    expect(matchLocale('de-DE')).toBe('en')
+    expect(matchLocale(undefined)).toBe('en')
+  })
+
+  it('has video text in every language, English when missing', () => {
+    for (const l of LOCALES) expect(Object.values(videoText(l)).every((v) => v.length > 0)).toBe(true)
+    expect(videoText(undefined).nowPlaying).toBe('NOW PLAYING')
+    expect(videoText('pt-BR').upNext).toBe('A SEGUIR')
   })
 })

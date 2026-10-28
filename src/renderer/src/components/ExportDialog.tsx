@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { formatTime, mainTracks } from '@shared/layout'
 import type { ExportProgress, Project, Quality, RenderSettings } from '@shared/types'
+import { useTranslation } from 'react-i18next'
+import { lang } from '../i18n'
 import { platform } from '../platform'
 import { runExport, webCodecsAvailable } from '../export/runExport'
 import { Icon } from './icons'
@@ -31,6 +33,7 @@ export function youtubeChapters(project: Project): string {
 }
 
 export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
+  const { t } = useTranslation()
   const s = project.settings
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +62,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
       <div className="modal export-modal">
         <div className="modal-head">
-          <h3>Export video</h3>
+          <h3>{t('export.title')}</h3>
           <button className="icon-btn" onClick={onClose} disabled={running}>
             <Icon name="close" />
           </button>
@@ -67,9 +70,9 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
 
         <div className="export-grid">
           <div className="col">
-            <h4>Video</h4>
+            <h4>{t('export.video')}</h4>
             <label>
-              Resolution
+              {t('export.resolution')}
               <div className="seg">
                 {RESOLUTIONS.map((r) => (
                   <button key={r.label} className={Math.min(s.width, s.height) === r.h ? 'on' : ''} onClick={() => onChangeSettings(sizeFor(r, s.height > s.width))} disabled={running}>
@@ -79,31 +82,31 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               </div>
             </label>
             <label>
-              Frame rate
+              {t('export.frameRate')}
               <div className="seg">
                 {[24, 30, 60].map((f) => (
                   <button key={f} className={s.fps === f ? 'on' : ''} onClick={() => onChangeSettings({ fps: f })} disabled={running}>
-                    {f} fps
+                    {t('common.fps', { fps: f })}
                   </button>
                 ))}
               </div>
             </label>
             <label>
-              Quality
+              {t('export.quality')}
               <div className="seg">
                 {(['standard', 'high', 'max'] as Quality[]).map((q) => (
                   <button key={q} className={s.quality === q ? 'on' : ''} onClick={() => onChangeSettings({ quality: q })} disabled={running}>
-                    {q[0].toUpperCase() + q.slice(1)}
+                    {t(`export.qualities.${q}`)}
                   </button>
                 ))}
               </div>
             </label>
             <p className="muted small">
-              {s.height > s.width ? '9:16 phone format' : '16:9'} · {s.width}×{s.height}. Format, text, colors and waveforms are in the Style tab.
+              {s.height > s.width ? t('export.phoneFormat') : '16:9'} · {s.width}×{s.height}. {t('export.formatNote')}
             </p>
           </div>
           <div className="col">
-            <h4>YouTube chapters</h4>
+            <h4>{t('export.chapters')}</h4>
             <textarea readOnly value={chapters} rows={12} />
             <button
               className="btn small"
@@ -113,7 +116,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
                 setTimeout(() => setCopied(false), 1500)
               }}
             >
-              {copied ? 'Copied ✓' : 'Copy for the video description'}
+              {copied ? t('export.copied') : t('export.copy')}
             </button>
           </div>
         </div>
@@ -125,13 +128,14 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             </div>
             <div className="row small muted">
               <span>
-                {progress.stage === 'preparing' && 'Preparing…'}
-                {progress.stage === 'rendering' && `Rendering frame ${progress.frame.toLocaleString()} of ${progress.totalFrames.toLocaleString()} · ${progress.fps.toFixed(0)} fps`}
-                {progress.stage === 'finishing' && 'Adding audio…'}
-                {progress.stage === 'done' && 'Done!'}
+                {progress.stage === 'preparing' && t('export.preparing')}
+                {progress.stage === 'rendering' &&
+                  t('export.rendering', { frame: progress.frame.toLocaleString(lang()), total: progress.totalFrames.toLocaleString(lang()), fps: progress.fps.toFixed(0) })}
+                {progress.stage === 'finishing' && t('export.finishing')}
+                {progress.stage === 'done' && t('export.done')}
               </span>
               <div className="grow" />
-              {progress.stage === 'rendering' && <span>about {formatTime(progress.etaSec)} left</span>}
+              {progress.stage === 'rendering' && <span>{t('export.eta', { time: formatTime(progress.etaSec) })}</span>}
             </div>
           </div>
         )}
@@ -139,20 +143,20 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
 
         <div className="modal-foot">
           <span className="muted small">
-            {formatTime(project.duration)} · {s.width}×{s.height} · {s.fps} fps · {Math.ceil(project.duration * s.fps).toLocaleString()} frames
+            {formatTime(project.duration)} · {s.width}×{s.height} · {t('common.fps', { fps: s.fps })} · {t('export.frames', { count: Math.ceil(project.duration * s.fps).toLocaleString(lang()) })}
           </span>
           <div className="grow" />
           {running ? (
             <button className="btn" onClick={() => abortRef.current?.abort()}>
-              Cancel
+              {t('common.cancel')}
             </button>
           ) : progress?.stage === 'done' && progress.outputPath && platform.features.reveal ? (
             <button className="btn primary" onClick={() => platform.reveal(progress.outputPath!)}>
-              Show in folder
+              {t('export.showInFolder')}
             </button>
           ) : (
             <button className="btn primary" onClick={start} disabled={!webCodecsAvailable()}>
-              Render video…
+              {t('export.render')}
             </button>
           )}
         </div>

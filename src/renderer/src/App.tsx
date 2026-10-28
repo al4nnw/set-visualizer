@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { applyClipEdits, suggestClips, type ClipSuggestion } from '@shared/clips'
 import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
 import { buildMotion } from '@shared/motion'
@@ -19,6 +20,8 @@ import { Splitter, useStoredNumber } from './components/Splitter'
 import { EmptyTimeline, Timeline, type TimelineHandle } from './components/Timeline'
 import { Viewer } from './components/Viewer'
 import { useHistory } from './useHistory'
+import { setUiLocale, uiLocale } from './i18n'
+import type { en } from './i18n/en'
 
 type Dialog = { kind: 'search'; trackId: string } | { kind: 'export' } | { kind: 'prefs' } | { kind: 'shortcuts' } | { kind: 'about' } | { kind: 'noTutorial' } | null
 type SaveState = { status: 'saved' | 'saving' | 'edited' | 'error'; message?: string }
@@ -30,7 +33,10 @@ const AUTOSAVE_DELAY = 800
 const INSPECTOR_W = 360
 const TIMELINE_H = 250
 
+type CmdId = keyof typeof en.cmd
+
 export function App() {
+  const { t } = useTranslation()
   const { state: project, set, reset, undo, redo } = useHistory<Project | null>(null)
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -73,6 +79,8 @@ export function App() {
     platform.getPrefs().then(setPrefsState, () => {})
     refreshRecent()
   }, [refreshRecent])
+
+  useEffect(() => setUiLocale(prefs?.language), [prefs?.language])
 
   const changePrefs = async (patch: Partial<Preferences>) => setPrefsState(await platform.setPrefs(patch))
 
@@ -133,9 +141,9 @@ export function App() {
   /** Before replacing or closing the project: flush autosave, or ask about unsaved edits. */
   const settle = useCallback(async (): Promise<boolean> => {
     if (!latest.current.project || !dirty || tutorialRef.current) return true
-    if (prefs?.autosave && latest.current.path) return (await saveNow()) || confirm('The project could not be saved. Continue anyway?')
-    return confirm('This project has unsaved changes. Discard them?')
-  }, [dirty, prefs?.autosave, saveNow])
+    if (prefs?.autosave && latest.current.path) return (await saveNow()) || confirm(t('app.saveFailedContinue'))
+    return confirm(t('app.discardChanges'))
+  }, [dirty, prefs?.autosave, saveNow, t])
 
   const saveAs = useCallback(async () => {
     if (!project) return
@@ -145,18 +153,18 @@ export function App() {
       setProjectPath(r.path)
       setDirty(false)
       setSaveState({ status: 'saved' })
-      showToast(`Saved as ${r.path.split(/[\\/]/).pop()}`)
+      showToast(t('app.savedAs', { name: r.path.split(/[\\/]/).pop() }))
       refreshRecent()
     } catch (e) {
-      showToast(`Couldn't save: ${errMsg(e)}`)
+      showToast(t('app.couldNotSave', { error: errMsg(e) }))
     }
-  }, [project, projectPath, showToast, refreshRecent])
+  }, [project, projectPath, showToast, refreshRecent, t])
 
   const save = useCallback(async () => {
     if (!project) return
     if (!projectPath) return saveAs()
-    if (await saveNow()) showToast('Project saved')
-  }, [project, projectPath, saveAs, saveNow, showToast])
+    if (await saveNow()) showToast(t('app.projectSaved'))
+  }, [project, projectPath, saveAs, saveNow, showToast, t])
 
   useEffect(
     () =>
@@ -221,7 +229,7 @@ export function App() {
   /** Reads a Rekordbox cue sheet and places its tracks, ready to store in the project. */
   const readCue = async (cuePath: string, audioPath: string, duration: number, onDetect: () => void) => {
     const { entries, text, name } = await platform.readCue(cuePath)
-    if (!entries.length) throw new Error(`No tracks found in ${name}`)
+    if (!entries.length) throw new Error(t('app.noTracksInCue', { name }))
     const tracks = entriesToTracks(await withTakeovers(entries, audioPath, duration, onDetect), duration)
     return { tracks, cue: { path: cuePath, name, text, importedAt: new Date().toISOString() } }
   }
@@ -244,12 +252,12 @@ export function App() {
     const gen = loadGen.current
     const stale = () => gen !== loadGen.current
     setError(null)
-    setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
+    setBusy({ label: t('app.readingAudio'), progress: 0 })
     const off = platform.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
     try {
       const { duration, waveform, name } = await platform.analyseAudio(audioPath)
       if (stale()) return false
-      const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => !stale() && setBusy({ label: 'Finding where each track takes over…', progress: 1 })) : null
+      const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => !stale() && setBusy({ label: t('app.findingTakeovers'), progress: 1 })) : null
       if (stale()) return false
       const p = prefs ?? (await platform.getPrefs())
       const fresh: Project = {
@@ -261,13 +269,13 @@ export function App() {
         tracks: fromCue?.tracks ?? [],
         cue: fromCue?.cue,
         createdAt: new Date().toISOString(),
-        settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, setTitle: opts.tutorial ? 'Shortcuts tutorial' : name.replace(/\.[^.]+$/, '') }
+        settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, videoLanguage: uiLocale(p.language), setTitle: opts.tutorial ? t('app.tutorialTitle') : name.replace(/\.[^.]+$/, '') }
       }
       // The tutorial works on a throwaway project: no file, nothing to save.
       const saved = opts.tutorial
         ? null
         : await platform.createProject(forDisk(fresh)).catch((e) => {
-            showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
+            showToast(t('app.couldNotCreate', { error: errMsg(e) }))
             return null
           })
       reset({ ...fresh, savedAt: saved?.savedAt })
@@ -279,9 +287,9 @@ export function App() {
       setTime(0)
       refreshRecent()
       if (fromCue) {
-        if (!opts.tutorial) showToast(`Imported ${fromCue.tracks.length} tracks from ${fromCue.cue.name}`)
+        if (!opts.tutorial) showToast(t('app.imported', { count: fromCue.tracks.length, name: fromCue.cue.name }))
         if (p.autoArtwork) void autoArtwork(fromCue.tracks)
-      } else if (saved) showToast(`New project ${saved.path.split(/[\\/]/).pop()}. Import the Rekordbox .cue next.`)
+      } else if (saved) showToast(t('app.newProject', { name: saved.path.split(/[\\/]/).pop() }))
       return true
     } catch (e) {
       if (!stale()) setError(errMsg(e))
@@ -298,7 +306,7 @@ export function App() {
     let analysing = false
     const off = platform.onAudioProgress((p) => {
       analysing = true
-      setBusy({ label: 'Analysing the set recording…', progress: p })
+      setBusy({ label: t('app.analysing'), progress: p })
     })
     try {
       const r = await platform.openProject(path)
@@ -352,17 +360,17 @@ export function App() {
 
   /** Importing a cue sheet replaces the tracklist and records the cue in the project file. */
   const importCue = async (path?: string) => {
-    if (!project) return showToast('Open the set recording first, then import its .cue')
+    if (!project) return showToast(t('app.openRecordingFirst'))
     const cuePath = path ?? (await platform.openTracklistDialog())
     if (!cuePath) return
-    if (project.tracks.length && !confirm('Replace the current tracklist with the tracks from this .cue?')) return
+    if (project.tracks.length && !confirm(t('app.replaceTracklist'))) return
     try {
-      const { tracks, cue } = await readCue(cuePath, project.audioPath, project.duration, () => showToast('Finding where each track takes over…'))
+      const { tracks, cue } = await readCue(cuePath, project.audioPath, project.duration, () => showToast(t('app.findingTakeovers')))
       update((p) => ({ ...p, tracks, cue }))
       setSelectedId(null)
       setTab('tracks')
       if (prefs?.autoArtwork !== false) void autoArtwork(tracks)
-      showToast(`Imported ${tracks.length} tracks from ${cue.name}`)
+      showToast(t('app.imported', { count: tracks.length, name: cue.name }))
     } catch (e) {
       showToast(errMsg(e))
     }
@@ -375,7 +383,7 @@ export function App() {
     const cue = paths.find((p) => CUE.test(p)) ?? null
     if (audio) return void loadAudio(audio, cue)
     if (cue) return void importCue(cue)
-    showToast('Drop a set recording, a Rekordbox .cue or a .djvis project')
+    showToast(t('app.dropHint'))
   }
 
   const openPathRef = useRef<(path: string) => void>(() => {})
@@ -435,15 +443,15 @@ export function App() {
 
   const togglePlay = useCallback(() => {
     if (!audioEl) return
-    if (audioEl.paused) audioEl.play().catch((e) => showToast(`Can't play this file: ${errMsg(e)}`))
+    if (audioEl.paused) audioEl.play().catch((e) => showToast(t('app.cantPlay', { error: errMsg(e) })))
     else audioEl.pause()
-  }, [audioEl, showToast])
+  }, [audioEl, showToast, t])
 
   const playClip = (c: ClipSuggestion) => {
     setLoopId(c.id)
     loopRef.current = c
     seek(c.from)
-    audioEl?.play().catch((e) => showToast(`Can't play this file: ${errMsg(e)}`))
+    audioEl?.play().catch((e) => showToast(t('app.cantPlay', { error: errMsg(e) })))
   }
 
   const jumpTrack = (dir: 1 | -1) => {
@@ -471,7 +479,7 @@ export function App() {
 
   // ---- timing at the playhead ----------------------------------------------------------------
   type TimingField = 'start' | 'mixIn' | 'tailEnd'
-  const TIMING_LABEL: Record<TimingField, string> = { start: 'Takes over', mixIn: 'Mix in', tailEnd: 'Plays until' }
+  const TIMING_LABEL: Record<TimingField, string> = { start: t('timing.takesOver'), mixIn: t('timing.mixIn'), tailEnd: t('timing.playsUntil') }
 
   /**
    * The track a timing key applies to: the selected one, or else the one it most likely means at the
@@ -495,8 +503,8 @@ export function App() {
 
   const setTimingAtPlayhead = (field: TimingField, clear = false) => {
     const tr = timingTarget(field)
-    if (!tr) return showToast('Import the Rekordbox .cue first')
-    const name = tr.title || 'Untitled'
+    if (!tr) return showToast(t('app.importCueFirst'))
+    const name = tr.title || t('common.untitled')
     const at = formatTime(time, project!.duration >= 3600)
     let patch: Partial<Track>
     if (clear) {
@@ -505,16 +513,16 @@ export function App() {
     } else if (field === 'start') {
       patch = { start: time, ...(tr.mixIn !== undefined && tr.mixIn > time ? { mixIn: undefined } : {}) }
     } else if (field === 'mixIn') {
-      if (time > tr.start) return showToast(`Mix in has to be before "${name}" takes over (${formatTime(tr.start)})`)
+      if (time > tr.start) return showToast(t('app.mixInBeforeTakeover', { name, at: formatTime(tr.start) }))
       patch = { mixIn: time }
     } else {
-      if (time < tr.start) return showToast(`"${name}" takes over at ${formatTime(tr.start)}, so it can only play until a later point`)
+      if (time < tr.start) return showToast(t('app.playsUntilAfterTakeover', { name, at: formatTime(tr.start) }))
       patch = { tailEnd: time }
     }
     changeTrack(tr.id, patch)
     setSelectedId(tr.id)
     setTab('tracks')
-    showToast(clear ? `${TIMING_LABEL[field]} cleared for "${name}"` : `${TIMING_LABEL[field]} for "${name}" set to ${at}`)
+    showToast(clear ? t('app.timingCleared', { field: TIMING_LABEL[field], name }) : t('app.timingSet', { field: TIMING_LABEL[field], name, at }))
   }
 
   const selectStep = (dir: 1 | -1) => {
@@ -535,9 +543,9 @@ export function App() {
   }
 
   /** Called whenever a menu command runs; completes the tutorial step that asks for it. */
-  const onCommand = useCallback((label: string) => {
+  const onCommand = useCallback((id: string) => {
     const t = tutorialRef.current
-    if (!t || t.done || t.step >= TUTORIAL_STEPS.length || !TUTORIAL_STEPS[t.step].accepts.includes(label)) return
+    if (!t || t.done || t.step >= TUTORIAL_STEPS.length || !TUTORIAL_STEPS[t.step].accepts.includes(id)) return
     setTutorial({ step: t.step, done: true })
     setTimeout(() => setTutorial((cur) => (cur && cur.step === t.step ? { step: t.step + 1, done: false } : cur)), 1100)
   }, [])
@@ -553,79 +561,81 @@ export function App() {
   // ---- menus -------------------------------------------------------------------------------
   const has = !!project
   const fileName = projectPath?.split(/[\\/]/).pop()?.replace(PROJECT, '')
+  /** A menu command: its id (what the tutorial listens for) and its label in the UI language. */
+  const cmd = (id: CmdId) => ({ id, label: t(`cmd.${id}`) })
   const menus: Menu[] = [
     {
-      label: 'File',
+      label: t('menu.file'),
       onOpen: refreshRecent,
       items: [
-        { label: 'New Project', shortcut: 'Mod+N', global: true, run: newProject },
-        { label: 'Import Set or Open Project…', shortcut: 'Mod+O', alsoKeys: ['Mod+I'], global: true, run: openAny },
+        { ...cmd('newProject'), shortcut: 'Mod+N', global: true, run: newProject },
+        { ...cmd('openAny'), shortcut: 'Mod+O', alsoKeys: ['Mod+I'], global: true, run: openAny },
         {
-          label: 'Open Recent',
+          ...cmd('openRecent'),
           submenu: recent.length
             ? [
-                ...recent.map((r) => ({ label: r.name, hint: r.tracks ? `${r.tracks} tracks` : undefined, run: () => openProject(r.path) })),
+                ...recent.map((r) => ({ label: r.name, hint: r.tracks ? t('common.tracks', { count: r.tracks }) : undefined, run: () => openProject(r.path) })),
                 'sep' as const,
-                { label: 'Clear Recent', run: () => platform.clearRecent().then(refreshRecent) }
+                { ...cmd('clearRecent'), run: () => platform.clearRecent().then(refreshRecent) }
               ]
-            : [{ label: 'No recent projects', disabled: true }]
+            : [{ ...cmd('noRecent'), disabled: true }]
         },
         'sep',
-        { label: 'Import Rekordbox Cue…', shortcut: 'Mod+Shift+I', global: true, run: () => importCue(), disabled: !has },
+        { ...cmd('importCue'), shortcut: 'Mod+Shift+I', global: true, run: () => importCue(), disabled: !has },
         'sep',
-        { label: 'Save', shortcut: 'Mod+S', global: true, run: save, disabled: !has },
-        { label: 'Save As…', shortcut: 'Mod+Shift+S', global: true, run: saveAs, disabled: !has },
-        ...(platform.features.reveal ? [{ label: 'Show Project in Folder', run: () => projectPath && platform.reveal(projectPath), disabled: !projectPath }] : []),
+        { ...cmd('save'), shortcut: 'Mod+S', global: true, run: save, disabled: !has },
+        { ...cmd('saveAs'), shortcut: 'Mod+Shift+S', global: true, run: saveAs, disabled: !has },
+        ...(platform.features.reveal ? [{ ...cmd('revealProject'), run: () => projectPath && platform.reveal(projectPath), disabled: !projectPath }] : []),
         'sep',
-        { label: 'Export Video…', shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has },
+        { ...cmd('exportVideo'), shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has },
         ...(platform.features.windowControls
-          ? (['sep', { label: platform.os === 'darwin' ? 'Close Window' : 'Exit', shortcut: 'Mod+Q', global: true, run: () => platform.quit() }] as const)
+          ? (['sep', { ...cmd(platform.os === 'darwin' ? 'closeWindow' : 'exit'), shortcut: 'Mod+Q', global: true, run: () => platform.quit() }] as const)
           : [])
       ]
     },
     {
-      label: 'Edit',
+      label: t('menu.edit'),
       items: [
-        { label: 'Undo', shortcut: 'Mod+Z', run: undo, disabled: !has },
-        { label: 'Redo', shortcut: 'Mod+Shift+Z', alsoKeys: ['Mod+Y'], run: redo, disabled: !has },
+        { ...cmd('undo'), shortcut: 'Mod+Z', run: undo, disabled: !has },
+        { ...cmd('redo'), shortcut: 'Mod+Shift+Z', alsoKeys: ['Mod+Y'], run: redo, disabled: !has },
         'sep',
-        { label: 'Add Track at Playhead', shortcut: 'M', run: addTrack, disabled: !has },
-        { label: 'Delete Track', shortcut: 'Delete', alsoKeys: ['Backspace'], run: () => selectedId && deleteTrack(selectedId), disabled: !selectedId },
-        { label: 'Find Artwork…', run: () => selectedId && setDialog({ kind: 'search', trackId: selectedId }), disabled: !selectedId },
-        { label: 'Re-alternate Decks A/B', run: () => update((p) => ({ ...p, tracks: alternateDecks(p.tracks) })), disabled: !has },
+        { ...cmd('addTrack'), shortcut: 'M', run: addTrack, disabled: !has },
+        { ...cmd('deleteTrack'), shortcut: 'Delete', alsoKeys: ['Backspace'], run: () => selectedId && deleteTrack(selectedId), disabled: !selectedId },
+        { ...cmd('findArtwork'), run: () => selectedId && setDialog({ kind: 'search', trackId: selectedId }), disabled: !selectedId },
+        { ...cmd('alternateDecks'), run: () => update((p) => ({ ...p, tracks: alternateDecks(p.tracks) })), disabled: !has },
         'sep',
-        { label: 'Settings…', shortcut: 'Mod+,', global: true, run: () => setDialog({ kind: 'prefs' }) }
+        { ...cmd('settings'), shortcut: 'Mod+,', global: true, run: () => setDialog({ kind: 'prefs' }) }
       ]
     },
     {
-      label: 'Timing',
+      label: t('menu.timing'),
       items: [
         // A, S, D: left to right is the order of a transition (mix in, takes over, plays until).
-        { label: 'Mix In at Playhead', shortcut: 'A', run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
-        { label: 'Takes Over at Playhead', shortcut: 'S', run: () => setTimingAtPlayhead('start'), disabled: !has },
-        { label: 'Plays Until at Playhead', shortcut: 'D', run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
+        { ...cmd('mixInAtPlayhead'), shortcut: 'A', run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
+        { ...cmd('takesOverAtPlayhead'), shortcut: 'S', run: () => setTimingAtPlayhead('start'), disabled: !has },
+        { ...cmd('playsUntilAtPlayhead'), shortcut: 'D', run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
         'sep',
-        { label: 'Clear Mix In', shortcut: 'Shift+A', run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
-        { label: 'Clear Plays Until', shortcut: 'Shift+D', run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
+        { ...cmd('clearMixIn'), shortcut: 'Shift+A', run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
+        { ...cmd('clearPlaysUntil'), shortcut: 'Shift+D', run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
         'sep',
-        { label: 'Select Previous Track', shortcut: '[', run: () => selectStep(-1), disabled: !has },
-        { label: 'Select Next Track', shortcut: ']', run: () => selectStep(1), disabled: !has },
-        { label: 'Deselect Track', shortcut: 'Escape', run: () => setSelectedId(null), disabled: !selectedId },
+        { ...cmd('selectPrevious'), shortcut: '[', run: () => selectStep(-1), disabled: !has },
+        { ...cmd('selectNext'), shortcut: ']', run: () => selectStep(1), disabled: !has },
+        { ...cmd('deselect'), shortcut: 'Escape', run: () => setSelectedId(null), disabled: !selectedId },
       ]
     },
     {
-      label: 'View',
+      label: t('menu.view'),
       items: [
-        { label: 'Zoom In', shortcut: '=', run: () => timelineRef.current?.zoomIn(), disabled: !has },
-        { label: 'Zoom Out', shortcut: '-', run: () => timelineRef.current?.zoomOut(), disabled: !has },
-        { label: 'Fit Set to Timeline', shortcut: '\\', run: () => timelineRef.current?.fit(), disabled: !has },
+        { ...cmd('zoomIn'), shortcut: '=', run: () => timelineRef.current?.zoomIn(), disabled: !has },
+        { ...cmd('zoomOut'), shortcut: '-', run: () => timelineRef.current?.zoomOut(), disabled: !has },
+        { ...cmd('fit'), shortcut: '\\', run: () => timelineRef.current?.fit(), disabled: !has },
         'sep',
-        { label: 'Tracks', checked: tab === 'tracks', run: () => setTab('tracks') },
-        { label: 'Style', checked: tab === 'style', run: () => setTab('style') },
-        { label: 'Project', checked: tab === 'project', run: () => setTab('project') },
+        { ...cmd('tabTracks'), checked: tab === 'tracks', run: () => setTab('tracks') },
+        { ...cmd('tabStyle'), checked: tab === 'style', run: () => setTab('style') },
+        { ...cmd('tabProject'), checked: tab === 'project', run: () => setTab('project') },
         'sep',
         {
-          label: 'Reset Panel Layout',
+          ...cmd('resetLayout'),
           run: () => {
             setInspectorW(INSPECTOR_W)
             setTimelineH(TIMELINE_H)
@@ -633,34 +643,34 @@ export function App() {
         },
         ...(platform.features.windowControls
           ? [
-              { label: 'Full Screen', shortcut: 'F11', global: true, run: () => platform.toggleFullScreen() },
-              { label: 'Developer Tools', shortcut: 'F12', global: true, run: () => platform.toggleDevTools() }
+              { ...cmd('fullScreen'), shortcut: 'F11', global: true, run: () => platform.toggleFullScreen() },
+              { ...cmd('devTools'), shortcut: 'F12', global: true, run: () => platform.toggleDevTools() }
             ]
           : [])
       ]
     },
     {
-      label: 'Playback',
+      label: t('menu.playback'),
       items: [
-        { label: playing ? 'Pause' : 'Play', shortcut: 'Space', run: togglePlay, disabled: !has },
+        { ...cmd(playing ? 'pause' : 'play'), shortcut: 'Space', run: togglePlay, disabled: !has },
         'sep',
-        { label: 'Previous Track', shortcut: 'ArrowUp', alsoKeys: ['PageUp'], run: () => jumpTrack(-1), disabled: !has },
-        { label: 'Next Track', shortcut: 'ArrowDown', alsoKeys: ['PageDown'], run: () => jumpTrack(1), disabled: !has },
-        { label: 'Back 5 Seconds', shortcut: 'ArrowLeft', alsoKeys: ['J'], run: () => seek(time - 5), disabled: !has },
-        { label: 'Forward 5 Seconds', shortcut: 'ArrowRight', alsoKeys: ['L'], run: () => seek(time + 5), disabled: !has },
-        { label: 'Back 30 Seconds', shortcut: 'Shift+ArrowLeft', alsoKeys: ['Shift+J'], run: () => seek(time - 30), disabled: !has },
-        { label: 'Forward 30 Seconds', shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => seek(time + 30), disabled: !has },
+        { ...cmd('previousTrack'), shortcut: 'ArrowUp', alsoKeys: ['PageUp'], run: () => jumpTrack(-1), disabled: !has },
+        { ...cmd('nextTrack'), shortcut: 'ArrowDown', alsoKeys: ['PageDown'], run: () => jumpTrack(1), disabled: !has },
+        { ...cmd('back5'), shortcut: 'ArrowLeft', alsoKeys: ['J'], run: () => seek(time - 5), disabled: !has },
+        { ...cmd('forward5'), shortcut: 'ArrowRight', alsoKeys: ['L'], run: () => seek(time + 5), disabled: !has },
+        { ...cmd('back30'), shortcut: 'Shift+ArrowLeft', alsoKeys: ['Shift+J'], run: () => seek(time - 30), disabled: !has },
+        { ...cmd('forward30'), shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => seek(time + 30), disabled: !has },
         'sep',
-        { label: 'Go to Start', shortcut: 'Home', run: () => seek(0), disabled: !has },
-        { label: 'Go to End', shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
+        { ...cmd('goToStart'), shortcut: 'Home', run: () => seek(0), disabled: !has },
+        { ...cmd('goToEnd'), shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
       ]
     },
     {
-      label: 'Help',
+      label: t('menu.help'),
       items: [
-        { label: 'Keyboard Shortcuts', shortcut: 'Mod+/', global: true, run: () => setDialog({ kind: 'shortcuts' }) },
-        { label: 'Shortcuts Tutorial…', run: startTutorial },
-        { label: 'About Set Visualizer', run: () => setDialog({ kind: 'about' }) }
+        { ...cmd('shortcuts'), shortcut: 'Mod+/', global: true, run: () => setDialog({ kind: 'shortcuts' }) },
+        { ...cmd('tutorial'), run: startTutorial },
+        { ...cmd('about'), run: () => setDialog({ kind: 'about' }) }
       ]
     }
   ]
@@ -672,7 +682,7 @@ export function App() {
         ? it
         : {
             ...it,
-            run: it.run && (() => (it.run!(), onCommand(it.label))),
+            run: it.run && (() => (it.run!(), onCommand(it.id ?? it.label))),
             submenu: it.submenu && withHooks(it.submenu)
           }
     )
@@ -725,18 +735,18 @@ export function App() {
 
   const status =
     !project ? null : tutorial ? (
-      <span className="save-state">Tutorial · nothing is saved</span>
+      <span className="save-state">{t('app.status.tutorial')}</span>
     ) : saveState.status === 'saving' ? (
-      <span className="save-state">Saving…</span>
+      <span className="save-state">{t('app.status.saving')}</span>
     ) : saveState.status === 'error' ? (
       <span className="save-state error" title={saveState.message}>
-        Not saved
+        {t('app.status.notSaved')}
       </span>
     ) : dirty || !projectPath ? (
-      <span className="save-state edited">{prefs?.autosave && projectPath ? 'Edited' : 'Unsaved changes'}</span>
+      <span className="save-state edited">{prefs?.autosave && projectPath ? t('app.status.edited') : t('app.status.unsaved')}</span>
     ) : (
       <span className="save-state ok">
-        <Icon name="check" size={12} /> {prefs?.autosave ? 'Autosaved' : 'Saved'}
+        <Icon name="check" size={12} /> {prefs?.autosave ? t('app.status.autosaved') : t('app.status.saved')}
       </span>
     )
 
@@ -761,7 +771,7 @@ export function App() {
           project && (
             <>
               <span className="doc-name" title={projectPath ?? undefined}>
-                {tutorial ? 'Shortcuts tutorial' : fileName ?? project.audioName.replace(/\.[^.]+$/, '')}
+                {tutorial ? t('app.tutorialTitle') : fileName ?? project.audioName.replace(/\.[^.]+$/, '')}
               </span>
               {status}
             </>
@@ -769,11 +779,11 @@ export function App() {
         }
         right={
           <>
-            <button className="icon-btn small" title={`Settings (${shortcutLabel('Mod+,')})`} onClick={() => setDialog({ kind: 'prefs' })}>
+            <button className="icon-btn small" title={t('app.settingsButton', { keys: shortcutLabel('Mod+,') })} onClick={() => setDialog({ kind: 'prefs' })}>
               <Icon name="gear" size={14} />
             </button>
             <button className="btn export-btn" disabled={!project} onClick={() => setDialog({ kind: 'export' })}>
-              <Icon name="export" size={13} /> Export
+              <Icon name="export" size={13} /> {t('common.export')}
             </button>
           </>
         }
@@ -858,7 +868,7 @@ export function App() {
           onPause={() => setPlaying(false)}
           onEnded={() => setPlaying(false)}
           onSeeked={(e) => setTime(e.currentTarget.currentTime)}
-          onError={() => showToast("Can't play the audio file. Was it moved or renamed?")}
+          onError={() => showToast(t('app.cantPlayMoved'))}
         />
       )}
 
@@ -867,9 +877,9 @@ export function App() {
       {dialog?.kind === 'prefs' && prefs && <PreferencesDialog prefs={prefs} onChange={changePrefs} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'shortcuts' && <ShortcutsDialog menus={menus} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'noTutorial' && (
-        <SimpleDialog title="Shortcuts tutorial" onClose={() => setDialog(null)}>
+        <SimpleDialog title={t('app.tutorialTitle')} onClose={() => setDialog(null)}>
           <p className="muted">
-            The tutorial clip isn't installed. Create it from one of your recordings with <code>npm run make-tutorial -- set.wav set.cue</code>, then rebuild the app.
+            <Trans i18nKey="app.noTutorial" components={[<code />]} />
           </p>
         </SimpleDialog>
       )}
@@ -883,8 +893,8 @@ export function App() {
         />
       )}
       {dialog?.kind === 'about' && (
-        <SimpleDialog title="Set Visualizer" onClose={() => setDialog(null)}>
-          <p className="muted">Turns a recorded DJ set and its Rekordbox .cue into a visualizer video for YouTube. Projects are saved as .djvis files.</p>
+        <SimpleDialog title={t('common.appName')} onClose={() => setDialog(null)}>
+          <p className="muted">{t('app.about')}</p>
         </SimpleDialog>
       )}
       {toast && <div className="toast">{toast}</div>}
@@ -909,8 +919,9 @@ function SimpleDialog({ title, onClose, children }: { title: string; onClose: ()
 }
 
 function ShortcutsDialog({ menus, onClose }: { menus: Menu[]; onClose: () => void }) {
+  const { t } = useTranslation()
   return (
-    <SimpleDialog title="Keyboard shortcuts" onClose={onClose}>
+    <SimpleDialog title={t('app.shortcutsTitle')} onClose={onClose}>
       <div className="shortcut-grid">
         {menus.map((m) => {
           const items = flatten([m]).filter((it) => it.shortcut)

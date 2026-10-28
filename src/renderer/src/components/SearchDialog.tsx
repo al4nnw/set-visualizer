@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatTime } from '@shared/layout'
 import type { SearchResult, Track } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 import { errMsg, platform } from '../platform'
 
 const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function SearchDialog({ track, onClose, onApply }: Props) {
+  const { t } = useTranslation()
   const [provider, setProvider] = useState<SearchResult['provider']>('youtube')
   const [query, setQuery] = useState([track.artist, track.title].filter(Boolean).join(' - '))
   const [results, setResults] = useState<SearchResult[]>([])
@@ -65,7 +67,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
       })
       onClose()
     } catch (e) {
-      setError(`Couldn't download that image: ${errMsg(e)}`)
+      setError(t('search.downloadFailed', { error: errMsg(e) }))
     } finally {
       setApplying(null)
     }
@@ -79,7 +81,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
       onApply({ artwork: await platform.downloadArt(url.trim()) })
       onClose()
     } catch (e) {
-      setError(`Couldn't download that image: ${errMsg(e)}`)
+      setError(t('search.downloadFailed', { error: errMsg(e) }))
     } finally {
       setApplying(null)
     }
@@ -89,7 +91,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal search-modal">
         <div className="modal-head">
-          <h3>Find artwork & track info</h3>
+          <h3>{t('search.title')}</h3>
           <button className="icon-btn" onClick={onClose}>
             ✕
           </button>
@@ -108,18 +110,18 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
             run()
           }}
         >
-          <input className="grow" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Artist - Title" />
+          <input className="grow" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search.placeholder')} />
           <button className="btn primary" type="submit">
-            Search
+            {t('search.search')}
           </button>
         </form>
         <label className="check">
           <input type="checkbox" checked={useMeta} onChange={(e) => setUseMeta(e.target.checked)} />
-          Also use the result's title and artist
+          {t('search.useMeta')}
         </label>
         {error && <div className="error">{error}</div>}
         <div className={`results ${loading ? 'loading' : ''}`}>
-          {!loading && results.length === 0 && !error && <div className="empty">No results.</div>}
+          {!loading && results.length === 0 && !error && <div className="empty">{t('search.noResults')}</div>}
           {results.map((r) => (
             <button key={r.provider + r.id} className="result" onClick={() => pick(r)} disabled={!!applying}>
               <div className={`result-img ${r.provider === 'youtube' ? 'wide' : ''}`}>
@@ -137,9 +139,9 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
           ))}
         </div>
         <div className="row url-row">
-          <input className="grow" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="…or paste an image URL" />
+          <input className="grow" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={t('search.urlPlaceholder')} />
           <button className="btn" onClick={fromUrl} disabled={!!applying}>
-            Use URL
+            {t('search.useUrl')}
           </button>
         </div>
       </div>

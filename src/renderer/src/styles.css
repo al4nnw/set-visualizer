@@ -919,6 +919,9 @@ kbd {
   gap: 6px;
   min-width: 0;
 }
+.prop-value > .seg {
+  flex-shrink: 0;
+}
 .prop-value > input:not([type='checkbox']):not([type='color']):not([type='range']) {
   flex: 1;
 }

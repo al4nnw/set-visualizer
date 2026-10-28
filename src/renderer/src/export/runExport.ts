@@ -1,6 +1,7 @@
 import { forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
 import { errMsg, platform } from '../platform'
 import { SCENE_FONTS } from '../fonts'
+import { i18n } from '../i18n'
 
 export const webCodecsAvailable = () => typeof VideoEncoder !== 'undefined'
 
@@ -53,10 +54,10 @@ export async function runExport(
             report('rendering')
           }
         } else if (m.type === 'done') resolve()
-        else if (m.type === 'cancelled') reject(new Error('Export cancelled'))
+        else if (m.type === 'cancelled') reject(new Error(i18n.t('errors.exportCancelled')))
         else if (m.type === 'error') reject(new Error(m.message))
       }
-      worker.onerror = (e) => reject(new Error(e.message || 'Render worker crashed'))
+      worker.onerror = (e) => reject(new Error(e.message || i18n.t('errors.workerCrashed')))
       worker.postMessage({ type: 'start', project, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')

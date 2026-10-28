@@ -3,6 +3,8 @@ import { nudgeClip, resizeClip, type ClipKind, type ClipSuggestion } from '@shar
 import { formatTime } from '@shared/layout'
 import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { ExportProgress, Project } from '@shared/types'
+import { useTranslation } from 'react-i18next'
+import { i18n, tMsg } from '../i18n'
 import { platform } from '../platform'
 import { runExport, webCodecsAvailable } from '../export/runExport'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
@@ -24,7 +26,6 @@ interface Props {
   onFormat: (f: ClipFormat) => void
 }
 
-const KIND_LABEL: Record<ClipKind, string> = { transition: 'Transition', drop: 'Drop', peak: 'Peak' }
 const THUMB_SHORT = 180
 /** Lengths offered on each card, seconds. */
 const LENGTHS = [15, 30, 60]
@@ -42,8 +43,16 @@ export function clipProject(project: Project, format: ClipFormat): Project {
     : { ...project, settings: { ...s, width: long, height: short } }
 }
 
+/** A clip's title in the UI language; untitled tracks get the "Untitled" word. */
+export function clipTitle(c: ClipSuggestion): string {
+  const untitled = i18n.t('common.untitled')
+  const values = Object.fromEntries(Object.entries(c.title.values ?? {}).map(([k, v]) => [k, v === '' ? untitled : v]))
+  return tMsg('clipText', { key: c.title.key, values })
+}
+
 /** Suggested clips of the set: the best transitions, drops and peaks, ready to play or export. */
 export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, onFormat }: Props) {
+  const { t } = useTranslation()
   const [kind, setKind] = useState<ClipKind | 'all'>('all')
   const [order, setOrder] = useState<'best' | 'time'>('best')
   const [art, setArt] = useState<Map<string, ArtAsset>>(new Map())
@@ -85,7 +94,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
   const hours = project.duration >= 3600
 
   const exportClip = async (c: ClipSuggestion) => {
-    const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${c.title} ${formatTime(c.from, hours).replace(/:/g, '.')}`
+    const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
     const out = await platform.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
     if (!out) return
     abort.current = new AbortController()
@@ -101,7 +110,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
     return (
       <div className="clips-empty">
         <Icon name="cue" size={22} />
-        <div>Import the Rekordbox .cue and the clips of the best moments of the set show up here.</div>
+        <div>{t('clips.empty')}</div>
       </div>
     )
 
@@ -111,20 +120,20 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
         <div className="seg">
           {(['all', 'transition', 'drop', 'peak'] as const).map((k) => (
             <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-              {k === 'all' ? `All ${clips.length}` : `${KIND_LABEL[k]}s ${clips.filter((c) => c.kind === k).length}`}
+              {k === 'all' ? `${t('clips.all')} ${clips.length}` : `${t(`clips.kindPlural.${k}`)} ${clips.filter((c) => c.kind === k).length}`}
             </button>
           ))}
         </div>
         <div className="seg">
           <button className={order === 'best' ? 'on' : ''} onClick={() => setOrder('best')}>
-            Best first
+            {t('clips.bestFirst')}
           </button>
           <button className={order === 'time' ? 'on' : ''} onClick={() => setOrder('time')}>
-            In set order
+            {t('clips.inSetOrder')}
           </button>
         </div>
         <div className="grow" />
-        <div className="seg" title="Format the clips play and export in">
+        <div className="seg" title={t('clips.formatTitle')}>
           <button className={format === 'portrait' ? 'on' : ''} onClick={() => onFormat('portrait')} disabled={running}>
             9:16
           </button>
@@ -144,18 +153,18 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
               <Thumb prep={prep} t={c.focus + 1.5} w={thumbProject.settings.width} h={thumbProject.settings.height} onClick={() => onPlay(c)} />
               <div className="clips-info">
                 <div className="clips-tags">
-                  <span className={`clips-kind ${c.kind}`}>{KIND_LABEL[c.kind]}</span>
-                  {c.id === best && <span className="clips-best">Best</span>}
+                  <span className={`clips-kind ${c.kind}`}>{t(`clips.kind.${c.kind}`)}</span>
+                  {c.id === best && <span className="clips-best">{t('clips.best')}</span>}
                   <span className="grow" />
-                  <span className="clips-score" title="How well it should work as a clip">
+                  <span className="clips-score" title={t('clips.scoreTitle')}>
                     {Math.round(c.score * 100)}
                   </span>
                 </div>
-                <div className="clips-title" title={c.title}>
-                  {c.title}
+                <div className="clips-title" title={clipTitle(c)}>
+                  {clipTitle(c)}
                 </div>
                 <Trim clip={c} duration={project.duration} hours={hours} disabled={busy} onTrim={(r) => onTrim(c.id, r)} />
-                <div className="clips-reason">{c.reason}</div>
+                <div className="clips-reason">{tMsg('clipReason', c.reason)}</div>
                 {busy || st === 'done' ? (
                   <div className="bar">
                     <div style={{ width: `${st === 'done' ? 100 : pct}%` }} />
@@ -164,19 +173,19 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                 {job?.error && <div className="error small">{job.error}</div>}
                 <div className="clips-actions">
                   <button className="btn small" onClick={() => onPlay(c)}>
-                    <Icon name="play" size={12} /> {playingId === c.id ? 'Looping' : 'Play'}
+                    <Icon name="play" size={12} /> {playingId === c.id ? t('clips.looping') : t('common.play')}
                   </button>
                   {busy ? (
                     <button className="btn small" onClick={() => abort.current?.abort()}>
-                      Cancel
+                      {t('common.cancel')}
                     </button>
                   ) : st === 'done' && job?.progress?.outputPath && platform.features.reveal ? (
                     <button className="btn small" onClick={() => platform.reveal(job.progress!.outputPath!)}>
-                      Show file
+                      {t('clips.showFile')}
                     </button>
                   ) : (
                     <button className="btn small" onClick={() => exportClip(c)} disabled={running || !webCodecsAvailable()}>
-                      <Icon name="export" size={12} /> Export
+                      <Icon name="export" size={12} /> {t('common.export')}
                     </button>
                   )}
                 </div>
@@ -194,6 +203,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
  * lengths that keep the key moment where it is.
  */
 function Trim({ clip: c, duration, hours, disabled, onTrim }: { clip: Clip; duration: number; hours: boolean; disabled: boolean; onTrim: (r: { from: number; to: number } | null) => void }) {
+  const { t } = useTranslation()
   const len = c.to - c.from
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
   const nudge = (edge: 'from' | 'to', dir: 1 | -1) => (e: React.MouseEvent) => onTrim(nudgeClip(c, edge, dir * step(e), duration))
@@ -201,34 +211,34 @@ function Trim({ clip: c, duration, hours, disabled, onTrim }: { clip: Clip; dura
     <div className="clips-trim">
       <div className="clips-range">
         <span className="clips-edge">
-          <button className="trim-btn" title="Start earlier (Shift: 5 s)" onClick={nudge('from', -1)} disabled={disabled}>
+          <button className="trim-btn" title={t('clips.startEarlier')} onClick={nudge('from', -1)} disabled={disabled}>
             ‹
           </button>
           <span className="mono">{formatTime(c.from, hours)}</span>
-          <button className="trim-btn" title="Start later (Shift: 5 s)" onClick={nudge('from', 1)} disabled={disabled}>
+          <button className="trim-btn" title={t('clips.startLater')} onClick={nudge('from', 1)} disabled={disabled}>
             ›
           </button>
         </span>
-        <span className="clips-len mono">{Math.round(len)} s</span>
+        <span className="clips-len mono">{t('common.seconds', { n: Math.round(len) })}</span>
         <span className="clips-edge">
-          <button className="trim-btn" title="End earlier (Shift: 5 s)" onClick={nudge('to', -1)} disabled={disabled}>
+          <button className="trim-btn" title={t('clips.endEarlier')} onClick={nudge('to', -1)} disabled={disabled}>
             ‹
           </button>
           <span className="mono">{formatTime(c.to, hours)}</span>
-          <button className="trim-btn" title="End later (Shift: 5 s)" onClick={nudge('to', 1)} disabled={disabled}>
+          <button className="trim-btn" title={t('clips.endLater')} onClick={nudge('to', 1)} disabled={disabled}>
             ›
           </button>
         </span>
       </div>
       <div className="clips-lengths">
         {LENGTHS.map((l) => (
-          <button key={l} className={Math.abs(len - l) < 0.5 ? 'on' : ''} onClick={() => onTrim(resizeClip(c, l, duration))} disabled={disabled} title={`Make it ${l} s around the key moment`}>
-            {l} s
+          <button key={l} className={Math.abs(len - l) < 0.5 ? 'on' : ''} onClick={() => onTrim(resizeClip(c, l, duration))} disabled={disabled} title={t('clips.makeLength', { n: l })}>
+            {t('common.seconds', { n: l })}
           </button>
         ))}
         {c.edited && (
-          <button className="reset" onClick={() => onTrim(null)} disabled={disabled} title="Back to the suggested start and end">
-            Reset
+          <button className="reset" onClick={() => onTrim(null)} disabled={disabled} title={t('clips.resetTitle')}>
+            {t('common.reset')}
           </button>
         )}
       </div>
@@ -238,13 +248,14 @@ function Trim({ clip: c, duration, hours, disabled, onTrim }: { clip: Clip; dura
 
 /** A still of the clip drawn with the video's own scene code. */
 function Thumb({ prep, t, w, h, onClick }: { prep: ReturnType<typeof prepareScene>; t: number; w: number; h: number; onClick: () => void }) {
+  const { t: tr } = useTranslation()
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const ctx = ref.current?.getContext('2d') as Ctx | null
     if (ctx) drawFrame(ctx, prep, t)
   }, [prep, t])
   return (
-    <button className="clips-thumb" onClick={onClick} title="Play this clip in Program">
+    <button className="clips-thumb" onClick={onClick} title={tr('clips.playInProgram')}>
       <canvas ref={ref} width={w} height={h} />
     </button>
   )
