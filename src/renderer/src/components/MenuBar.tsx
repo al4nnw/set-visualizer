@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { api } from '../api'
+import { platform } from '../platform'
 
 export type MenuItem =
   | {
@@ -26,7 +26,7 @@ export interface Menu {
   onOpen?: () => void
 }
 
-const isMac = api.platform === 'darwin'
+const isMac = platform.os === 'darwin'
 
 const KEY_NAMES: Record<string, string> = {
   ArrowLeft: '←',

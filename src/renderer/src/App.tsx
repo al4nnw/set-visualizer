@@ -5,7 +5,7 @@ import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
-import { api, errMsg, mediaUrl } from './api'
+import { errMsg, platform } from './platform'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
 import type { ViewerTab } from './components/Viewer'
@@ -66,15 +66,15 @@ export function App() {
   }, [])
 
   const refreshRecent = useCallback(() => {
-    api.recentProjects().then(setRecent, () => {})
+    platform.recentProjects().then(setRecent, () => {})
   }, [])
 
   useEffect(() => {
-    api.getPrefs().then(setPrefsState, () => {})
+    platform.getPrefs().then(setPrefsState, () => {})
     refreshRecent()
   }, [refreshRecent])
 
-  const changePrefs = async (patch: Partial<Preferences>) => setPrefsState(await api.setPrefs(patch))
+  const changePrefs = async (patch: Partial<Preferences>) => setPrefsState(await platform.setPrefs(patch))
 
   // ---- saving ----------------------------------------------------------------------------
   // Each edit bumps `rev`; a save only clears `dirty` if nothing changed while it was writing.
@@ -105,7 +105,7 @@ export function App() {
     const at = rev.current
     setSaveState({ status: 'saving' })
     let ok = true
-    saving.current = api
+    saving.current = platform
       .saveProject(forDisk(p), path)
       .then(({ savedAt }) => {
         if (rev.current === at) {
@@ -140,7 +140,7 @@ export function App() {
   const saveAs = useCallback(async () => {
     if (!project) return
     try {
-      const r = await api.saveProjectAs(forDisk(project), projectPath)
+      const r = await platform.saveProjectAs(forDisk(project), projectPath)
       if (!r) return
       setProjectPath(r.path)
       setDirty(false)
@@ -160,8 +160,8 @@ export function App() {
 
   useEffect(
     () =>
-      api.onBeforeClose(async () => {
-        if (await settle()) api.closeOk()
+      platform.onBeforeClose(async () => {
+        if (await settle()) platform.closeOk()
       }),
     [settle]
   )
@@ -189,7 +189,7 @@ export function App() {
       const worker = async () => {
         for (let t = queue.shift(); t; t = queue.shift()) {
           try {
-            const found = await api.autoArtwork(t.artist, t.title)
+            const found = await platform.autoArtwork(t.artist, t.title)
             if (!found) continue
             const { artwork, url } = found
             const id = t.id
@@ -215,12 +215,12 @@ export function App() {
   const withTakeovers = (entries: ParsedEntry[], audioPath: string, duration: number, onDetect: () => void) =>
     placeTakeovers(entries, (cues, songs) => {
       onDetect()
-      return api.detectTakeovers(audioPath, cues, duration, songs)
+      return platform.detectTakeovers(audioPath, cues, duration, songs)
     })
 
   /** Reads a Rekordbox cue sheet and places its tracks, ready to store in the project. */
   const readCue = async (cuePath: string, audioPath: string, duration: number, onDetect: () => void) => {
-    const { entries, text, name } = await api.readCue(cuePath)
+    const { entries, text, name } = await platform.readCue(cuePath)
     if (!entries.length) throw new Error(`No tracks found in ${name}`)
     const tracks = entriesToTracks(await withTakeovers(entries, audioPath, duration, onDetect), duration)
     return { tracks, cue: { path: cuePath, name, text, importedAt: new Date().toISOString() } }
@@ -231,7 +231,7 @@ export function App() {
   const cancelLoad = () => {
     loadGen.current++
     setBusy(null)
-    return api.cancelAnalysis()
+    return platform.cancelAnalysis()
   }
 
   /**
@@ -245,13 +245,13 @@ export function App() {
     const stale = () => gen !== loadGen.current
     setError(null)
     setBusy({ label: 'Reading audio and building the waveform…', progress: 0 })
-    const off = api.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
+    const off = platform.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
     try {
-      const { duration, waveform, name } = await api.analyseAudio(audioPath)
+      const { duration, waveform, name } = await platform.analyseAudio(audioPath)
       if (stale()) return false
       const fromCue = cuePath ? await readCue(cuePath, audioPath, duration, () => !stale() && setBusy({ label: 'Finding where each track takes over…', progress: 1 })) : null
       if (stale()) return false
-      const p = prefs ?? (await api.getPrefs())
+      const p = prefs ?? (await platform.getPrefs())
       const fresh: Project = {
         version: 1,
         audioPath,
@@ -266,7 +266,7 @@ export function App() {
       // The tutorial works on a throwaway project: no file, nothing to save.
       const saved = opts.tutorial
         ? null
-        : await api.createProject(forDisk(fresh)).catch((e) => {
+        : await platform.createProject(forDisk(fresh)).catch((e) => {
             showToast(`Couldn't create the project file: ${errMsg(e)}. Use File ▸ Save As.`)
             return null
           })
@@ -296,12 +296,12 @@ export function App() {
     if (!(await settle())) return
     // Shown only when the set has to be analysed again (no cached waveform on this computer).
     let analysing = false
-    const off = api.onAudioProgress((p) => {
+    const off = platform.onAudioProgress((p) => {
       analysing = true
       setBusy({ label: 'Analysing the set recording…', progress: p })
     })
     try {
-      const r = await api.openProject(path)
+      const r = await platform.openProject(path)
       if (!r) return
       await cancelLoad()
       reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
@@ -310,7 +310,7 @@ export function App() {
       // can follow the vocals where there's no bass.
       if (!r.project.waveform.vocal) {
         const path = r.path
-        api
+        platform
           .analyseAudio(r.project.audioPath)
           .then(({ waveform }) => latest.current.path === path && update((p) => ({ ...p, waveform }), undefined, true))
           .catch(() => {})
@@ -346,14 +346,14 @@ export function App() {
 
   /** One picker for everything that starts work: a recording (optionally with its .cue) or a project. */
   const openAny = async () => {
-    const paths = await api.openAnyDialog()
+    const paths = await platform.openAnyDialog()
     if (paths.length) openPaths(paths)
   }
 
   /** Importing a cue sheet replaces the tracklist and records the cue in the project file. */
   const importCue = async (path?: string) => {
     if (!project) return showToast('Open the set recording first, then import its .cue')
-    const cuePath = path ?? (await api.openTracklistDialog())
+    const cuePath = path ?? (await platform.openTracklistDialog())
     if (!cuePath) return
     if (project.tracks.length && !confirm('Replace the current tracklist with the tracks from this .cue?')) return
     try {
@@ -380,7 +380,7 @@ export function App() {
 
   const openPathRef = useRef<(path: string) => void>(() => {})
   openPathRef.current = (path: string) => openPaths([path])
-  useEffect(() => api.onOpenPath((p) => openPathRef.current(p)), [])
+  useEffect(() => platform.onOpenPath((p) => openPathRef.current(p)), [])
 
   // ---- playback ----------------------------------------------------------------------------
   useEffect(() => {
@@ -529,7 +529,7 @@ export function App() {
   // ---- tutorial ------------------------------------------------------------------------------
   /** Opens the tutorial clip (a few minutes of a real set with its .cue) as a throwaway project. */
   const startTutorial = async () => {
-    const files = await api.tutorialFiles()
+    const files = await platform.tutorialFiles()
     if (!files) return setDialog({ kind: 'noTutorial' })
     if (await loadAudio(files.audio, files.cue, { tutorial: true })) setTab('tracks')
   }
@@ -566,7 +566,7 @@ export function App() {
             ? [
                 ...recent.map((r) => ({ label: r.name, hint: r.tracks ? `${r.tracks} tracks` : undefined, run: () => openProject(r.path) })),
                 'sep' as const,
-                { label: 'Clear Recent', run: () => api.clearRecent().then(refreshRecent) }
+                { label: 'Clear Recent', run: () => platform.clearRecent().then(refreshRecent) }
               ]
             : [{ label: 'No recent projects', disabled: true }]
         },
@@ -575,11 +575,12 @@ export function App() {
         'sep',
         { label: 'Save', shortcut: 'Mod+S', global: true, run: save, disabled: !has },
         { label: 'Save As…', shortcut: 'Mod+Shift+S', global: true, run: saveAs, disabled: !has },
-        { label: 'Show Project in Folder', run: () => projectPath && api.reveal(projectPath), disabled: !projectPath },
+        ...(platform.features.reveal ? [{ label: 'Show Project in Folder', run: () => projectPath && platform.reveal(projectPath), disabled: !projectPath }] : []),
         'sep',
         { label: 'Export Video…', shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has },
-        'sep',
-        { label: api.platform === 'darwin' ? 'Close Window' : 'Exit', shortcut: 'Mod+Q', global: true, run: () => api.quit() }
+        ...(platform.features.windowControls
+          ? (['sep', { label: platform.os === 'darwin' ? 'Close Window' : 'Exit', shortcut: 'Mod+Q', global: true, run: () => platform.quit() }] as const)
+          : [])
       ]
     },
     {
@@ -630,8 +631,12 @@ export function App() {
             setTimelineH(TIMELINE_H)
           }
         },
-        { label: 'Full Screen', shortcut: 'F11', global: true, run: () => api.toggleFullScreen() },
-        { label: 'Developer Tools', shortcut: 'F12', global: true, run: () => api.toggleDevTools() }
+        ...(platform.features.windowControls
+          ? [
+              { label: 'Full Screen', shortcut: 'F11', global: true, run: () => platform.toggleFullScreen() },
+              { label: 'Developer Tools', shortcut: 'F12', global: true, run: () => platform.toggleDevTools() }
+            ]
+          : [])
       ]
     },
     {
@@ -695,7 +700,7 @@ export function App() {
   // Commands from the native macOS menu.
   useEffect(
     () =>
-      api.onMenuCommand((id) => {
+      platform.onMenuCommand((id) => {
         const by: Record<string, () => void> = {
           new: newProject,
           open: openAny,
@@ -737,7 +742,7 @@ export function App() {
 
   return (
     <div
-      className={`app ${api.platform === 'darwin' ? 'mac' : ''}`}
+      className={`app ${platform.os === 'darwin' ? 'mac' : ''}`}
       style={{ ['--inspector-w' as string]: `${inspectorW}px`, ['--timeline-h' as string]: `${timelineH}px` }}
       onDragOver={(e) => {
         e.preventDefault()
@@ -747,7 +752,7 @@ export function App() {
       onDrop={(e) => {
         e.preventDefault()
         setDragOver(false)
-        openPaths([...e.dataTransfer.files].map((f) => api.pathForFile(f)))
+        openPaths([...e.dataTransfer.files].map((f) => platform.refForFile(f)))
       }}
     >
       <MenuBar
@@ -847,7 +852,7 @@ export function App() {
       {project && (
         <audio
           ref={setAudioEl}
-          src={mediaUrl(project.audioPath)}
+          src={platform.mediaUrl(project.audioPath)}
           preload="auto"
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

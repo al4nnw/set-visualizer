@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { formatTime, mainTracks } from '@shared/layout'
 import type { ExportProgress, Project, Quality, RenderSettings } from '@shared/types'
-import { api } from '../api'
+import { platform } from '../platform'
 import { runExport, webCodecsAvailable } from '../export/runExport'
 import { Icon } from './icons'
 
@@ -41,7 +41,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
 
   const start = async () => {
     const name = (s.setTitle || project.audioName.replace(/\.[^.]+$/, '')).replace(/[\\/:*?"<>|]+/g, '-') + '.mp4'
-    const out = await api.chooseVideoPath(name)
+    const out = await platform.chooseVideoPath(name)
     if (!out) return
     setError(null)
     abortRef.current = new AbortController()
@@ -146,8 +146,8 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             <button className="btn" onClick={() => abortRef.current?.abort()}>
               Cancel
             </button>
-          ) : progress?.stage === 'done' && progress.outputPath ? (
-            <button className="btn primary" onClick={() => api.reveal(progress.outputPath!)}>
+          ) : progress?.stage === 'done' && progress.outputPath && platform.features.reveal ? (
+            <button className="btn primary" onClick={() => platform.reveal(progress.outputPath!)}>
               Show in folder
             </button>
           ) : (

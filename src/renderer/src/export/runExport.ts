@@ -1,5 +1,5 @@
 import { forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
-import { api, errMsg } from '../api'
+import { errMsg, platform } from '../platform'
 import { SCENE_FONTS } from '../fonts'
 
 export const webCodecsAvailable = () => typeof VideoEncoder !== 'undefined'
@@ -35,7 +35,7 @@ export async function runExport(
     onProgress({ frame: done, totalFrames, fps: rate, etaSec: rate > 0 ? (totalFrames - done) / rate : 0, stage, ...extra })
   }
 
-  await api.exportBegin(forDisk(project), outPath, range)
+  await platform.exportBegin(forDisk(project), outPath, range)
   report('preparing')
   const worker = new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' })
   const abort = () => worker.postMessage({ type: 'cancel' })
@@ -45,7 +45,7 @@ export async function runExport(
       let last = 0
       worker.onmessage = (e: MessageEvent) => {
         const m = e.data
-        if (m.type === 'chunk') api.exportChunk(m.data)
+        if (m.type === 'chunk') platform.exportChunk(m.data)
         else if (m.type === 'progress') {
           done += m.frames
           if (performance.now() - last > 250) {
@@ -60,12 +60,12 @@ export async function runExport(
       worker.postMessage({ type: 'start', project, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')
-    const out = await api.exportFinish()
+    const out = await platform.exportFinish()
     done = totalFrames
     report('done', { outputPath: out })
     return out
   } catch (e) {
-    await api.exportAbort()
+    await platform.exportAbort()
     throw new Error(errMsg(e))
   } finally {
     signal.removeEventListener('abort', abort)

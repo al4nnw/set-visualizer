@@ -3,7 +3,7 @@ import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@sha
 import { buildMotion } from '@shared/motion'
 import { planSwaps, swapLength } from '@shared/swapPlan'
 import type { Project, Track } from '@shared/types'
-import { mediaUrl } from '../api'
+import { platform } from '../platform'
 import { Icon } from './icons'
 
 export interface TimelineHandle {
@@ -373,7 +373,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                     onDoubleClick={() => onSeek(tr.start)}
                     title={`${tr.artist} – ${tr.title}${plan ? `\nSwap: ${plan.curve}, ${plan.duration.toFixed(1)} s (${plan.reason})` : ''}\nDrag to move · double-click to jump here`}
                   >
-                    {tr.artwork && width > 60 && <img src={mediaUrl(tr.artwork)} alt="" draggable={false} />}
+                    {tr.artwork && width > 60 && <img src={platform.mediaUrl(tr.artwork)} alt="" draggable={false} />}
                     {width > 90 && (
                       <div className="tb-text">
                         <div className="tb-title">

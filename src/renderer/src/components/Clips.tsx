@@ -3,7 +3,7 @@ import { nudgeClip, resizeClip, type ClipKind, type ClipSuggestion } from '@shar
 import { formatTime } from '@shared/layout'
 import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { ExportProgress, Project } from '@shared/types'
-import { api } from '../api'
+import { platform } from '../platform'
 import { runExport, webCodecsAvailable } from '../export/runExport'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 import { Icon } from './icons'
@@ -86,7 +86,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
 
   const exportClip = async (c: ClipSuggestion) => {
     const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${c.title} ${formatTime(c.from, hours).replace(/:/g, '.')}`
-    const out = await api.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
+    const out = await platform.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
     if (!out) return
     abort.current = new AbortController()
     const set = (v: { progress?: ExportProgress; error?: string }) => setJobs((j) => ({ ...j, [c.id]: v }))
@@ -170,8 +170,8 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                     <button className="btn small" onClick={() => abort.current?.abort()}>
                       Cancel
                     </button>
-                  ) : st === 'done' && job?.progress?.outputPath ? (
-                    <button className="btn small" onClick={() => api.reveal(job.progress!.outputPath!)}>
+                  ) : st === 'done' && job?.progress?.outputPath && platform.features.reveal ? (
+                    <button className="btn small" onClick={() => platform.reveal(job.progress!.outputPath!)}>
                       Show file
                     </button>
                   ) : (

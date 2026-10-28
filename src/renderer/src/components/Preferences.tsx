@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Preferences as Prefs } from '@shared/types'
-import { api } from '../api'
+import { platform } from '../platform'
 import { RESOLUTIONS } from './ExportDialog'
 import { Icon } from './icons'
 
@@ -44,31 +44,35 @@ export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
                 </label>
                 <p className="muted small">
                   Opening a set recording creates its project file right away, and importing its Rekordbox .cue is saved into it. With autosave off, use File ▸ Save
-                  ({api.platform === 'darwin' ? '⌘' : 'Ctrl+'}S).
+                  ({platform.os === 'darwin' ? '⌘' : 'Ctrl+'}S).
                 </p>
-                <label>
-                  Projects folder
-                  <div className="row">
-                    <input className="grow" readOnly value={prefs.projectsDir} title={prefs.projectsDir} />
-                    <button
-                      className="btn small"
-                      onClick={async () => {
-                        const dir = await api.chooseFolder(prefs.projectsDir)
-                        if (dir) onChange({ projectsDir: dir })
-                      }}
-                    >
-                      Change…
-                    </button>
-                  </div>
-                </label>
+                {platform.features.projectsFolder && (
+                  <label>
+                    Projects folder
+                    <div className="row">
+                      <input className="grow" readOnly value={prefs.projectsDir} title={prefs.projectsDir} />
+                      <button
+                        className="btn small"
+                        onClick={async () => {
+                          const dir = await platform.chooseFolder(prefs.projectsDir)
+                          if (dir) onChange({ projectsDir: dir })
+                        }}
+                      >
+                        Change…
+                      </button>
+                    </div>
+                  </label>
+                )}
                 <div className="row">
-                  <button className="btn small" onClick={() => api.reveal(prefs.projectsDir)}>
-                    <Icon name="folder" size={12} /> Show folder
-                  </button>
+                  {platform.features.reveal && platform.features.projectsFolder && (
+                    <button className="btn small" onClick={() => platform.reveal(prefs.projectsDir)}>
+                      <Icon name="folder" size={12} /> Show folder
+                    </button>
+                  )}
                   <button
                     className="btn small ghost"
                     onClick={async () => {
-                      await api.clearRecent()
+                      await platform.clearRecent()
                       setCleared(true)
                     }}
                   >

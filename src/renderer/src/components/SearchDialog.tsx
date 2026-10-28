@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatTime } from '@shared/layout'
 import type { SearchResult, Track } from '@shared/types'
-import { api, errMsg } from '../api'
+import { errMsg, platform } from '../platform'
 
 const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
   { id: 'youtube', label: 'YouTube' },
@@ -35,7 +35,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const r = await api.search(prov, q.trim())
+      const r = await platform.search(prov, q.trim())
       if (id === reqId.current) setResults(r)
     } catch (e) {
       if (id === reqId.current) {
@@ -56,7 +56,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
     setApplying(r.provider + r.id)
     setError(null)
     try {
-      const artwork = await api.downloadArt(r.image || r.thumbnail)
+      const artwork = await platform.downloadArt(r.image || r.thumbnail)
       onApply({
         artwork,
         sourceUrl: r.url,
@@ -76,7 +76,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
     setApplying('url')
     setError(null)
     try {
-      onApply({ artwork: await api.downloadArt(url.trim()) })
+      onApply({ artwork: await platform.downloadArt(url.trim()) })
       onClose()
     } catch (e) {
       setError(`Couldn't download that image: ${errMsg(e)}`)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
 import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
-import { api, mediaUrl } from '../api'
+import { platform } from '../platform'
 import { Icon } from './icons'
 
 export type InspectorTab = 'tracks' | 'style' | 'project'
@@ -110,7 +110,7 @@ function TracksTab(p: Props & { project: Project }) {
           >
             <div className="tr-deck" style={{ background: t.deck === 'B' ? theme.accentB : theme.accent }} title={`Deck ${t.deck}`} />
             <div className="tr-num">{i + 1}</div>
-            <div className="tr-art">{t.artwork ? <img src={mediaUrl(t.artwork)} alt="" /> : <Icon name="music" size={12} />}</div>
+            <div className="tr-art">{t.artwork ? <img src={platform.mediaUrl(t.artwork)} alt="" /> : <Icon name="music" size={12} />}</div>
             <div className="tr-text">
               <div className="tr-title">{t.title || <i>Untitled</i>}</div>
               <div className="tr-artist">
@@ -134,7 +134,7 @@ function TracksTab(p: Props & { project: Project }) {
             }
           >
             <div className="clip-art">
-              {sel.artwork ? <img src={mediaUrl(sel.artwork)} alt="" /> : <div className="art-placeholder">No artwork</div>}
+              {sel.artwork ? <img src={platform.mediaUrl(sel.artwork)} alt="" /> : <div className="art-placeholder">No artwork</div>}
               <div className="clip-art-actions">
                 <button className="btn small" onClick={() => p.onSearch(sel.id)}>
                   <Icon name="search" size={12} /> Find artwork…
@@ -142,7 +142,7 @@ function TracksTab(p: Props & { project: Project }) {
                 <button
                   className="btn small"
                   onClick={async () => {
-                    const art = await api.pickImage()
+                    const art = await platform.pickImage()
                     if (art) p.onChangeTrack(sel.id, { artwork: art })
                   }}
                 >
@@ -154,7 +154,7 @@ function TracksTab(p: Props & { project: Project }) {
                   </button>
                 )}
                 {sel.sourceUrl && (
-                  <a className="source-link" onClick={() => api.openExternal(sel.sourceUrl!)}>
+                  <a className="source-link" onClick={() => platform.openExternal(sel.sourceUrl!)}>
                     {sel.source ?? 'Source'} ↗
                   </a>
                 )}
@@ -304,8 +304,8 @@ function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Pr
           <span className="path" title={projectPath ?? ''}>
             {projectPath ? projectPath.split(/[\\/]/).pop() : 'Not saved yet'}
           </span>
-          {projectPath && (
-            <button className="btn tiny ghost" onClick={() => api.reveal(projectPath)}>
+          {projectPath && platform.features.reveal && (
+            <button className="btn tiny ghost" onClick={() => platform.reveal(projectPath)}>
               Show
             </button>
           )}
@@ -324,9 +324,11 @@ function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Pr
           <span className="path" title={project.audioPath}>
             {project.audioName}
           </span>
-          <button className="btn tiny ghost" onClick={() => api.reveal(project.audioPath)}>
-            Show
-          </button>
+          {platform.features.reveal && (
+            <button className="btn tiny ghost" onClick={() => platform.reveal(project.audioPath)}>
+              Show
+            </button>
+          )}
         </Prop>
         <Prop label="Length">
           <span className="mono">{formatTime(project.duration, true)}</span>
