@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import type { ClipSuggestion } from '@shared/clips'
+import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
 import type { Project, RecentProject } from '@shared/types'
 import { Icon } from './icons'
@@ -30,9 +29,18 @@ interface Props {
   loop: ClipSuggestion | null
   onPlayClip: (clip: ClipSuggestion) => void
   onStopLoop: () => void
+  /** New start and end for a clip, or null to go back to the suggested ones. */
+  onTrimClip: (id: string, range: { from: number; to: number } | null) => void
+  tab: ViewerTab
+  onTab: (tab: ViewerTab) => void
+  /** Show the one-time note that points at the Clips tab. */
+  clipsHint: boolean
+  onDismissClipsHint: () => void
   clipFormat: ClipFormat
   onClipFormat: (f: ClipFormat) => void
 }
+
+export type ViewerTab = 'program' | 'clips'
 
 function ago(iso?: string) {
   if (!iso) return ''
@@ -95,8 +103,7 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
  * with transport controls under both.
  */
 export function Viewer(p: Props) {
-  const { project, time, loop } = p
-  const [tab, setTab] = useState<'program' | 'clips'>('program')
+  const { project, time, loop, tab, onTab: setTab } = p
   const fps = project?.settings.fps ?? 30
   const shown = project && loop ? clipProject(project, p.clipFormat) : project
   const hours = (project?.duration ?? 0) >= 3600
@@ -109,6 +116,29 @@ export function Viewer(p: Props) {
         <button className={`panel-tab ${tab === 'clips' ? 'on' : ''}`} onClick={() => setTab('clips')} disabled={!project}>
           Clips{project && p.clips.length ? <span className="tab-count">{p.clips.length}</span> : null}
         </button>
+        {p.clipsHint && project && tab !== 'clips' && (
+          <div className="clips-hint" role="status">
+            <div className="clips-hint-title">New: clips of your best moments</div>
+            <div className="clips-hint-text">
+              We found {p.clips.length} clips in this set: transitions, drops and the most driving parts. Play them, change their length and export them for your phone.
+            </div>
+            <div className="row">
+              <button className="btn tiny ghost" onClick={p.onDismissClipsHint}>
+                Got it
+              </button>
+              <div className="grow" />
+              <button
+                className="btn tiny primary"
+                onClick={() => {
+                  setTab('clips')
+                  p.onDismissClipsHint()
+                }}
+              >
+                Show clips
+              </button>
+            </div>
+          </div>
+        )}
         <div className="grow" />
         {shown && (
           <span className="panel-meta">
@@ -128,6 +158,7 @@ export function Viewer(p: Props) {
               p.onPlayClip(c)
               setTab('program')
             }}
+            onTrim={p.onTrimClip}
             format={p.clipFormat}
             onFormat={p.onClipFormat}
           />
@@ -142,6 +173,12 @@ export function Viewer(p: Props) {
             <span>
               Looping {formatTime(loop.from, hours)}–{formatTime(loop.to, hours)} · {loop.title}
             </span>
+            <button className="btn tiny ghost" title="Start the clip at the playhead" onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'from', time - loop.from, project?.duration ?? 0))}>
+              Start here
+            </button>
+            <button className="btn tiny ghost" title="End the clip at the playhead" onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'to', time - loop.to, project?.duration ?? 0))}>
+              End here
+            </button>
             <button className="icon-btn small" title="Stop looping" onClick={p.onStopLoop}>
               <Icon name="close" size={12} />
             </button>

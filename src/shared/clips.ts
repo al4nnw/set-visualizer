@@ -171,3 +171,36 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
   for (const c of out) if (kept.every((k) => overlap(k, c) < 0.5)) kept.push(c)
   return kept.slice(0, opts.max ?? 40).map((c) => ({ ...c, score: Math.round(c.score * 100) / 100 }))
 }
+
+/** Shortest and longest a clip can be trimmed to, seconds. */
+export const CLIP_MIN = 5
+export const CLIP_MAX = 180
+
+/** The suggestions with the user's own start and end applied, marked `edited`. */
+export function applyClipEdits(clips: ClipSuggestion[], edits: Record<string, { from: number; to: number }> | undefined): (ClipSuggestion & { edited?: boolean })[] {
+  if (!edits) return clips
+  return clips.map((c) => (edits[c.id] ? { ...c, ...edits[c.id], edited: true } : c))
+}
+
+const round = (x: number) => Math.round(x * 100) / 100
+
+/**
+ * A new length for the clip, keeping its key moment at the same place within it (a transition
+ * that lands a third of the way in still does), and inside the set.
+ */
+export function resizeClip(c: { from: number; to: number; focus: number }, length: number, duration: number): { from: number; to: number } {
+  const len = Math.max(CLIP_MIN, Math.min(CLIP_MAX, duration, length))
+  const ratio = Math.max(0, Math.min(1, (c.focus - c.from) / Math.max(0.001, c.to - c.from)))
+  const from = Math.max(0, Math.min(duration - len, c.focus - ratio * len))
+  return { from: round(from), to: round(from + len) }
+}
+
+/** Moves one end of the clip by `delta` seconds, keeping it between CLIP_MIN and CLIP_MAX long. */
+export function nudgeClip(c: { from: number; to: number }, edge: 'from' | 'to', delta: number, duration: number): { from: number; to: number } {
+  if (edge === 'from') {
+    const from = Math.max(0, c.to - CLIP_MAX, Math.min(c.from + delta, c.to - CLIP_MIN))
+    return { from: round(from), to: c.to }
+  }
+  const to = Math.min(duration, c.from + CLIP_MAX, Math.max(c.to + delta, c.from + CLIP_MIN))
+  return { from: c.from, to: round(to) }
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { suggestClips, type ClipSuggestion } from '@shared/clips'
+import { applyClipEdits, suggestClips, type ClipSuggestion } from '@shared/clips'
 import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
 import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentP
 import { api, errMsg, mediaUrl } from './api'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
+import type { ViewerTab } from './components/Viewer'
 import { Icon } from './components/icons'
 import { Inspector, type InspectorTab } from './components/Inspector'
 import { flatten, keysLabel, matches, MenuBar, shortcutLabel, type Menu, type MenuItem } from './components/MenuBar'
@@ -46,12 +47,12 @@ export function App() {
   const [playing, setPlaying] = useState(false)
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [loop, setLoop] = useState<ClipSuggestion | null>(null)
-  const loopRef = useRef(loop)
-  loopRef.current = loop
+  // The clip looping in Program, by id so that trimming it changes the loop too.
+  const [loopId, setLoopId] = useState<string | null>(null)
+  const loopRef = useRef<ClipSuggestion | null>(null)
   const [clipFormat, setClipFormat] = useState<ClipFormat>('portrait')
   // A clip belongs to the set it came from.
-  useEffect(() => setLoop(null), [project?.audioPath])
+  useEffect(() => setLoopId(null), [project?.audioPath])
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
   const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
   const timelineRef = useRef<TimelineHandle>(null)
@@ -401,17 +402,31 @@ export function App() {
   }, [audioEl, playing])
 
   // Clips are found again whenever the tracklist or the audio changes; it's a few ms, nothing is rendered.
-  const clips = useMemo(
+  const suggested = useMemo(
     () => (project?.tracks.length ? suggestClips(project.tracks, project.duration, buildMotion(project.waveform)) : []),
     [project?.tracks, project?.duration, project?.waveform]
   )
+  const clips = useMemo(() => applyClipEdits(suggested, project?.clipEdits), [suggested, project?.clipEdits])
+  const loop = clips.find((c) => c.id === loopId) ?? null
+  const [viewerTab, setViewerTab] = useState<ViewerTab>('program')
+  const clipsHint = !!prefs && !prefs.clipsHintSeen && clips.length > 0 && !tutorial && !busy
+  loopRef.current = loop
+
+  /** Sets a clip's start and end, or back to the suggested ones with null. Nudges merge into one undo step. */
+  const trimClip = (id: string, range: { from: number; to: number } | null) =>
+    update((p) => {
+      const edits = { ...p.clipEdits }
+      if (range) edits[id] = range
+      else delete edits[id]
+      return { ...p, clipEdits: Object.keys(edits).length ? edits : undefined }
+    }, `clip-${id}`)
 
   const seek = useCallback(
     (t: number) => {
       const c = Math.max(0, Math.min(project?.duration ?? 0, t))
       // Seeking out of a looping clip ends the loop.
       const l = loopRef.current
-      if (l && (c < l.from - 0.5 || c > l.to + 0.5)) setLoop(null)
+      if (l && (c < l.from - 0.5 || c > l.to + 0.5)) setLoopId(null)
       setTime(c)
       if (audioEl) audioEl.currentTime = c
     },
@@ -425,7 +440,7 @@ export function App() {
   }, [audioEl, showToast])
 
   const playClip = (c: ClipSuggestion) => {
-    setLoop(c)
+    setLoopId(c.id)
     loopRef.current = c
     seek(c.from)
     audioEl?.play().catch((e) => showToast(`Can't play this file: ${errMsg(e)}`))
@@ -584,13 +599,13 @@ export function App() {
     {
       label: 'Timing',
       items: [
-        // Left to right is the order of a transition: mix in, takes over, plays until.
-        { label: 'Mix In at Playhead', shortcut: 'A', altShortcut: 'ArrowLeft', alsoKeys: ['I'], run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
-        { label: 'Takes Over at Playhead', shortcut: 'S', altShortcut: 'ArrowDown', alsoKeys: ['T'], run: () => setTimingAtPlayhead('start'), disabled: !has },
-        { label: 'Plays Until at Playhead', shortcut: 'D', altShortcut: 'ArrowRight', alsoKeys: ['O'], run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
+        // A, S, D: left to right is the order of a transition (mix in, takes over, plays until).
+        { label: 'Mix In at Playhead', shortcut: 'A', run: () => setTimingAtPlayhead('mixIn'), disabled: !has },
+        { label: 'Takes Over at Playhead', shortcut: 'S', run: () => setTimingAtPlayhead('start'), disabled: !has },
+        { label: 'Plays Until at Playhead', shortcut: 'D', run: () => setTimingAtPlayhead('tailEnd'), disabled: !has },
         'sep',
-        { label: 'Clear Mix In', shortcut: 'Shift+A', alsoKeys: ['Shift+I'], run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
-        { label: 'Clear Plays Until', shortcut: 'Shift+D', alsoKeys: ['Shift+O'], run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
+        { label: 'Clear Mix In', shortcut: 'Shift+A', run: () => setTimingAtPlayhead('mixIn', true), disabled: !has },
+        { label: 'Clear Plays Until', shortcut: 'Shift+D', run: () => setTimingAtPlayhead('tailEnd', true), disabled: !has },
         'sep',
         { label: 'Select Previous Track', shortcut: '[', run: () => selectStep(-1), disabled: !has },
         { label: 'Select Next Track', shortcut: ']', run: () => selectStep(1), disabled: !has },
@@ -624,12 +639,12 @@ export function App() {
       items: [
         { label: playing ? 'Pause' : 'Play', shortcut: 'Space', run: togglePlay, disabled: !has },
         'sep',
-        { label: 'Previous Track', shortcut: 'PageUp', run: () => jumpTrack(-1), disabled: !has },
-        { label: 'Next Track', shortcut: 'PageDown', run: () => jumpTrack(1), disabled: !has },
-        { label: 'Back 5 Seconds', shortcut: 'J', run: () => seek(time - 5), disabled: !has },
-        { label: 'Forward 5 Seconds', shortcut: 'L', run: () => seek(time + 5), disabled: !has },
-        { label: 'Back 30 Seconds', shortcut: 'Shift+J', run: () => seek(time - 30), disabled: !has },
-        { label: 'Forward 30 Seconds', shortcut: 'Shift+L', run: () => seek(time + 30), disabled: !has },
+        { label: 'Previous Track', shortcut: 'ArrowUp', alsoKeys: ['PageUp'], run: () => jumpTrack(-1), disabled: !has },
+        { label: 'Next Track', shortcut: 'ArrowDown', alsoKeys: ['PageDown'], run: () => jumpTrack(1), disabled: !has },
+        { label: 'Back 5 Seconds', shortcut: 'ArrowLeft', alsoKeys: ['J'], run: () => seek(time - 5), disabled: !has },
+        { label: 'Forward 5 Seconds', shortcut: 'ArrowRight', alsoKeys: ['L'], run: () => seek(time + 5), disabled: !has },
+        { label: 'Back 30 Seconds', shortcut: 'Shift+ArrowLeft', alsoKeys: ['Shift+J'], run: () => seek(time - 30), disabled: !has },
+        { label: 'Forward 30 Seconds', shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => seek(time + 30), disabled: !has },
         'sep',
         { label: 'Go to Start', shortcut: 'Home', run: () => seek(0), disabled: !has },
         { label: 'Go to End', shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
@@ -778,7 +793,12 @@ export function App() {
           clips={clips}
           loop={loop}
           onPlayClip={playClip}
-          onStopLoop={() => setLoop(null)}
+          onStopLoop={() => setLoopId(null)}
+          onTrimClip={trimClip}
+          tab={viewerTab}
+          onTab={setViewerTab}
+          clipsHint={clipsHint}
+          onDismissClipsHint={() => void changePrefs({ clipsHintSeen: true })}
           clipFormat={clipFormat}
           onClipFormat={setClipFormat}
         />

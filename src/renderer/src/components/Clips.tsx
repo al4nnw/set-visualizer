@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ClipKind, ClipSuggestion } from '@shared/clips'
+import { nudgeClip, resizeClip, type ClipKind, type ClipSuggestion } from '@shared/clips'
 import { formatTime } from '@shared/layout'
 import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { ExportProgress, Project } from '@shared/types'
@@ -10,18 +10,24 @@ import { Icon } from './icons'
 
 export type ClipFormat = 'portrait' | 'landscape'
 
+type Clip = ClipSuggestion & { edited?: boolean }
+
 interface Props {
   project: Project
-  clips: ClipSuggestion[]
+  clips: Clip[]
   /** The clip looping in Program, if any. */
   playingId: string | null
   onPlay: (clip: ClipSuggestion) => void
+  /** New start and end for a clip, or null to go back to the suggested ones. */
+  onTrim: (id: string, range: { from: number; to: number } | null) => void
   format: ClipFormat
   onFormat: (f: ClipFormat) => void
 }
 
 const KIND_LABEL: Record<ClipKind, string> = { transition: 'Transition', drop: 'Drop', peak: 'Peak' }
 const THUMB_SHORT = 180
+/** Lengths offered on each card, seconds. */
+const LENGTHS = [15, 30, 60]
 
 /**
  * The project as a clip renders it: 9:16 at the project's resolution with only the close-up
@@ -37,7 +43,7 @@ export function clipProject(project: Project, format: ClipFormat): Project {
 }
 
 /** Suggested clips of the set: the best transitions, drops and peaks, ready to play or export. */
-export function ClipsPanel({ project, clips, playingId, onPlay, format, onFormat }: Props) {
+export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, onFormat }: Props) {
   const [kind, setKind] = useState<ClipKind | 'all'>('all')
   const [order, setOrder] = useState<'best' | 'time'>('best')
   const [art, setArt] = useState<Map<string, ArtAsset>>(new Map())
@@ -148,9 +154,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, format, onFormat
                 <div className="clips-title" title={c.title}>
                   {c.title}
                 </div>
-                <div className="clips-time">
-                  {formatTime(c.from, hours)} – {formatTime(c.to, hours)} · {Math.round(c.to - c.from)} s
-                </div>
+                <Trim clip={c} duration={project.duration} hours={hours} disabled={busy} onTrim={(r) => onTrim(c.id, r)} />
                 <div className="clips-reason">{c.reason}</div>
                 {busy || st === 'done' ? (
                   <div className="bar">
@@ -180,6 +184,53 @@ export function ClipsPanel({ project, clips, playingId, onPlay, format, onFormat
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Start and end of a clip with buttons to move each one (1 s, or 5 s with Shift), and quick
+ * lengths that keep the key moment where it is.
+ */
+function Trim({ clip: c, duration, hours, disabled, onTrim }: { clip: Clip; duration: number; hours: boolean; disabled: boolean; onTrim: (r: { from: number; to: number } | null) => void }) {
+  const len = c.to - c.from
+  const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const nudge = (edge: 'from' | 'to', dir: 1 | -1) => (e: React.MouseEvent) => onTrim(nudgeClip(c, edge, dir * step(e), duration))
+  return (
+    <div className="clips-trim">
+      <div className="clips-range">
+        <span className="clips-edge">
+          <button className="trim-btn" title="Start earlier (Shift: 5 s)" onClick={nudge('from', -1)} disabled={disabled}>
+            ‹
+          </button>
+          <span className="mono">{formatTime(c.from, hours)}</span>
+          <button className="trim-btn" title="Start later (Shift: 5 s)" onClick={nudge('from', 1)} disabled={disabled}>
+            ›
+          </button>
+        </span>
+        <span className="clips-len mono">{Math.round(len)} s</span>
+        <span className="clips-edge">
+          <button className="trim-btn" title="End earlier (Shift: 5 s)" onClick={nudge('to', -1)} disabled={disabled}>
+            ‹
+          </button>
+          <span className="mono">{formatTime(c.to, hours)}</span>
+          <button className="trim-btn" title="End later (Shift: 5 s)" onClick={nudge('to', 1)} disabled={disabled}>
+            ›
+          </button>
+        </span>
+      </div>
+      <div className="clips-lengths">
+        {LENGTHS.map((l) => (
+          <button key={l} className={Math.abs(len - l) < 0.5 ? 'on' : ''} onClick={() => onTrim(resizeClip(c, l, duration))} disabled={disabled} title={`Make it ${l} s around the key moment`}>
+            {l} s
+          </button>
+        ))}
+        {c.edited && (
+          <button className="reset" onClick={() => onTrim(null)} disabled={disabled} title="Back to the suggested start and end">
+            Reset
+          </button>
+        )}
       </div>
     </div>
   )
