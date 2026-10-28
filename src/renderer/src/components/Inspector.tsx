@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
 import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
-import { api, mediaUrl } from '../api'
+import { Trans, useTranslation } from 'react-i18next'
+import { LOCALE_NAMES, LOCALES, type Locale } from '@shared/i18n'
+import { lang } from '../i18n'
+import { platform } from '../platform'
 import { Icon } from './icons'
 
 export type InspectorTab = 'tracks' | 'style' | 'project'
@@ -82,43 +85,44 @@ function TracksTab(p: Props & { project: Project }) {
   const main = mainTracks(project.tracks)
   const currentId = main.reduce<string | undefined>((acc, t) => (t.start <= time ? t.id : acc), main[0]?.id)
   const { theme } = project.settings
+  const { t } = useTranslation()
 
   return (
     <>
       <div className="list-toolbar">
-        <span className="muted">{sorted.length} tracks</span>
+        <span className="muted">{t('common.tracks', { count: sorted.length })}</span>
         <div className="grow" />
-        <button className="btn tiny ghost" title="Re-assign decks A, B, A, B… in play order" onClick={p.onAlternateDecks}>
-          Re-alternate A/B
+        <button className="btn tiny ghost" title={t('inspector.alternateTitle')} onClick={p.onAlternateDecks}>
+          {t('inspector.alternate')}
         </button>
-        <button className="btn tiny" onClick={p.onAdd} title="Add a track at the playhead (M)">
-          <Icon name="plus" size={12} /> Add at playhead
+        <button className="btn tiny" onClick={p.onAdd} title={t('inspector.addTitle')}>
+          <Icon name="plus" size={12} /> {t('inspector.add')}
         </button>
       </div>
       <div className="tracklist">
         {sorted.length === 0 && (
           <div className="empty">
-            No tracks yet. <a onClick={p.onImportCue}>Import the Rekordbox .cue</a> from this recording, or add tracks by hand at the playhead.
+            <Trans i18nKey="inspector.noTracks" components={[<a onClick={p.onImportCue} />]} />
           </div>
         )}
-        {sorted.map((t, i) => (
+        {sorted.map((tr, i) => (
           <div
-            key={t.id}
-            className={`track-row ${t.id === selectedId ? 'selected' : ''} ${t.id === currentId ? 'current' : ''}`}
-            onClick={() => p.onSelect(t.id)}
-            onDoubleClick={() => p.onSeek(t.start)}
+            key={tr.id}
+            className={`track-row ${tr.id === selectedId ? 'selected' : ''} ${tr.id === currentId ? 'current' : ''}`}
+            onClick={() => p.onSelect(tr.id)}
+            onDoubleClick={() => p.onSeek(tr.start)}
           >
-            <div className="tr-deck" style={{ background: t.deck === 'B' ? theme.accentB : theme.accent }} title={`Deck ${t.deck}`} />
+            <div className="tr-deck" style={{ background: tr.deck === 'B' ? theme.accentB : theme.accent }} title={t('inspector.deck', { deck: tr.deck })} />
             <div className="tr-num">{i + 1}</div>
-            <div className="tr-art">{t.artwork ? <img src={mediaUrl(t.artwork)} alt="" /> : <Icon name="music" size={12} />}</div>
+            <div className="tr-art">{tr.artwork ? <img src={platform.mediaUrl(tr.artwork)} alt="" /> : <Icon name="music" size={12} />}</div>
             <div className="tr-text">
-              <div className="tr-title">{t.title || <i>Untitled</i>}</div>
+              <div className="tr-title">{tr.title || <i>{t('common.untitled')}</i>}</div>
               <div className="tr-artist">
-                {t.artist || <i>Unknown artist</i>}
-                {t.layered && <span className="layered-tag" title="Mixed in under another track, never takes over">layered</span>}
+                {tr.artist || <i>{t('common.unknownArtist')}</i>}
+                {tr.layered && <span className="layered-tag" title={t('inspector.layeredTitle')}>{t('inspector.layered')}</span>}
               </div>
             </div>
-            <div className="tr-time">{formatTime(t.start, project.duration >= 3600)}</div>
+            <div className="tr-time">{formatTime(tr.start, project.duration >= 3600)}</div>
           </div>
         ))}
       </div>
@@ -126,47 +130,47 @@ function TracksTab(p: Props & { project: Project }) {
       {sel && (
         <div className="clip-props">
           <Section
-            title="Track"
+            title={t('inspector.track')}
             right={
-              <button className="icon-btn small" title="Delete track (Del)" onClick={() => p.onDelete(sel.id)}>
+              <button className="icon-btn small" title={t('inspector.deleteTitle')} onClick={() => p.onDelete(sel.id)}>
                 <Icon name="trash" size={14} />
               </button>
             }
           >
             <div className="clip-art">
-              {sel.artwork ? <img src={mediaUrl(sel.artwork)} alt="" /> : <div className="art-placeholder">No artwork</div>}
+              {sel.artwork ? <img src={platform.mediaUrl(sel.artwork)} alt="" /> : <div className="art-placeholder">{t('inspector.noArtwork')}</div>}
               <div className="clip-art-actions">
                 <button className="btn small" onClick={() => p.onSearch(sel.id)}>
-                  <Icon name="search" size={12} /> Find artwork…
+                  <Icon name="search" size={12} /> {t('inspector.findArtwork')}
                 </button>
                 <button
                   className="btn small"
                   onClick={async () => {
-                    const art = await api.pickImage()
+                    const art = await platform.pickImage()
                     if (art) p.onChangeTrack(sel.id, { artwork: art })
                   }}
                 >
-                  <Icon name="image" size={12} /> Choose image…
+                  <Icon name="image" size={12} /> {t('inspector.chooseImage')}
                 </button>
                 {sel.artwork && (
                   <button className="btn small ghost" onClick={() => p.onChangeTrack(sel.id, { artwork: undefined })}>
-                    Remove image
+                    {t('inspector.removeImage')}
                   </button>
                 )}
                 {sel.sourceUrl && (
-                  <a className="source-link" onClick={() => api.openExternal(sel.sourceUrl!)}>
-                    {sel.source ?? 'Source'} ↗
+                  <a className="source-link" onClick={() => platform.openExternal(sel.sourceUrl!)}>
+                    {sel.source ?? t('inspector.source')} ↗
                   </a>
                 )}
               </div>
             </div>
-            <Prop label="Title">
+            <Prop label={t('inspector.title')}>
               <input value={sel.title} onChange={(e) => p.onChangeTrack(sel.id, { title: e.target.value }, `title-${sel.id}`)} />
             </Prop>
-            <Prop label="Artist">
+            <Prop label={t('inspector.artist')}>
               <input value={sel.artist} onChange={(e) => p.onChangeTrack(sel.id, { artist: e.target.value }, `artist-${sel.id}`)} />
             </Prop>
-            <Prop label="Deck">
+            <Prop label={t('inspector.deckLabel')}>
               <div className="seg">
                 {(['A', 'B'] as const).map((d) => (
                   <button key={d} className={sel.deck === d ? 'on' : ''} onClick={() => p.onChangeTrack(sel.id, { deck: d })}>
@@ -176,23 +180,23 @@ function TracksTab(p: Props & { project: Project }) {
               </div>
             </Prop>
           </Section>
-          <Section title="Timing" right={<span className="muted small">A · S · D at the playhead</span>}>
-            <Prop label="Takes over" title="Where this track becomes the main track (moves to the left).">
+          <Section title={t('inspector.timing')} right={<span className="muted small">{t('inspector.timingKeys')}</span>}>
+            <Prop label={t('timing.takesOver')} title={t('inspector.takesOverTitle')}>
               <TimeInput value={sel.start} onChange={(v) => v !== undefined && p.onChangeTrack(sel.id, { start: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (S)" onClick={() => p.onChangeTrack(sel.id, { start: time })}>
-                Playhead <kbd>S</kbd>
+              <button className="btn tiny ghost" title={t('inspector.playheadTitle', { key: 'S' })} onClick={() => p.onChangeTrack(sel.id, { start: time })}>
+                {t('inspector.playhead')} <kbd>S</kbd>
               </button>
             </Prop>
-            <Prop label="Mix in" title="When it starts being heard. It appears on the right as 'now playing' from here.">
-              <TimeInput value={sel.mixIn} placeholder={`auto (−${project.settings.defaultLead}s)`} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (A)" onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
-                Playhead <kbd>A</kbd>
+            <Prop label={t('timing.mixIn')} title={t('inspector.mixInTitle')}>
+              <TimeInput value={sel.mixIn} placeholder={t('inspector.mixInAuto', { lead: project.settings.defaultLead })} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
+              <button className="btn tiny ghost" title={t('inspector.playheadTitle', { key: 'A' })} onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
+                {t('inspector.playhead')} <kbd>A</kbd>
               </button>
             </Prop>
-            <Prop label="Plays until" title="When it stops being heard, if it keeps playing under the next track after the swap.">
-              <TimeInput value={sel.tailEnd} placeholder="leaves at the swap" onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
-              <button className="btn tiny ghost" title="Set to the playhead (D)" onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
-                Playhead <kbd>D</kbd>
+            <Prop label={t('timing.playsUntil')} title={t('inspector.playsUntilTitle')}>
+              <TimeInput value={sel.tailEnd} placeholder={t('inspector.playsUntilNone')} onChange={(v) => p.onChangeTrack(sel.id, { tailEnd: v })} />
+              <button className="btn tiny ghost" title={t('inspector.playheadTitle', { key: 'D' })} onClick={() => p.onChangeTrack(sel.id, { tailEnd: time })}>
+                {t('inspector.playhead')} <kbd>D</kbd>
               </button>
             </Prop>
           </Section>
@@ -203,90 +207,100 @@ function TracksTab(p: Props & { project: Project }) {
 }
 
 function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
+  const { t } = useTranslation()
   const s = project.settings
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
   return (
     <div className="scroll">
-      <Section title="Format">
-        <Prop label="Aspect" title="16:9 for YouTube, 9:16 for phones (Shorts, Reels, TikTok)">
+      <Section title={t('inspector.format')}>
+        <Prop label={t('inspector.aspect')} title={t('inspector.aspectTitle')}>
           <div className="seg">
             <button className={s.height <= s.width ? 'on' : ''} onClick={() => s.height > s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              16:9 YouTube
+              {t('inspector.landscape')}
             </button>
             <button className={s.height > s.width ? 'on' : ''} onClick={() => s.height <= s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              9:16 Phone
+              {t('inspector.portrait')}
             </button>
           </div>
         </Prop>
       </Section>
-      <Section title="Text">
-        <Prop label="DJ name">
-          <input value={s.djName} onChange={(e) => onChangeSettings({ djName: e.target.value }, 'dj')} placeholder="shown top-left" />
+      <Section title={t('inspector.text')}>
+        <Prop label={t('inspector.djName')}>
+          <input value={s.djName} onChange={(e) => onChangeSettings({ djName: e.target.value }, 'dj')} placeholder={t('inspector.djNamePlaceholder')} />
         </Prop>
-        <Prop label="Set title">
-          <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder="Live from the studio" />
+        <Prop label={t('inspector.setTitle')}>
+          <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder={t('inspector.setTitlePlaceholder')} />
         </Prop>
-        <Prop label="Clock">
+        <Prop label={t('inspector.videoLanguage')} title={t('inspector.videoLanguageTitle')}>
+          <select value={s.videoLanguage ?? 'en'} onChange={(e) => onChangeSettings({ videoLanguage: e.target.value as Locale })}>
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>
+                {LOCALE_NAMES[l]}
+              </option>
+            ))}
+          </select>
+        </Prop>
+        <Prop label={t('inspector.clock')}>
           <label className="check">
             <input type="checkbox" checked={s.showTimestamps} onChange={(e) => onChangeSettings({ showTimestamps: e.target.checked })} />
-            Show elapsed / total time
+            {t('inspector.showTime')}
           </label>
         </Prop>
       </Section>
-      <Section title="Waveforms">
-        <Prop label="Top" title="The close-up waveform that scrolls past the playhead">
+      <Section title={t('inspector.waveforms')}>
+        <Prop label={t('inspector.top')} title={t('inspector.topTitle')}>
           <div className="seg">
             <button className={s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: true })}>
-              Show
+              {t('inspector.show')}
             </button>
             <button className={!s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: false })}>
-              Hide
+              {t('inspector.hide')}
             </button>
           </div>
-          <span className="muted small">close-up, scrolls</span>
+          <span className="muted small">{t('inspector.topNote')}</span>
         </Prop>
-        <Prop label="Bottom" title="The whole set's waveform with the track numbers under it">
+        <Prop label={t('inspector.bottom')} title={t('inspector.bottomTitle')}>
           <div className="seg">
             <button className={s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: true })}>
-              Show
+              {t('inspector.show')}
             </button>
             <button className={!s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: false })}>
-              Hide
+              {t('inspector.hide')}
             </button>
           </div>
-          <span className="muted small">whole set, track numbers</span>
+          <span className="muted small">{t('inspector.bottomNote')}</span>
         </Prop>
       </Section>
-      <Section title="Colors">
-        <Prop label="Deck A">
+      <Section title={t('inspector.colors')}>
+        <Prop label={t('timeline.deckA')}>
           <input type="color" value={s.theme.accent} onChange={(e) => setTheme({ accent: e.target.value })} />
           <span className="mono muted">{s.theme.accent}</span>
         </Prop>
-        <Prop label="Deck B">
+        <Prop label={t('timeline.deckB')}>
           <input type="color" value={s.theme.accentB} onChange={(e) => setTheme({ accentB: e.target.value })} />
           <span className="mono muted">{s.theme.accentB}</span>
         </Prop>
-        <Prop label="Background">
+        <Prop label={t('inspector.background')}>
           <input type="color" value={s.theme.background} onChange={(e) => setTheme({ background: e.target.value })} />
           <span className="mono muted">{s.theme.background}</span>
         </Prop>
       </Section>
-      <Section title="Transitions">
-        <Prop label="Up next lead" title="How long before it takes over a track without a mix-in time appears on the right">
+      <Section title={t('inspector.transitions')}>
+        <Prop label={t('inspector.lead')} title={t('inspector.leadTitle')}>
           <input type="range" min={0} max={120} step={5} value={s.defaultLead} onChange={(e) => onChangeSettings({ defaultLead: +e.target.value }, 'lead')} />
           <span className="mono val">{s.defaultLead}s</span>
         </Prop>
-        <Prop label="Swap curve" title="How the cards move during the swap. It always ends on the takeover point.">
+        <Prop label={t('inspector.curve')} title={t('inspector.curveTitle')}>
           <select value={s.swapCurve ?? 'auto'} onChange={(e) => onChangeSettings({ swapCurve: e.target.value as SwapCurve }, 'curve')}>
-            <option value="auto">Energy-matched (auto)</option>
-            <option value="smooth">Smooth</option>
-            <option value="snappy">Snappy</option>
-            <option value="anticipate">Anticipate</option>
-            <option value="spring">Spring</option>
+            {(['auto', 'smooth', 'snappy', 'anticipate', 'spring'] as const).map((c) => (
+              <option key={c} value={c}>
+                {t(`inspector.curves.${c}`)}
+              </option>
+            ))}
           </select>
         </Prop>
         {(s.swapCurve ?? 'auto') !== 'auto' && (
-          <Prop label="Swap time" title="How long the A/B swap animation takes">
+          <Prop label={t('inspector.swapTime')} title={t('inspector.swapTimeTitle')}>
             <input type="range" min={0.4} max={4} step={0.1} value={s.swapDuration} onChange={(e) => onChangeSettings({ swapDuration: +e.target.value }, 'swap')} />
             <span className="mono val">{s.swapDuration.toFixed(1)}s</span>
           </Prop>
@@ -297,59 +311,62 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
 }
 
 function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Project }) {
+  const { t } = useTranslation()
   return (
     <div className="scroll">
-      <Section title="Project file">
-        <Prop label="File">
+      <Section title={t('inspector.projectFile')}>
+        <Prop label={t('inspector.file')}>
           <span className="path" title={projectPath ?? ''}>
-            {projectPath ? projectPath.split(/[\\/]/).pop() : 'Not saved yet'}
+            {projectPath ? projectPath.split(/[\\/]/).pop() : t('inspector.notSavedYet')}
           </span>
-          {projectPath && (
-            <button className="btn tiny ghost" onClick={() => api.reveal(projectPath)}>
-              Show
+          {projectPath && platform.features.reveal && (
+            <button className="btn tiny ghost" onClick={() => platform.reveal(projectPath)}>
+              {t('common.show')}
             </button>
           )}
         </Prop>
-        <Prop label="Location">
+        <Prop label={t('inspector.location')}>
           <span className="path" title={projectPath ?? ''}>
             {projectPath?.replace(/[\\/][^\\/]*$/, '') ?? '—'}
           </span>
         </Prop>
-        <Prop label="Last saved">
-          <span>{project.savedAt ? new Date(project.savedAt).toLocaleString() : '—'}</span>
+        <Prop label={t('inspector.lastSaved')}>
+          <span>{project.savedAt ? new Date(project.savedAt).toLocaleString(lang()) : '—'}</span>
         </Prop>
       </Section>
-      <Section title="Set recording">
-        <Prop label="Audio">
+      <Section title={t('inspector.setRecording')}>
+        <Prop label={t('inspector.audio')}>
           <span className="path" title={project.audioPath}>
             {project.audioName}
           </span>
-          <button className="btn tiny ghost" onClick={() => api.reveal(project.audioPath)}>
-            Show
-          </button>
+          {platform.features.reveal && (
+            <button className="btn tiny ghost" onClick={() => platform.reveal(project.audioPath)}>
+              {t('common.show')}
+            </button>
+          )}
         </Prop>
-        <Prop label="Length">
+        <Prop label={t('inspector.length')}>
           <span className="mono">{formatTime(project.duration, true)}</span>
         </Prop>
       </Section>
-      <Section title="Rekordbox cue">
+      <Section title={t('inspector.cue')}>
         {project.cue ? (
           <>
-            <Prop label="File">
+            <Prop label={t('inspector.file')}>
               <span className="path" title={project.cue.path}>
                 {project.cue.name}
               </span>
             </Prop>
-            <Prop label="Imported">
-              <span>{new Date(project.cue.importedAt).toLocaleString()}</span>
+            <Prop label={t('inspector.imported')}>
+              <span>{new Date(project.cue.importedAt).toLocaleString(lang())}</span>
             </Prop>
           </>
         ) : (
-          <div className="muted small pad">No cue sheet imported yet.</div>
+          <div className="muted small pad">{t('inspector.noCue')}</div>
         )}
         <div className="pad">
           <button className="btn small" onClick={onImportCue}>
-            <Icon name="cue" size={12} /> {project.cue ? 'Re-import .cue…' : 'Import .cue…'}
+            <Icon name="cue" size={12} /> {project.cue ? t('inspector.reimportCue') : t('inspector.importCue')}
           </button>
         </div>
       </Section>
@@ -357,27 +374,24 @@ function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Pr
   )
 }
 
-const TABS: Array<{ id: InspectorTab; label: string }> = [
-  { id: 'tracks', label: 'Tracks' },
-  { id: 'style', label: 'Style' },
-  { id: 'project', label: 'Project' }
-]
+const TABS: InspectorTab[] = ['tracks', 'style', 'project']
 
 /** Right-hand panel: the tracklist and selected track, the video's look, and project details. */
 export function Inspector(p: Props) {
   const { project } = p
+  const { t } = useTranslation()
   return (
     <aside className="panel inspector">
       <div className="panel-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`panel-tab ${p.tab === t.id ? 'on' : ''}`} onClick={() => p.onTab(t.id)}>
-            {t.label}
+        {TABS.map((id) => (
+          <button key={id} className={`panel-tab ${p.tab === id ? 'on' : ''}`} onClick={() => p.onTab(id)}>
+            {t(`inspector.tabs.${id}`)}
           </button>
         ))}
       </div>
       <div className="inspector-body">
         {!project ? (
-          <div className="empty">Open a set recording to edit its tracks and look.</div>
+          <div className="empty">{t('inspector.empty')}</div>
         ) : p.tab === 'tracks' ? (
           <TracksTab {...p} project={project} />
         ) : p.tab === 'style' ? (

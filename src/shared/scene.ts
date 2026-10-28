@@ -6,6 +6,7 @@ import type { Project, Track, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
 import { buildMotion, motionAt, type Motion } from './motion'
 import { planSwaps, type SwapPlan } from './swapPlan'
+import { videoText } from './i18n'
 
 export type Ctx = CanvasRenderingContext2D
 export type ImageLike = CanvasImageSource & { width: number; height: number }
@@ -284,7 +285,7 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   if (settings.djName) {
     ctx.fillStyle = settings.theme.text
     ctx.font = `800 ${42 * ts}px ${f}`
-    ctx.fillText(fitText(ctx, settings.djName.toUpperCase(), W * 0.6), 60 * s, y)
+    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), W * 0.6), 60 * s, y)
     y += 40 * ts
   }
   if (settings.setTitle) {
@@ -379,23 +380,25 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const num = String(c.index + 1).padStart(2, '0')
   ctx.font = `700 ${18 * ts}px ${f}`
   ctx.fillStyle = color
-  const label =
+  const vt = videoText(settings.videoLanguage)
+  const what =
     c.playing && c.role !== 'leaving'
-      ? `NOW PLAYING  ·  ${num}`
+      ? vt.nowPlaying
       : c.role === 'leaving' || c.role === 'tail'
-        ? `PREVIOUS  ·  ${num}`
+        ? vt.previous
         : c.role === 'incoming' || c.mainness < 0.5
-          ? `UP NEXT  ·  ${num}`
-          : `NOW PLAYING  ·  ${num}`
+          ? vt.upNext
+          : vt.nowPlaying
+  const label = `${what}  ·  ${num}`
   ctx.fillText(label, tx, ty)
   ty += 46 * ts
   ctx.fillStyle = settings.theme.text
   ctx.font = `800 ${lerp(30, 40, c.mainness) * ts}px ${f}`
-  ctx.fillText(fitText(ctx, c.track.title || 'Unknown track', maxW), tx, ty)
+  ctx.fillText(fitText(ctx, c.track.title || vt.unknownTrack, maxW), tx, ty)
   ty += lerp(36, 44, c.mainness) * ts
   ctx.fillStyle = hexToRgba(settings.theme.text, 0.7)
   ctx.font = `500 ${lerp(22, 28, c.mainness) * ts}px ${f}`
-  ctx.fillText(fitText(ctx, c.track.artist || 'Unknown artist', maxW), tx, ty)
+  ctx.fillText(fitText(ctx, c.track.artist || vt.unknownArtist, maxW), tx, ty)
 
   ctx.restore()
 }

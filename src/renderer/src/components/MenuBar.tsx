@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { api } from '../api'
+import { platform } from '../platform'
 
 export type MenuItem =
   | {
+      /** Stable command id (the label changes with the UI language). */
+      id?: string
       label: string
       /** Key combo like "Mod+Shift+S", "Space" or "ArrowLeft"; Mod is Cmd on macOS, Ctrl elsewhere. */
       shortcut?: string
@@ -26,7 +28,7 @@ export interface Menu {
   onOpen?: () => void
 }
 
-const isMac = api.platform === 'darwin'
+const isMac = platform.os === 'darwin'
 
 const KEY_NAMES: Record<string, string> = {
   ArrowLeft: '←',

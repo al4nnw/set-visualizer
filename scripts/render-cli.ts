@@ -64,7 +64,7 @@ async function main() {
   if (flag('plans') && (s.swapCurve ?? 'auto') === 'auto') {
     const sorted = mainTracks(project.tracks)
     planSwaps(sorted, s, buildMotion(project.waveform)).forEach((p, i) => {
-      if (p) console.log(`swap ${i + 1} ${formatTime(sorted[i].start)} ${sorted[i].title}: ${p.curve} ${p.duration.toFixed(2)} s (${p.reason})`)
+      if (p) console.log(`swap ${i + 1} ${formatTime(sorted[i].start)} ${sorted[i].title}: ${p.curve} ${p.duration.toFixed(2)} s (${p.reason.key} ${JSON.stringify(p.reason.values ?? {})})`)
     })
   }
   const fromArg = arg('from')

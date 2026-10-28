@@ -1,3 +1,5 @@
+import type { Locale } from './i18n'
+
 export type Deck = 'A' | 'B'
 
 export interface Track {
@@ -68,6 +70,8 @@ export interface RenderSettings {
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
+  /** Language of the text drawn into the video ("NOW PLAYING", ...). Missing means English. */
+  videoLanguage?: Locale
   theme: Theme
   quality: Quality
 }
@@ -129,6 +133,8 @@ export interface Preferences {
   defaultFps: number
   /** The one-time note about the Clips tab was shown. */
   clipsHintSeen?: boolean
+  /** UI language; missing or 'system' follows the OS. */
+  language?: Locale | 'system'
 }
 
 export interface RecentProject {

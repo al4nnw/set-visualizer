@@ -1,3 +1,4 @@
+import type { Msg } from './i18n'
 import type { Motion } from './motion'
 import type { RenderSettings, SwapCurve, Track } from './types'
 
@@ -5,8 +6,8 @@ import type { RenderSettings, SwapCurve, Track } from './types'
 export interface SwapPlan {
   curve: Exclude<SwapCurve, 'auto'>
   duration: number
-  /** Why this plan was picked, for the CLI and the inspector. */
-  reason: string
+  /** Why this plan was picked, for the CLI and the timeline (keys under swapReason in the UI catalogs). */
+  reason: Msg
 }
 
 function mean(a: Float32Array, rate: number, from: number, to: number): number {
@@ -47,28 +48,28 @@ export function planSwaps(sorted: Track[], settings: Pick<RenderSettings, 'defau
 
     let curve: SwapPlan['curve']
     let duration: number
-    let reason: string
+    let reason: Msg
     if (bassAfter - bassBefore > 0.35 && bassAfter > 0.55 && kickJump > 0.1) {
       curve = 'snappy'
       duration = 1.1
-      reason = 'drop at the takeover'
+      reason = { key: 'drop' }
     } else if (blend < 8 && tail < 4) {
       curve = 'spring'
       duration = 1.0
-      reason = `quick cut (${blend.toFixed(0)} s blend)`
+      reason = { key: 'quickCut', values: { blend: Math.round(blend) } }
     } else if (blend > 30 || tail > 30) {
       curve = 'smooth'
       // 2.4 s for a 30 s overlap, up to 3 s for the longest blends.
       duration = 2.4 + 0.6 * Math.min(1, (Math.max(blend, tail) - 30) / 90)
-      reason = `long blend (${blend.toFixed(0)} s in, ${tail.toFixed(0)} s tail)`
+      reason = { key: 'longBlend', values: { blend: Math.round(blend), tail: Math.round(tail) } }
     } else if (bassAfter < 0.3) {
       curve = 'smooth'
       duration = 2.2
-      reason = 'no bass at the takeover'
+      reason = { key: 'noBass' }
     } else {
       curve = 'smooth'
       duration = 1.8
-      reason = `normal blend (${blend.toFixed(0)} s)`
+      reason = { key: 'normal', values: { blend: Math.round(blend) } }
     }
     // Never start the swap before the previous one has finished.
     duration = Math.max(0.3, Math.min(duration, tr.start - prev.start - 0.25))

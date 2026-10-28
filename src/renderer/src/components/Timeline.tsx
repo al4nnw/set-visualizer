@@ -3,7 +3,9 @@ import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@sha
 import { buildMotion } from '@shared/motion'
 import { planSwaps, swapLength } from '@shared/swapPlan'
 import type { Project, Track } from '@shared/types'
-import { mediaUrl } from '../api'
+import { useTranslation } from 'react-i18next'
+import { tMsg } from '../i18n'
+import { platform } from '../platform'
 import { Icon } from './icons'
 
 export interface TimelineHandle {
@@ -38,20 +40,21 @@ function lanes(height: number) {
 }
 
 function TrackHeaders({ geo, theme }: { geo: ReturnType<typeof lanes>; theme?: { accent: string; accentB: string } }) {
+  const { t } = useTranslation()
   return (
     <div className="track-headers">
       <div className="th-ruler" style={{ height: RULER }} />
       <div className="th" style={{ top: RULER, height: geo.WAVE_H + 2 }}>
         <Icon name="speaker" size={13} />
-        <span>Set audio</span>
+        <span>{t('timeline.setAudio')}</span>
       </div>
       <div className="th" style={{ top: geo.LANE_A, height: LANE_H }}>
         <span className="th-swatch" style={{ background: theme?.accent }} />
-        <span>Deck A</span>
+        <span>{t('timeline.deckA')}</span>
       </div>
       <div className="th" style={{ top: geo.LANE_B, height: LANE_H }}>
         <span className="th-swatch" style={{ background: theme?.accentB }} />
-        <span>Deck B</span>
+        <span>{t('timeline.deckB')}</span>
       </div>
     </div>
   )
@@ -74,12 +77,13 @@ function useBodyHeight() {
 
 /** The timeline before a set is loaded: same headers and lanes, nothing on them. */
 export function EmptyTimeline() {
+  const { t } = useTranslation()
   const [bodyRef, bodyH] = useBodyHeight()
   const geo = lanes(bodyH)
   return (
     <div className="panel timeline">
       <div className="timeline-toolbar">
-        <span className="panel-tab on">Timeline</span>
+        <span className="panel-tab on">{t('timeline.title')}</span>
       </div>
       <div className="timeline-body" ref={bodyRef}>
         <TrackHeaders geo={geo} />
@@ -89,7 +93,7 @@ export function EmptyTimeline() {
           <div className="lane-bg" style={{ top: geo.LANE_A, height: LANE_H }} />
           <div className="lane-bg" style={{ top: geo.LANE_B, height: LANE_H }} />
           <div className="timeline-hint" style={{ top: RULER, height: geo.WAVE_H }}>
-            Import a set recording, then its Rekordbox .cue: the tracks land on Deck A and Deck B
+            {t('timeline.emptyHint')}
           </div>
         </div>
       </div>
@@ -103,6 +107,7 @@ function tickStep(pps: number) {
 }
 
 export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack }: Props) {
+  const { t } = useTranslation()
   const [bodyRef, bodyH] = useBodyHeight()
   const { WAVE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT } = lanes(bodyH - 12)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -305,20 +310,21 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
   return (
     <div className="panel timeline">
       <div className="timeline-toolbar">
-        <span className="panel-tab on">Timeline</span>
+        <span className="panel-tab on">{t('timeline.title')}</span>
         <span className="panel-meta">
-          {sorted.length} tracks{layered.length ? ` · ${layered.length} layered` : ''}
+          {t('common.tracks', { count: sorted.length })}
+          {layered.length ? ` · ${t('timeline.layered', { count: layered.length })}` : ''}
         </span>
         <div className="grow" />
-        <span className="panel-meta">Ctrl/Alt + wheel to zoom</span>
-        <button className="icon-btn small" title="Zoom out (−)" onClick={() => setZoom((z) => Math.max(1, z / 1.6))}>
+        <span className="panel-meta">{t('timeline.wheelHint')}</span>
+        <button className="icon-btn small" title={t('timeline.zoomOut')} onClick={() => setZoom((z) => Math.max(1, z / 1.6))}>
           <Icon name="minus" size={13} />
         </button>
         <input className="zoom-slider" type="range" min={0} max={6} step={0.01} value={Math.log(zoom)} onChange={(e) => setZoom(Math.exp(+e.target.value))} />
-        <button className="icon-btn small" title="Zoom in (=)" onClick={() => setZoom((z) => Math.min(400, z * 1.6))}>
+        <button className="icon-btn small" title={t('timeline.zoomIn')} onClick={() => setZoom((z) => Math.min(400, z * 1.6))}>
           <Icon name="plus" size={13} />
         </button>
-        <button className="icon-btn small" title="Fit the whole set (\)" onClick={() => setZoom(1)}>
+        <button className="icon-btn small" title={t('timeline.fit')} onClick={() => setZoom(1)}>
           <Icon name="fit" size={13} />
         </button>
       </div>
@@ -353,14 +359,14 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                   {tail !== undefined && (
                     <div
                       className="mix-tail"
-                      title="Still playing under the next track until here (shown on the right as 'now playing')"
+                      title={t('timeline.tailTitle')}
                       style={{ left: end * pps, width: (tail - end) * pps, top: top + 6, height: LANE_H - 12, ['--c' as string]: color }}
                     />
                   )}
                   {i > 0 && tr.start - appear > 0.5 && (
                     <div
                       className="mix-lead"
-                      title="Mix-in: when this track appears on the right. Drag the edge to change it."
+                      title={t('timeline.leadTitle')}
                       style={{ left: appear * pps, width: (tr.start - appear) * pps, top: top + 6, height: LANE_H - 12, ['--c' as string]: color }}
                     >
                       <div className="mix-handle" onPointerDown={(e) => startDrag(e, tr, 'mixin')} />
@@ -371,13 +377,13 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                     style={{ left, width, top, height: LANE_H, ['--c' as string]: color }}
                     onPointerDown={(e) => startDrag(e, tr, 'move')}
                     onDoubleClick={() => onSeek(tr.start)}
-                    title={`${tr.artist} – ${tr.title}${plan ? `\nSwap: ${plan.curve}, ${plan.duration.toFixed(1)} s (${plan.reason})` : ''}\nDrag to move · double-click to jump here`}
+                    title={`${tr.artist} – ${tr.title}${plan ? `\n${t('timeline.swap', { curve: t(`inspector.curves.${plan.curve}`), seconds: plan.duration.toFixed(1), reason: tMsg('swapReason', plan.reason) })}` : ''}\n${t('timeline.blockHint')}`}
                   >
-                    {tr.artwork && width > 60 && <img src={mediaUrl(tr.artwork)} alt="" draggable={false} />}
+                    {tr.artwork && width > 60 && <img src={platform.mediaUrl(tr.artwork)} alt="" draggable={false} />}
                     {width > 90 && (
                       <div className="tb-text">
                         <div className="tb-title">
-                          <b>{i + 1}</b> {tr.title || 'Untitled'}
+                          <b>{i + 1}</b> {tr.title || t('common.untitled')}
                         </div>
                         <div className="tb-artist">{tr.artist}</div>
                       </div>
@@ -399,9 +405,9 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                   style={{ left: tr.start * pps, width, top: (tr.deck === 'B' ? LANE_B : LANE_A) + LANE_H - 18, height: 16, ['--c' as string]: color }}
                   onPointerDown={(e) => startDrag(e, tr, 'move')}
                   onDoubleClick={() => onSeek(tr.start)}
-                  title={`${tr.artist} – ${tr.title}\nLayered: mixed in under another track, never takes over`}
+                  title={`${tr.artist} – ${tr.title}\n${t('timeline.layeredTitle')}`}
                 >
-                  {width > 60 && <div className="tb-title">{tr.title || 'Untitled'}</div>}
+                  {width > 60 && <div className="tb-title">{tr.title || t('common.untitled')}</div>}
                 </div>
               )
             })}
