@@ -2,11 +2,15 @@
  * Headless export, handy for testing and the first step toward a server/web version.
  *   npm run render -- <audio> [--tracklist list.cue] [--project set.djvis] [--out set.mp4]
  *                      [--seconds 120] [--width 1280 --height 720] [--fps 30] [--dj "Name"] [--title "Set title"]
+ *                      [--from 0:41:30] [--portrait] [--no-set-wave] [--no-deck-wave]
+ * --from renders `--seconds` (default 15) starting there, for a quick preview clip.
+ * --portrait makes a 9:16 phone video at the project's resolution (1920x1080 becomes 1080x1920).
  */
 import { readFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { analyseAudio } from '../src/main/audio'
 import { exportVideo } from '../src/node/exporter'
+import { parseTime } from '../src/shared/layout'
 import { entriesToTracks, parseTracklist } from '../src/shared/tracklist'
 import { DEFAULT_SETTINGS, type Project } from '../src/shared/types'
 
@@ -20,6 +24,12 @@ async function main() {
   let project: Project
   if (projectPath) {
     project = JSON.parse(await readFile(projectPath, 'utf8'))
+    project.settings = { ...DEFAULT_SETTINGS, ...project.settings }
+    if (!project.waveform.vocal) {
+      process.stdout.write('Analysing the vocal band (project is from an older version)… ')
+      project.waveform = (await analyseAudio(project.audioPath)).waveform
+      console.log('done')
+    }
   } else {
     const audio = process.argv[2]
     if (!audio || audio.startsWith('--')) throw new Error('usage: render-cli <audio> [--tracklist file] [--out file.mp4]')
@@ -36,7 +46,15 @@ async function main() {
   if (arg('fps')) s.fps = +arg('fps')!
   if (arg('dj')) s.djName = arg('dj')!
   if (arg('title')) s.setTitle = arg('title')!
-  if (arg('seconds')) project.duration = Math.min(project.duration, +arg('seconds')!)
+  const flag = (name: string) => process.argv.includes(`--${name}`)
+  if (flag('portrait') && s.width > s.height) [s.width, s.height] = [s.height, s.width]
+  if (flag('no-set-wave')) s.showSetWave = false
+  if (flag('no-deck-wave')) s.showDeckWave = false
+  const fromArg = arg('from')
+  const from = fromArg !== undefined ? parseTime(fromArg) : undefined
+  if (from !== undefined && Number.isNaN(from)) throw new Error('Bad --from time')
+  const range = from !== undefined ? { from, to: from + Number(arg('seconds') ?? 15) } : undefined
+  if (!range && arg('seconds')) project.duration = Math.min(project.duration, +arg('seconds')!)
 
   const out = resolve(arg('out') ?? 'set.mp4')
   const root = resolve(__dirname, '..')
@@ -45,6 +63,7 @@ async function main() {
     workerPath: join(root, 'scripts/render-worker.cjs'),
     fontDir: join(root, 'resources/fonts'),
     parallel: arg('parallel') ? +arg('parallel')! : undefined,
+    range,
     onProgress: (p) => {
       if (Date.now() - last < 2000 && p.stage === 'rendering') return
       last = Date.now()

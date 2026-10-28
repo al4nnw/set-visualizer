@@ -4,6 +4,7 @@ import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBA
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, parseTime, formatTime, formatTimecode } from '../src/shared/layout'
 import type { Track } from '../src/shared/types'
+import { buildMotion, motionAt } from '../src/shared/motion'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -164,5 +165,34 @@ describe('takeover detection', () => {
     expect(r.audible).toBeLessThanOrEqual(104)
     expect(r.gone).toBeGreaterThanOrEqual(156)
     expect(r.gone).toBeLessThanOrEqual(164)
+  })
+})
+
+describe('card motion', () => {
+  const rate = 50
+  // 0-20 s loud kicks, 20-40 s quiet kicks, 40-60 s no bass and a 4 Hz vocal envelope.
+  const n = 60 * rate
+  const bass: number[] = []
+  const vocal: number[] = []
+  for (let i = 0; i < n; i++) {
+    const t = i / rate
+    const beat = Math.exp(-((t % 0.5) * 20))
+    bass.push(t < 20 ? beat : t < 40 ? 0.15 * beat : 0.005)
+    vocal.push(t >= 40 ? 0.3 + 0.3 * Math.max(0, Math.sin(2 * Math.PI * 4 * t)) : 0.2)
+  }
+  const wf = { rate, peaks: bass, rms: vocal, bass, vocal }
+  const m = buildMotion(wf)
+  const at = (t: number) => motionAt(m, t).beat
+  it('bounces on each kick and settles between them', () => {
+    expect(at(10.02)).toBeGreaterThan(0.6)
+    expect(at(10.4)).toBeLessThan(at(10.02) * 0.4)
+  })
+  it('bounces as clearly in a quiet section', () => {
+    expect(at(30.02)).toBeGreaterThan(0.45)
+  })
+  it('follows the vocals when there is no bass', () => {
+    const vals = Array.from({ length: 50 }, (_, i) => at(50 + i * 0.01))
+    expect(Math.max(...vals)).toBeGreaterThan(0.25)
+    expect(Math.max(...vals) - Math.min(...vals)).toBeGreaterThan(0.15)
   })
 })

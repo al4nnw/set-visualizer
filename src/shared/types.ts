@@ -38,6 +38,8 @@ export interface Waveform {
   rms: number[]
   /** RMS of the low-passed signal per bucket, 0..1 (kick/bass pulse). */
   bass: number[]
+  /** RMS of the vocal band (250 Hz to 3.5 kHz) per bucket, 0..1. Missing in older projects. */
+  vocal?: number[]
 }
 
 export interface Theme {

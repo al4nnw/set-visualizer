@@ -99,6 +99,8 @@ export interface ExportOptions {
   parallel?: number
   signal?: AbortSignal
   onProgress?: (p: ExportProgress) => void
+  /** Render only this stretch of the set, in seconds (e.g. a short preview clip). */
+  range?: { from: number; to: number }
 }
 
 /**
@@ -107,7 +109,10 @@ export interface ExportOptions {
  */
 export async function exportVideo(project: Project, outPath: string, o: ExportOptions): Promise<void> {
   const { fps } = project.settings
-  const totalFrames = Math.ceil(project.duration * fps)
+  const from = Math.max(0, o.range?.from ?? 0)
+  const to = Math.min(project.duration, o.range?.to ?? project.duration)
+  const firstFrame = Math.floor(from * fps)
+  const totalFrames = Math.max(1, Math.ceil(to * fps) - firstFrame)
   const parallel = Math.max(1, Math.min(o.parallel ?? Math.max(1, Math.floor(cpus().length / 2)), 8, Math.ceil(totalFrames / (fps * 10))))
   const dir = await mkdtemp(join(tmpdir(), 'setvis-'))
   const started = Date.now()
@@ -125,8 +130,8 @@ export async function exportVideo(project: Project, outPath: string, o: ExportOp
   try {
     const per = Math.ceil(totalFrames / parallel)
     const segments = Array.from({ length: parallel }, (_, i) => ({
-      startFrame: i * per,
-      endFrame: Math.min(totalFrames, (i + 1) * per),
+      startFrame: firstFrame + i * per,
+      endFrame: firstFrame + Math.min(totalFrames, (i + 1) * per),
       outPath: join(dir, `seg${String(i).padStart(3, '0')}.mp4`)
     })).filter((s) => s.endFrame > s.startFrame)
 
@@ -164,7 +169,7 @@ export async function exportVideo(project: Project, outPath: string, o: ExportOp
       const p = spawn(ffmpegPath, [
         '-hide_banner', '-loglevel', 'error', '-y',
         '-f', 'concat', '-safe', '0', '-i', list,
-        '-i', project.audioPath,
+        '-ss', String(firstFrame / fps), '-i', project.audioPath,
         '-map', '0:v:0', '-map', '1:a:0',
         '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k', '-ar', '48000',
         '-shortest', '-movflags', '+faststart', outPath

@@ -4,6 +4,7 @@
  */
 import type { Project, Track, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
+import { buildMotion, motionAt, type Motion } from './motion'
 
 export type Ctx = CanvasRenderingContext2D
 export type ImageLike = CanvasImageSource & { width: number; height: number }
@@ -29,6 +30,7 @@ export interface PreparedScene {
   bg: CanvasLike
   /** Pre-blurred glow sprite per deck colour; real-time shadowBlur is very slow without a GPU. */
   glow: Map<string, CanvasLike>
+  motion: Motion
   scale: number
   /** Scale for text: larger than `scale` in 9:16, where the video is watched on a phone. */
   textScale: number
@@ -129,15 +131,6 @@ export function sampleEnvelope(wf: Waveform, arr: number[], t: number): number {
   return arr[i] * (1 - f) + arr[i + 1] * f
 }
 
-/** Bass pulse, smoothed over a few buckets and normalised to the set's own loudness. */
-function bassAt(prep: PreparedScene, t: number): number {
-  const wf = prep.project.waveform
-  if (!wf.bass.length) return 0
-  const v = sampleEnvelope(wf, wf.bass, t)
-  const max = (wf as Waveform & { _bassMax?: number })._bassMax ?? 1
-  return Math.max(0, Math.min(1, Math.pow(v / max, 2.2)))
-}
-
 function trackAtTime(sorted: Track[], t: number): Track | undefined {
   const i = currentIndex(sorted, t)
   return i >= 0 ? sorted[i] : undefined
@@ -194,13 +187,7 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   // Sizes are designed for 1080 on the short side, so a 9:16 video uses the same scale as 16:9.
   const s = Math.min(W, H) / 1080
   const sorted = mainTracks(project.tracks)
-  const wf = project.waveform as Waveform & { _bassMax?: number }
-  if (wf._bassMax === undefined) {
-    // 98th percentile so a single spike doesn't flatten the pulse.
-    const copy = [...wf.bass].sort((a, b) => a - b)
-    wf._bassMax = copy.length ? Math.max(1e-4, copy[Math.floor(copy.length * 0.98)]) : 1
-  }
-  const base = { project, sorted, art, scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
+  const base = { project, sorted, art, motion: buildMotion(project.waveform), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
   const x = 60 * s
   const w = W - 120 * s
   const h = 110 * s
@@ -315,7 +302,7 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
 /** Bounce strength of a card that's playing on the right, relative to the main card. */
 const LAYERED_BOUNCE = 0.5
 
-function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
+function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: number; glow: number }) {
   const settings = prep.project.settings
   const W = settings.width
   const s = prep.scale
@@ -326,7 +313,7 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   const cy = portrait ? lerp(540 * s, 1270 * s, c.slot) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
-  const pulse = 1 + 0.035 * bass * energy
+  const pulse = 1 + 0.05 * mo.beat * energy
   const size = lerp(CARD_NEXT * s, cardMain(settings) * s, c.mainness) * pulse
   const x = cx - size / 2
   const y = cy - size / 2
@@ -336,12 +323,12 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, bass: number) {
   ctx.save()
   ctx.globalAlpha = c.opacity
 
-  // Glow, breathing with the bass on the main card
+  // Glow, swelling with the kicks (or the vocals when there's no bass) on the main card
   const glow = prep.glow.get(color)
   if (glow) {
-    const k = (size / GLOW_BASE) * (1 + 0.12 * bass * energy)
+    const k = (size / GLOW_BASE) * (1 + 0.14 * mo.glow * energy)
     const gs = (GLOW_BASE + GLOW_PAD * 2) * k
-    ctx.globalAlpha = c.opacity * Math.min(1, 0.5 + 0.5 * bass * energy)
+    ctx.globalAlpha = c.opacity * Math.min(1, 0.45 + 0.55 * mo.glow * energy)
     ctx.drawImage(glow as unknown as ImageLike, cx - gs / 2, cy - gs / 2, gs, gs)
     ctx.globalAlpha = c.opacity
   }
@@ -505,7 +492,7 @@ function drawWaveform(ctx: Ctx, prep: PreparedScene, t: number) {
 export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   const settings = prep.project.settings
   const cards = cardStates(prep.sorted, t, settings)
-  const bass = bassAt(prep, t)
+  const mo = motionAt(prep.motion, t)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'low'
@@ -513,7 +500,7 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   drawHeader(ctx, prep, t)
   // Leaving card first, then incoming, then main on top.
   const order = [...cards].sort((a, b) => a.mainness - b.mainness)
-  for (const c of order) drawCard(ctx, prep, c, bass)
+  for (const c of order) drawCard(ctx, prep, c, mo)
   // `!== false` so projects saved before these settings existed keep both.
   if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t)
   if (settings.showSetWave !== false) drawWaveform(ctx, prep, t)

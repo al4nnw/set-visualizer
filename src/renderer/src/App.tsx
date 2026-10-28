@@ -273,6 +273,15 @@ export function App() {
       if (!r) return
       reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
       setTutorial(null)
+      // Projects from before the vocal band was analysed: add it in the background so the cards
+      // can follow the vocals where there's no bass.
+      if (!r.project.waveform.vocal) {
+        const path = r.path
+        api
+          .analyseAudio(r.project.audioPath)
+          .then(({ waveform }) => latest.current.path === path && update((p) => ({ ...p, waveform }), undefined, true))
+          .catch(() => {})
+      }
       setProjectPath(r.path)
       setDirty(false)
       setSaveState({ status: 'saved' })

@@ -84,10 +84,12 @@ export async function analyseAudio(file: string, onProgress?: (p: number) => voi
   const duration = await probeDuration(file)
   let full = 0
   let low = 0
-  const report = () => onProgress?.(full * 0.7 + low * 0.3)
-  const [main, bass] = await Promise.all([
+  let mid = 0
+  const report = () => onProgress?.(full * 0.6 + low * 0.2 + mid * 0.2)
+  const [main, bass, vocal] = await Promise.all([
     envelope(file, 11025, null, WAVEFORM_RATE, duration, (p) => ((full = p), report())),
-    envelope(file, 2000, 'lowpass=f=140,lowpass=f=140', WAVEFORM_RATE, duration, (p) => ((low = p), report()))
+    envelope(file, 2000, 'lowpass=f=140,lowpass=f=140', WAVEFORM_RATE, duration, (p) => ((low = p), report())),
+    envelope(file, 8000, 'highpass=f=250,highpass=f=250,lowpass=f=3500', WAVEFORM_RATE, duration, (p) => ((mid = p), report()))
   ])
   // Peaks and RMS share one scale so the RMS stays a fraction of the peak.
   let max = 0
@@ -96,7 +98,7 @@ export async function analyseAudio(file: string, onProgress?: (p: number) => voi
   const round = (v: number) => Math.round(v * k * 1000) / 1000
   return {
     duration,
-    waveform: { rate: WAVEFORM_RATE, peaks: main.peaks.map(round), rms: main.rms.map(round), bass: normalise(bass.rms) }
+    waveform: { rate: WAVEFORM_RATE, peaks: main.peaks.map(round), rms: main.rms.map(round), bass: normalise(bass.rms), vocal: normalise(vocal.rms) }
   }
 }
 
