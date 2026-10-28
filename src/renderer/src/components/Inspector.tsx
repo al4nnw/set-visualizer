@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
-import type { Project, RenderSettings, Theme, Track } from '@shared/types'
+import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
 import { api, mediaUrl } from '../api'
 import { Icon } from './icons'
 
@@ -276,10 +276,21 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
           <input type="range" min={0} max={120} step={5} value={s.defaultLead} onChange={(e) => onChangeSettings({ defaultLead: +e.target.value }, 'lead')} />
           <span className="mono val">{s.defaultLead}s</span>
         </Prop>
-        <Prop label="Swap time" title="How long the A/B swap animation takes">
-          <input type="range" min={0.4} max={4} step={0.1} value={s.swapDuration} onChange={(e) => onChangeSettings({ swapDuration: +e.target.value }, 'swap')} />
-          <span className="mono val">{s.swapDuration.toFixed(1)}s</span>
+        <Prop label="Swap curve" title="How the cards move during the swap. It always ends on the takeover point.">
+          <select value={s.swapCurve ?? 'auto'} onChange={(e) => onChangeSettings({ swapCurve: e.target.value as SwapCurve }, 'curve')}>
+            <option value="auto">Energy-matched (auto)</option>
+            <option value="smooth">Smooth</option>
+            <option value="snappy">Snappy</option>
+            <option value="anticipate">Anticipate</option>
+            <option value="spring">Spring</option>
+          </select>
         </Prop>
+        {(s.swapCurve ?? 'auto') !== 'auto' && (
+          <Prop label="Swap time" title="How long the A/B swap animation takes">
+            <input type="range" min={0.4} max={4} step={0.1} value={s.swapDuration} onChange={(e) => onChangeSettings({ swapDuration: +e.target.value }, 'swap')} />
+            <span className="mono val">{s.swapDuration.toFixed(1)}s</span>
+          </Prop>
+        )}
       </Section>
     </div>
   )

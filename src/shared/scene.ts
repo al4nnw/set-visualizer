@@ -5,6 +5,7 @@
 import type { Project, Track, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
 import { buildMotion, motionAt, type Motion } from './motion'
+import { planSwaps, type SwapPlan } from './swapPlan'
 
 export type Ctx = CanvasRenderingContext2D
 export type ImageLike = CanvasImageSource & { width: number; height: number }
@@ -31,6 +32,8 @@ export interface PreparedScene {
   /** Pre-blurred glow sprite per deck colour; real-time shadowBlur is very slow without a GPU. */
   glow: Map<string, CanvasLike>
   motion: Motion
+  /** Energy-matched swap per main track, used when the swap curve is auto. */
+  swaps: (SwapPlan | undefined)[]
   scale: number
   /** Scale for text: larger than `scale` in 9:16, where the video is watched on a phone. */
   textScale: number
@@ -187,7 +190,8 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   // Sizes are designed for 1080 on the short side, so a 9:16 video uses the same scale as 16:9.
   const s = Math.min(W, H) / 1080
   const sorted = mainTracks(project.tracks)
-  const base = { project, sorted, art, motion: buildMotion(project.waveform), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
+  const motion = buildMotion(project.waveform)
+  const base = { project, sorted, art, motion, swaps: planSwaps(sorted, project.settings, motion), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
   const x = 60 * s
   const w = W - 120 * s
   const h = 110 * s
@@ -491,7 +495,7 @@ function drawWaveform(ctx: Ctx, prep: PreparedScene, t: number) {
 
 export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   const settings = prep.project.settings
-  const cards = cardStates(prep.sorted, t, settings)
+  const cards = cardStates(prep.sorted, t, settings, prep.swaps)
   const mo = motionAt(prep.motion, t)
   ctx.save()
   ctx.imageSmoothingEnabled = true

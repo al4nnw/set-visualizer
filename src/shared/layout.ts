@@ -1,4 +1,5 @@
-import type { RenderSettings, Track } from './types'
+import type { SwapPlan } from './swapPlan'
+import type { RenderSettings, SwapCurve, Track } from './types'
 
 /** How long the incoming track takes to fade in on the right. */
 export const APPEAR_DURATION = 0.9
@@ -13,17 +14,49 @@ export function mainTracks(tracks: Track[]): Track[] {
 }
 
 /** Time the track shows up on the right, clamped so it never collides with the previous swap. */
-export function appearTime(tracks: Track[], i: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): number {
+export function appearTime(
+  tracks: Track[],
+  i: number,
+  settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>,
+  swap = settings.swapDuration
+): number {
   const t = tracks[i]
   if (i === 0) return Number.NEGATIVE_INFINITY
   const prev = tracks[i - 1]
   const wanted = t.mixIn ?? t.start - settings.defaultLead
-  const earliest = prev.start + settings.swapDuration + 0.25
-  return Math.min(t.start, Math.max(wanted, earliest))
+  // The previous swap ends at prev.start; this track's swap starts `swapDuration` before its own.
+  const earliest = prev.start + 0.25
+  return Math.min(t.start - swap, Math.max(wanted, earliest))
 }
 
 export const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
 export const easeOut = (x: number) => 1 - Math.pow(1 - x, 3)
+
+/**
+ * Curves for the A/B swap, 0..1 over the swap. All end exactly at 1; some go a little past it on
+ * the way (the cards overshoot and settle).
+ */
+export const SWAP_CURVES: Record<Exclude<SwapCurve, 'auto'>, (x: number) => number> = {
+  /** Cubic ease in-out: even acceleration and braking. */
+  smooth: easeInOut,
+  /** Quintic ease in-out: a slow start, a fast middle and a long brake into the mark. */
+  snappy: (x) => (x < 0.5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2),
+  /** Pulls back a touch before moving, then overshoots a little and settles on the mark. */
+  anticipate: (x) => {
+    const c = 1.2
+    const c2 = c * 1.525
+    return x < 0.5 ? (Math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2
+  },
+  /** Leaves quickly and lands with a small damped bounce, finishing exactly on the mark. */
+  spring: (x) => (x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(2.5 * Math.PI * x))
+}
+
+const fixedEase = (settings: Pick<RenderSettings, 'swapCurve'>) =>
+  settings.swapCurve && settings.swapCurve !== 'auto' ? SWAP_CURVES[settings.swapCurve] ?? easeInOut : easeInOut
+
+/** True when the swap curve and length are picked per transition (the default). */
+export const isAutoSwap = (settings: Pick<RenderSettings, 'swapCurve'>) => (settings.swapCurve ?? 'auto') === 'auto'
+
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
@@ -51,46 +84,68 @@ export function tailTime(sorted: Track[], i: number, settings: Pick<RenderSettin
   const leave = sorted[i + 1].start
   const limit = i + 2 < sorted.length ? appearTime(sorted, i + 2, settings) - APPEAR_DURATION : Number.POSITIVE_INFINITY
   const end = Math.min(tr.tailEnd, limit)
-  return end >= leave + settings.swapDuration + 0.5 ? end : undefined
+  return end >= leave + 0.5 ? end : undefined
 }
 
 /**
  * Where each visible track card is at time `t`. Left is the main track, right is the one being
  * mixed in. When the right track becomes the main one it slides to the left. The old main track
  * either slides out, or, if it keeps playing underneath, swaps over to the right until it's gone.
+ * The swap runs over the swap length before the takeover point, so it lands exactly on the mark.
+ * With the auto curve, `plans` (from planSwaps) gives each transition its own curve and length.
  */
-export function cardStates(sorted: Track[], t: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): CardState[] {
+export function cardStates(
+  sorted: Track[],
+  t: number,
+  settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration' | 'swapCurve'>,
+  plans?: (SwapPlan | undefined)[]
+): CardState[] {
   const out: CardState[] = []
-  const swap = Math.max(0.05, settings.swapDuration)
+  const auto = isAutoSwap(settings) && plans
+  const fixed = fixedEase(settings)
+  /** Curve and length of the swap where track j takes over. */
+  const swapOf = (j: number) => {
+    const plan = auto ? plans[j] : undefined
+    return plan
+      ? { swap: Math.max(0.05, plan.duration), ease: SWAP_CURVES[plan.curve] }
+      : { swap: Math.max(0.05, settings.swapDuration), ease: fixed }
+  }
   for (let i = 0; i < sorted.length; i++) {
     const tr = sorted[i]
-    const appear = appearTime(sorted, i, settings)
+    const into = swapOf(i)
+    const out_ = swapOf(i + 1)
+    const appear = appearTime(sorted, i, settings, into.swap)
     const start = i === 0 ? Math.min(tr.start, 0) : tr.start
     const leave = i + 1 < sorted.length ? sorted[i + 1].start : Number.POSITIVE_INFINITY
     const tail = tailTime(sorted, i, settings)
-    const gone = tail !== undefined ? tail + APPEAR_DURATION : leave + swap
+    const gone = tail !== undefined ? tail + APPEAR_DURATION : leave
+    // The swap in (and out) starts this long before the takeover point.
+    const swapIn = i === 0 ? start : start - into.swap
+    const swapOut = leave - out_.swap
 
     if (t < appear) continue
     if (t >= gone) continue
 
-    if (t < start) {
+    if (t < swapIn) {
       // Incoming on the right.
       const p = easeOut(clamp01((t - appear) / APPEAR_DURATION))
       const playing = tr.mixIn !== undefined
       out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming', playing })
-    } else if (t < start + swap && i > 0) {
-      const p = easeInOut(clamp01((t - start) / swap))
+    } else if (t < start && i > 0) {
+      const p = into.ease(clamp01((t - swapIn) / into.swap))
       out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity: 1, mainness: p, role: 'main', playing: true })
-    } else if (t < leave) {
+    } else if (t < swapOut) {
       out.push({ track: tr, index: i, slot: 0, opacity: 1, mainness: 1, role: 'main', playing: true })
     } else if (tail !== undefined) {
       // Still playing under the new main track: over to the right, then fade out when it's gone.
-      const p = easeInOut(clamp01((t - leave) / swap))
+      const p = out_.ease(clamp01((t - swapOut) / out_.swap))
       const q = t < tail ? 0 : easeOut(clamp01((t - tail) / APPEAR_DURATION))
       out.push({ track: tr, index: i, slot: lerp(0, 1, p) + 0.25 * q, opacity: 1 - q, mainness: 1 - p, role: 'tail', playing: t < tail })
     } else {
-      const p = easeInOut(clamp01((t - leave) / swap))
-      out.push({ track: tr, index: i, slot: lerp(0, -0.7, p), opacity: 1 - p, mainness: 1 - p, role: 'leaving', playing: false })
+      const p = out_.ease(clamp01((t - swapOut) / out_.swap))
+      // Opacity follows the plain progress, so an overshooting curve can't push it past 0..1.
+      const fade = clamp01((t - swapOut) / out_.swap)
+      out.push({ track: tr, index: i, slot: lerp(0, -0.7, p), opacity: 1 - fade, mainness: Math.max(0, 1 - p), role: 'leaving', playing: false })
     }
   }
   return out

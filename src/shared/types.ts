@@ -56,8 +56,10 @@ export interface RenderSettings {
   fps: number
   /** Seconds before `start` that the next track appears on the right, when the track has no mixIn. */
   defaultLead: number
-  /** Seconds the A/B swap animation takes. */
+  /** Seconds the A/B swap animation takes; it ends on the takeover point. */
   swapDuration: number
+  /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
+  swapCurve?: SwapCurve
   showTimestamps: boolean
   /** The scrolling close-up waveform above the full-set one. */
   showDeckWave: boolean
@@ -69,6 +71,8 @@ export interface RenderSettings {
   theme: Theme
   quality: Quality
 }
+
+export type SwapCurve = 'auto' | 'smooth' | 'snappy' | 'anticipate' | 'spring'
 
 export type Quality = 'standard' | 'high' | 'max'
 
@@ -158,6 +162,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   fps: 30,
   defaultLead: 45,
   swapDuration: 1.4,
+  swapCurve: 'auto',
   showTimestamps: true,
   showDeckWave: true,
   showSetWave: true,

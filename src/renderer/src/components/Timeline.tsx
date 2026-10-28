@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
 import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@shared/layout'
+import { buildMotion } from '@shared/motion'
+import { planSwaps, swapLength } from '@shared/swapPlan'
 import type { Project, Track } from '@shared/types'
 import { mediaUrl } from '../api'
 import { Icon } from './icons'
@@ -117,6 +119,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
   const pps = fitPps * zoom
   const innerW = Math.max(viewW, dur * pps)
   const sorted = mainTracks(project.tracks)
+  const swaps = planSwaps(sorted, project.settings, buildMotion(project.waveform))
   const layered = project.tracks.filter((t) => t.layered)
   const { theme } = project.settings
 
@@ -267,7 +270,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
     const x0 = e.clientX
     const start0 = tr.start
     const idx = sorted.findIndex((t) => t.id === tr.id)
-    const mix0 = what === 'mixin' ? appearTime(sorted, idx, project.settings) : tr.mixIn
+    const mix0 = what === 'mixin' ? appearTime(sorted, idx, project.settings, swapLength(swaps, project.settings, idx)) : tr.mixIn
     let moved = false
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
@@ -338,7 +341,8 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
             {sorted.map((tr, i) => {
               const start = i === 0 ? Math.min(tr.start, 0) : tr.start
               const end = i + 1 < sorted.length ? sorted[i + 1].start : dur
-              const appear = appearTime(sorted, i, project.settings)
+              const appear = appearTime(sorted, i, project.settings, swapLength(swaps, project.settings, i))
+              const plan = (project.settings.swapCurve ?? 'auto') === 'auto' ? swaps[i] : undefined
               const top = tr.deck === 'B' ? LANE_B : LANE_A
               const color = tr.deck === 'B' ? theme.accentB : theme.accent
               const left = start * pps
@@ -367,7 +371,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                     style={{ left, width, top, height: LANE_H, ['--c' as string]: color }}
                     onPointerDown={(e) => startDrag(e, tr, 'move')}
                     onDoubleClick={() => onSeek(tr.start)}
-                    title={`${tr.artist} – ${tr.title}\nDrag to move · double-click to jump here`}
+                    title={`${tr.artist} – ${tr.title}${plan ? `\nSwap: ${plan.curve}, ${plan.duration.toFixed(1)} s (${plan.reason})` : ''}\nDrag to move · double-click to jump here`}
                   >
                     {tr.artwork && width > 60 && <img src={mediaUrl(tr.artwork)} alt="" draggable={false} />}
                     {width > 90 && (

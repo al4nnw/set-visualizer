@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { parseCue, decodeText, parseTracklist, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
 import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
-import { cardStates, parseTime, formatTime, formatTimecode } from '../src/shared/layout'
-import type { Track } from '../src/shared/types'
+import { cardStates, parseTime, formatTime, formatTimecode, SWAP_CURVES } from '../src/shared/layout'
+import type { SwapCurve, Track } from '../src/shared/types'
+import { planSwaps, swapLength } from '../src/shared/swapPlan'
+import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
 
 describe('tracklist parsing', () => {
@@ -56,12 +58,74 @@ describe('card layout', () => {
     expect(c.find((x) => x.track.id === '2')).toMatchObject({ slot: 1, mainness: 0 })
     expect(c.find((x) => x.track.id === '1')).toMatchObject({ slot: 0, mainness: 1 })
   })
-  it('swaps smoothly', () => {
-    const c = cardStates(tracks, 101, s)
+  it('swaps smoothly, landing on the takeover point', () => {
+    const c = cardStates(tracks, 99, s)
     const two = c.find((x) => x.track.id === '2')!
     expect(two.slot).toBeGreaterThan(0)
     expect(two.slot).toBeLessThan(1)
-    expect(cardStates(tracks, 103, s).map((x) => x.track.id)).toEqual(['2'])
+    expect(cardStates(tracks, 97.9, s).find((x) => x.track.id === '2')).toMatchObject({ slot: 1, mainness: 0 })
+    expect(cardStates(tracks, 100, s).map((x) => x.track.id)).toEqual(['2'])
+  })
+  it('lands every swap curve on the mark', () => {
+    for (const swapCurve of Object.keys(SWAP_CURVES) as SwapCurve[]) {
+      expect(SWAP_CURVES[swapCurve](0)).toBeCloseTo(0)
+      expect(SWAP_CURVES[swapCurve](1)).toBeCloseTo(1)
+      expect(cardStates(tracks, 100, { ...s, swapCurve }).find((x) => x.track.id === '2')).toMatchObject({ slot: 0, mainness: 1 })
+    }
+  })
+})
+
+describe('energy-matched swaps', () => {
+  const rate = 10
+  /** A motion where the bass (and kicks) switch on at `dropAt` seconds, or never. */
+  const motion = (dropAt = Infinity, len = 600): Motion => {
+    const on = (i: number) => (i / rate >= dropAt ? 1 : 0)
+    const n = len * rate
+    return { rate, kick: Float32Array.from({ length: n }, (_, i) => 0.6 * on(i)), vocal: new Float32Array(n), bassy: Float32Array.from({ length: n }, (_, i) => on(i)) }
+  }
+  const steady = (): Motion => {
+    const n = 600 * rate
+    return { rate, kick: new Float32Array(n).fill(0.6), vocal: new Float32Array(n), bassy: new Float32Array(n).fill(1) }
+  }
+  const pair = (b: Partial<Track>, a: Partial<Track> = {}): Track[] => [
+    { id: 'a', title: 'A', artist: '', start: 0, deck: 'A', ...a },
+    { id: 'b', title: 'B', artist: '', start: 200, deck: 'B', ...b }
+  ]
+  const settings = { defaultLead: 45 }
+
+  it('punches a drop with a short snappy swap', () => {
+    expect(planSwaps(pair({ mixIn: 150 }), settings, motion(200))[1]).toMatchObject({ curve: 'snappy', duration: 1.1 })
+  })
+  it('springs on a quick cut', () => {
+    expect(planSwaps(pair({ mixIn: 196 }), settings, steady())[1]).toMatchObject({ curve: 'spring', duration: 1 })
+  })
+  it('slows down for long blends and long tails', () => {
+    const long = planSwaps(pair({ mixIn: 80 }), settings, steady())[1]!
+    expect(long.curve).toBe('smooth')
+    expect(long.duration).toBeGreaterThanOrEqual(2.4)
+    expect(long.duration).toBeLessThanOrEqual(3)
+    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), settings, steady())[1]).toMatchObject({ curve: 'smooth' })
+    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), settings, steady())[1]!.duration).toBeGreaterThanOrEqual(2.4)
+  })
+  it('uses a normal smooth swap for a normal blend, and a slower one without bass', () => {
+    expect(planSwaps(pair({ mixIn: 185 }), settings, steady())[1]).toMatchObject({ curve: 'smooth', duration: 1.8 })
+    expect(planSwaps(pair({ mixIn: 185 }), settings, motion())[1]).toMatchObject({ curve: 'smooth', duration: 2.2 })
+  })
+  it('never starts a swap before the previous takeover', () => {
+    const tracks = pair({ start: 1, mixIn: 0.5 })
+    expect(planSwaps(tracks, settings, steady())[1]!.duration).toBeLessThanOrEqual(0.75)
+  })
+  it('ends the planned swap on the takeover point', () => {
+    const tracks = pair({ mixIn: 80 })
+    const plans = planSwaps(tracks, settings, steady())
+    const len = swapLength(plans, { swapDuration: 1.4 }, 1)
+    expect(len).toBe(plans[1]!.duration)
+    const s = { defaultLead: 45, swapDuration: 1.4 }
+    expect(cardStates(tracks, 200 - len - 0.01, s, plans).find((c) => c.track.id === 'b')).toMatchObject({ slot: 1, mainness: 0 })
+    expect(cardStates(tracks, 200 - len / 2, s, plans).find((c) => c.track.id === 'b')!.slot).toBeLessThan(1)
+    expect(cardStates(tracks, 200, s, plans).map((c) => c.track.id)).toEqual(['b'])
+    // A manual curve ignores the plans and uses the swap time setting.
+    expect(swapLength(plans, { swapDuration: 1.4, swapCurve: 'spring' }, 1)).toBe(1.4)
   })
 })
 

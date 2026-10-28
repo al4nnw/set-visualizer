@@ -3,16 +3,20 @@
  *   npm run render -- <audio> [--tracklist list.cue] [--project set.djvis] [--out set.mp4]
  *                      [--seconds 120] [--width 1280 --height 720] [--fps 30] [--dj "Name"] [--title "Set title"]
  *                      [--from 0:41:30] [--portrait] [--no-set-wave] [--no-deck-wave]
+ *                      [--curve auto|smooth|snappy|anticipate|spring] [--swap 1.4]
  * --from renders `--seconds` (default 15) starting there, for a quick preview clip.
+ * --plans prints the swap curve and length auto picks for each transition.
  * --portrait makes a 9:16 phone video at the project's resolution (1920x1080 becomes 1080x1920).
  */
 import { readFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { analyseAudio } from '../src/main/audio'
 import { exportVideo } from '../src/node/exporter'
-import { parseTime } from '../src/shared/layout'
+import { formatTime, mainTracks, parseTime, SWAP_CURVES } from '../src/shared/layout'
+import { buildMotion } from '../src/shared/motion'
+import { planSwaps } from '../src/shared/swapPlan'
 import { entriesToTracks, parseTracklist } from '../src/shared/tracklist'
-import { DEFAULT_SETTINGS, type Project } from '../src/shared/types'
+import { DEFAULT_SETTINGS, type Project, type SwapCurve } from '../src/shared/types'
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`)
@@ -50,6 +54,18 @@ async function main() {
   if (flag('portrait') && s.width > s.height) [s.width, s.height] = [s.height, s.width]
   if (flag('no-set-wave')) s.showSetWave = false
   if (flag('no-deck-wave')) s.showDeckWave = false
+  const curve = arg('curve')
+  if (curve) {
+    if (curve !== 'auto' && !(curve in SWAP_CURVES)) throw new Error(`--curve must be auto or one of ${Object.keys(SWAP_CURVES).join(', ')}`)
+    s.swapCurve = curve as SwapCurve
+  }
+  if (arg('swap')) s.swapDuration = +arg('swap')!
+  if (flag('plans') && (s.swapCurve ?? 'auto') === 'auto') {
+    const sorted = mainTracks(project.tracks)
+    planSwaps(sorted, s, buildMotion(project.waveform)).forEach((p, i) => {
+      if (p) console.log(`swap ${i + 1} ${formatTime(sorted[i].start)} ${sorted[i].title}: ${p.curve} ${p.duration.toFixed(2)} s (${p.reason})`)
+    })
+  }
   const fromArg = arg('from')
   const from = fromArg !== undefined ? parseTime(fromArg) : undefined
   if (from !== undefined && Number.isNaN(from)) throw new Error('Bad --from time')
