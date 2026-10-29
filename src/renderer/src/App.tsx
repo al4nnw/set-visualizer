@@ -6,7 +6,7 @@ import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
-import { errMsg, platform } from './platform'
+import { errMsg, needsFile, platform, type NeedsFile } from './platform'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
 import type { ViewerTab } from './components/Viewer'
@@ -45,6 +45,8 @@ export function App() {
   const [recent, setRecent] = useState<RecentProject[]>([])
   const [busy, setBusy] = useState<{ label: string; progress: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** The project that opens once the user picks its recording again (with `error` saying so). */
+  const [locate, setLocate] = useState<NeedsFile | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tab, setTab] = useState<InspectorTab>('tracks')
@@ -166,6 +168,8 @@ export function App() {
     if (await saveNow()) showToast(t('app.projectSaved'))
   }, [project, projectPath, saveAs, saveNow, showToast, t])
 
+  useEffect(() => platform.setUnsaved?.(dirty && !tutorial), [dirty, tutorial])
+
   useEffect(
     () =>
       platform.onBeforeClose(async () => {
@@ -252,6 +256,7 @@ export function App() {
     const gen = loadGen.current
     const stale = () => gen !== loadGen.current
     setError(null)
+    setLocate(null)
     setBusy({ label: t('app.readingAudio'), progress: 0 })
     const off = platform.onAudioProgress((p) => setBusy((b) => (b ? { ...b, progress: p } : b)))
     try {
@@ -271,11 +276,9 @@ export function App() {
         createdAt: new Date().toISOString(),
         settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, videoLanguage: uiLocale(p.language), setTitle: opts.tutorial ? t('app.tutorialTitle') : name.replace(/\.[^.]+$/, '') }
       }
-      // The tutorial works on a throwaway project: no file, nothing to save. Without a projects
-      // folder (the web version) a new project starts unsaved, like a new document.
-      const saved =
-        opts.tutorial || !platform.features.projectsFolder
-          ? null
+      // The tutorial works on a throwaway project: no file, nothing to save.
+      const saved = opts.tutorial
+        ? null
           : await platform.createProject(forDisk(fresh)).catch((e) => {
               showToast(t('app.couldNotCreate', { error: errMsg(e) }))
               return null
@@ -304,6 +307,7 @@ export function App() {
 
   const openProject = async (path?: string) => {
     if (!(await settle())) return
+    setLocate(null)
     // Shown only when the set has to be analysed again (no cached waveform on this computer).
     let analysing = false
     const off = platform.onAudioProgress((p) => {
@@ -333,7 +337,15 @@ export function App() {
       setError(null)
     } catch (e) {
       const msg = errMsg(e)
-      if (project) showToast(msg)
+      if (needsFile(e) && platform.locateFile) {
+        // Back to the start panel (the open project is saved), where its button picks the file.
+        await cancelLoad()
+        reset(null)
+        setProjectPath(null)
+        setDirty(false)
+        setError(msg)
+        setLocate(e)
+      } else if (project) showToast(msg)
       else setError(msg)
     } finally {
       off()
@@ -351,6 +363,7 @@ export function App() {
     setSaveState({ status: 'saved' })
     setSelectedId(null)
     setError(null)
+    setLocate(null)
     refreshRecent()
   }
 
@@ -764,7 +777,8 @@ export function App() {
       onDrop={(e) => {
         e.preventDefault()
         setDragOver(false)
-        openPaths([...e.dataTransfer.files].map((f) => platform.refForFile(f)))
+        if (platform.refsForDrop) void platform.refsForDrop(e.dataTransfer).then(openPaths)
+        else openPaths([...e.dataTransfer.files].map((f) => platform.refForFile(f)))
       }}
     >
       <MenuBar
@@ -805,6 +819,18 @@ export function App() {
           onJumpTrack={jumpTrack}
           onOpenAny={openAny}
           onOpenProject={openProject}
+          locate={
+            locate && {
+              fileName: locate.fileName,
+              run: async () => {
+                try {
+                  if (await platform.locateFile!(locate.project)) void openProject(locate.project)
+                } catch (e) {
+                  setError(errMsg(e))
+                }
+              }
+            }
+          }
           onCancelBusy={() => void cancelLoad()}
           dragOver={dragOver}
           clips={clips}

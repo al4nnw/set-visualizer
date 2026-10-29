@@ -22,6 +22,8 @@ interface Props {
   /** Opens one picker for a set recording (with or without its .cue) or a project. */
   onOpenAny: () => void
   onOpenProject: (path: string) => void
+  /** With the error: the recording to pick again before the project can open (the web version). */
+  locate?: { fileName: string; run: () => void } | null
   /** Stops the analysis shown in the busy panel. */
   onCancelBusy: () => void
   /** Files are being dragged over the window. */
@@ -54,7 +56,7 @@ function ago(iso?: string) {
 }
 
 /** Start panel shown in the viewer before a set is loaded. */
-function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
+function StartPanel({ busy, error, locate, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'locate' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
   const { t } = useTranslation()
   if (busy)
     return (
@@ -81,6 +83,11 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
         {t('viewer.importOrOpen')}
       </button>
       {error && <div className="error">{error}</div>}
+      {error && locate && (
+        <button className="btn" onClick={locate.run}>
+          {t('web.locate', { name: locate.fileName })}
+        </button>
+      )}
       {recent.length > 0 && (
         <div className="start-recent">
           <div className="start-recent-head">{t('viewer.recent')}</div>

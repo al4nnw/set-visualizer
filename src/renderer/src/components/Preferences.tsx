@@ -18,6 +18,7 @@ type Page = 'general' | 'video'
 export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
   const [page, setPage] = useState<Page>('general')
   const [cleared, setCleared] = useState(false)
+  const web = platform.kind === 'web'
   const { t } = useTranslation()
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -54,7 +55,7 @@ export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
                   <input type="checkbox" checked={prefs.autosave} onChange={(e) => onChange({ autosave: e.target.checked })} />
                   {t('prefs.autosave')}
                 </label>
-                <p className="muted small">{t('prefs.savingNote', { keys: platform.os === 'darwin' ? '⌘S' : 'Ctrl+S' })}</p>
+                <p className="muted small">{t(web ? 'prefs.savingNoteWeb' : 'prefs.savingNote', { keys: platform.os === 'darwin' ? '⌘S' : 'Ctrl+S' })}</p>
                 {platform.features.projectsFolder && (
                   <label>
                     {t('prefs.projectsFolder')}
@@ -81,11 +82,13 @@ export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
                   <button
                     className="btn small ghost"
                     onClick={async () => {
+                      // In the browser the recent list is where projects are kept.
+                      if (web && !confirm(t('prefs.clearBrowserConfirm'))) return
                       await platform.clearRecent()
                       setCleared(true)
                     }}
                   >
-                    {cleared ? t('prefs.recentCleared') : t('prefs.clearRecent')}
+                    {web ? t(cleared ? 'prefs.browserCleared' : 'prefs.clearBrowser') : cleared ? t('prefs.recentCleared') : t('prefs.clearRecent')}
                   </button>
                 </div>
                 <h4>{t('prefs.artwork')}</h4>
