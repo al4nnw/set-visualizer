@@ -372,7 +372,7 @@ export const ptBR: Messages = {
     locate: 'Encontrar {{name}}…',
     notProject: '{{name}} não é um projeto do Set Visualizer.',
     projectGone: '{{name}} não está mais salvo neste navegador.',
-    exportNotYet: 'Exportar vídeo pelo navegador chega numa próxima atualização. Por enquanto, use o app para desktop para exportar.',
+    noAudioEncoder: 'Este navegador não consegue codificar o áudio do vídeo. Tente o Chrome ou o Edge.',
     searchNotYet: 'A busca de capas chega à versão web numa próxima atualização. Por enquanto, escolha uma imagem do seu computador.',
     fileGone: '{{name}} não está mais aberto nesta aba. Abra o arquivo de novo.',
     codec: 'Este navegador não consegue decodificar áudio {{codec}}. Tente o Chrome ou o Edge, ou converta a gravação para WAV.',

@@ -378,7 +378,7 @@ export const en = {
     locate: 'Find {{name}}…',
     notProject: '{{name}} isn\'t a Set Visualizer project.',
     projectGone: '{{name}} is no longer saved in this browser.',
-    exportNotYet: 'Exporting video from the browser comes in a later update. To export, use the desktop app for now.',
+    noAudioEncoder: 'This browser can\'t encode audio for the video. Try Chrome or Edge.',
     searchNotYet: 'Artwork search comes to the web version in a later update. For now, choose an image from your computer.',
     fileGone: '{{name}} is no longer open in this tab. Open it again.',
     codec: "This browser can't decode {{codec}} audio. Try Chrome or Edge, or convert the recording to WAV.",

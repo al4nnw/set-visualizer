@@ -372,7 +372,7 @@ export const es: Messages = {
     locate: 'Buscar {{name}}…',
     notProject: '{{name}} no es un proyecto de Set Visualizer.',
     projectGone: '{{name}} ya no está guardado en este navegador.',
-    exportNotYet: 'Exportar video desde el navegador llegará en una próxima actualización. Por ahora, usa la app de escritorio para exportar.',
+    noAudioEncoder: 'Este navegador no puede codificar el audio del vídeo. Prueba Chrome o Edge.',
     searchNotYet: 'La búsqueda de portadas llegará a la versión web en una próxima actualización. Por ahora, elige una imagen de tu equipo.',
     fileGone: '{{name}} ya no está abierto en esta pestaña. Ábrelo de nuevo.',
     codec: 'Este navegador no puede decodificar audio {{codec}}. Prueba con Chrome o Edge, o convierte la grabación a WAV.',

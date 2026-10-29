@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { Project } from '@shared/types'
+import { platform } from '../platform'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 
 interface Props {
@@ -26,7 +27,7 @@ export function Preview({ project, audio, time }: Props) {
   const artKey = project.tracks.map((t) => `${t.id}:${t.artwork ?? ''}`).join('|')
   useEffect(() => {
     let alive = true
-    loadArtMap(project).then((m) => alive && setArt(m))
+    loadArtMap(project, platform.mediaUrl).then((m) => alive && setArt(m))
     return () => {
       alive = false
     }

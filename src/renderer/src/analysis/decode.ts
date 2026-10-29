@@ -77,6 +77,17 @@ async function mp3Head(file: Blob) {
   return new Uint8Array(await file.slice(o, o + 65536).arrayBuffer())
 }
 
+/**
+ * Samples a decoder gives at the start of a recording that aren't part of the set (an MP3's encoder
+ * delay, which ffmpeg drops), so the set's time t is the decoder's t + leadIn / sampleRate.
+ */
+export async function leadIn(file: Blob): Promise<number> {
+  const h = new Uint8Array(await file.slice(0, 3).arrayBuffer())
+  const id3 = h[0] === 0x49 && h[1] === 0x44 && h[2] === 0x33
+  const mp3ish = id3 || (h[0] === 0xff && (h[1] & 0xe0) === 0xe0)
+  return mp3ish ? (mp3Gapless(await mp3Head(file))?.skip ?? 0) : 0
+}
+
 /** Samples per chunk handed on (about a second): decoders give a few hundred at a time. */
 const CHUNK = 1 << 15
 

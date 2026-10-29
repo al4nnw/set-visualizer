@@ -66,7 +66,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
   const artKey = project.tracks.map((t) => `${t.id}:${t.artwork ?? ''}`).join('|')
   useEffect(() => {
     let alive = true
-    loadArtMap(project).then((m) => alive && setArt(m))
+    loadArtMap(project, platform.mediaUrl).then((m) => alive && setArt(m))
     return () => {
       alive = false
     }

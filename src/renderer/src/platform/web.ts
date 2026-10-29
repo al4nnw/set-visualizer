@@ -5,6 +5,7 @@ import { AnalysisError, analyseFile, detectTakeoversOffThread } from '../analysi
 import { i18n } from '../i18n'
 import type { FileRef, Platform } from './types'
 import * as store from './webStore'
+import { startExport, type VideoTarget } from './webExport'
 
 /**
  * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved like on
@@ -25,7 +26,7 @@ interface PermissionHandle {
 type PickerTypes = Array<{ description?: string; accept: Record<string, string[]> }>
 interface FsWindow {
   showOpenFilePicker?(o: { multiple?: boolean; types?: PickerTypes; id?: string }): Promise<FileSystemFileHandle[]>
-  showSaveFilePicker?(o: { suggestedName?: string; types?: PickerTypes; id?: string }): Promise<FileSystemFileHandle & { createWritable(): Promise<{ write(d: Blob): Promise<void>; close(): Promise<void> }> }>
+  showSaveFilePicker?(o: { suggestedName?: string; types?: PickerTypes; id?: string }): Promise<FileSystemFileHandle & { createWritable(): Promise<WritableStream & { write(d: unknown): Promise<void>; close(): Promise<void> }> }>
 }
 const fsw = window as unknown as FsWindow
 type DropItem = DataTransferItem & { getAsFileSystemHandle?(): Promise<FileSystemHandle | null> }
@@ -165,7 +166,7 @@ function readPrefs(): Preferences {
   }
 }
 
-const notYet = (what: 'export' | 'search') => Promise.reject(new Error(i18n.t(`web.${what}NotYet`)))
+const notYet = (what: 'search') => Promise.reject(new Error(i18n.t(`web.${what}NotYet`)))
 
 function os(): Platform['os'] {
   const p = ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform ?? '').toLowerCase()
@@ -227,6 +228,8 @@ export function webPlatform(): Platform {
   const spectra = new Map<FileRef, PackedSpectrum>()
   let running: AbortController | null = null
   let unsaved = false
+  const videoTargets = new Map<FileRef, VideoTarget>()
+  let exporting: Awaited<ReturnType<typeof startExport>> | null = null
 
   const analyse = async (ref: FileRef) => {
     const file = fileFor(ref)
@@ -309,7 +312,22 @@ export function webPlatform(): Platform {
     openAnyDialog: () => pick(['audio', 'cue', 'project'], true),
     openTracklistDialog: async () => (await pick(['cue']))[0] ?? null,
     pickImage: async () => (await pick(['image']))[0] ?? null,
-    chooseVideoPath: () => notYet('export'),
+    /** Where the video goes: a file the user picks (Chrome, Edge), or else a download. */
+    chooseVideoPath: async (name) => {
+      if (fsw.showSaveFilePicker) {
+        try {
+          const handle = await fsw.showSaveFilePicker({ suggestedName: name, types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }], id: 'video' })
+          const ref = `video:${crypto.randomUUID()}/${handle.name}`
+          videoTargets.set(ref, { kind: 'file', handle: handle as unknown as Extract<VideoTarget, { kind: 'file' }>['handle'], name: handle.name })
+          return ref
+        } catch (e) {
+          if ((e as Error)?.name === 'AbortError') return null
+        }
+      }
+      const ref = `video:${crypto.randomUUID()}/${name}`
+      videoTargets.set(ref, { kind: 'download', name })
+      return ref
+    },
     chooseFolder: async () => null,
 
     analyseAudio: async (ref) => {
@@ -424,10 +442,27 @@ export function webPlatform(): Platform {
     downloadArt: () => notYet('search'),
     autoArtwork: async () => null,
 
-    exportBegin: () => notYet('export'),
-    exportChunk: () => {},
-    exportFinish: () => notYet('export'),
-    exportAbort: async () => {},
+    exportBegin: async (p, out, range) => {
+      await exporting?.abort()
+      const target = videoTargets.get(out)
+      if (!target) throw new Error(i18n.t('web.fileGone', { name: nameOf(out) }))
+      exporting = await startExport(fileFor(p.audioPath), p, target, range)
+    },
+    exportChunk: (data, info) => info && exporting?.chunk(data, info),
+    exportFinish: async () => {
+      const job = exporting
+      if (!job) throw new Error('No export in progress')
+      try {
+        return await job.finish()
+      } finally {
+        exporting = null
+      }
+    },
+    exportAbort: async () => {
+      const job = exporting
+      exporting = null
+      await job?.abort()
+    },
 
     onOpenPath: () => () => {},
     onMenuCommand: () => () => {},
