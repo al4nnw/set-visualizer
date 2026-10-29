@@ -367,6 +367,17 @@ export const en = {
   errors: {
     exportCancelled: 'Export cancelled',
     workerCrashed: 'Render worker crashed'
+  },
+  /** The web version (platform/web.ts). */
+  web: {
+    projectsNotYet: 'Saving and opening projects in the browser comes in a later update. To keep a project, use the desktop app.',
+    exportNotYet: 'Exporting video from the browser comes in a later update. To export, use the desktop app for now.',
+    searchNotYet: 'Artwork search comes to the web version in a later update. For now, choose an image from your computer.',
+    fileGone: '{{name}} is no longer open in this tab. Open it again.',
+    codec: "This browser can't decode {{codec}} audio. Try Chrome or Edge, or convert the recording to WAV.",
+    format: "{{name}} isn't an audio file this browser can read.",
+    noAudio: '{{name}} has no audio.',
+    analysisFailed: "Couldn't analyse {{name}}: {{error}}"
   }
 }
 

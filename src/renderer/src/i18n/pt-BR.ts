@@ -362,5 +362,15 @@ export const ptBR: Messages = {
   errors: {
     exportCancelled: 'Exportação cancelada',
     workerCrashed: 'O renderizador travou'
+  },
+  web: {
+    projectsNotYet: 'Salvar e abrir projetos no navegador chega numa próxima atualização. Para guardar um projeto, use o app para desktop.',
+    exportNotYet: 'Exportar vídeo pelo navegador chega numa próxima atualização. Por enquanto, use o app para desktop para exportar.',
+    searchNotYet: 'A busca de capas chega à versão web numa próxima atualização. Por enquanto, escolha uma imagem do seu computador.',
+    fileGone: '{{name}} não está mais aberto nesta aba. Abra o arquivo de novo.',
+    codec: 'Este navegador não consegue decodificar áudio {{codec}}. Tente o Chrome ou o Edge, ou converta a gravação para WAV.',
+    format: '{{name}} não é um arquivo de áudio que este navegador consiga ler.',
+    noAudio: '{{name}} não tem áudio.',
+    analysisFailed: 'Não foi possível analisar {{name}}: {{error}}'
   }
 }
