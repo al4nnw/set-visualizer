@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import type { Waveform } from '@shared/types'
 import type { SpectralFrames } from '@shared/takeover'
-import { ANALYSIS_STREAMS, createSetAnalyser, SPECTRUM_RATE, spectralAccumulator, type StreamName, type StreamSpec } from '@shared/analysis'
+import { ANALYSIS_STREAMS, createSetAnalyser, MAIN_RATE, type StreamName, type StreamSpec } from '@shared/analysis'
 import { ffmpegPath, probeDuration } from './ffmpeg'
 
 /** The stream's filter stages as an ffmpeg filter chain (ffmpeg's lowpass/highpass are 2-pole biquads). */
-const ffmpegFilter = (s: StreamSpec) => s.filters.map((st) => `${st.type}=f=${st.f}`).join(',') || null
+const ffmpegFilter = (s: StreamSpec) => s.filters.map((st) => `${st.type}=f=${st.f},`).join('')
 
 /**
  * Decodes the file once and splits it into several mono f32 streams (one ffmpeg, one output pipe
@@ -15,16 +15,14 @@ const ffmpegFilter = (s: StreamSpec) => s.filters.map((st) => `${st.type}=f=${st
 function decodeStreams(file: string, streams: StreamSpec[], onSamples: (stream: number, samples: Float32Array) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const n = streams.length
-    // Downmixed once before the split, so the filters run on one channel instead of two.
-    const split = n > 1 ? `[0:a]aformat=sample_fmts=flt:channel_layouts=mono,asplit=${n}${streams.map((_, i) => `[s${i}]`).join('')};` : ''
+    // Downmixed and resampled to the main rate once (one resampler does both), before the split;
+    // each stream's filters run on that. Spelled out rather than left to ffmpeg's format negotiation
+    // (which puts the resamplers in the same places), as the browser analysis runs this same graph.
+    const main = `[0:a]aresample=${MAIN_RATE},aformat=sample_fmts=flt:channel_layouts=mono`
     const graph =
-      split +
+      (n > 1 ? `${main},asplit=${n}${streams.map((_, i) => `[s${i}]`).join('')};` : `${main}[s0];`) +
       streams
-        .map((s, i) => {
-          const src = n > 1 ? `[s${i}]` : '[0:a]'
-          const filter = ffmpegFilter(s)
-          return `${src}${filter ? filter + ',' : ''}aformat=sample_fmts=flt:sample_rates=${s.rate}:channel_layouts=mono[o${i}]`
-        })
+        .map((s, i) => `[s${i}]${ffmpegFilter(s)}${s.rate === MAIN_RATE ? '' : `aresample=${s.rate},`}aformat=sample_fmts=flt:sample_rates=${s.rate}:channel_layouts=mono[o${i}]`)
         .join(';')
     const fds = streams.map((_, i) => (i === 0 ? 1 : i + 2))
     const args = ['-hide_banner', '-loglevel', 'error', '-i', file, '-vn', '-filter_complex', graph]
@@ -82,7 +80,7 @@ export async function analyseAudio(
 
 /** Spectral frames on their own (when they weren't kept from the analysis). */
 export async function spectralFrames(file: string): Promise<SpectralFrames> {
-  const spectrum = spectralAccumulator()
-  await decodeStreams(file, [{ filters: [], rate: SPECTRUM_RATE }], (_, samples) => spectrum.push(samples))
-  return spectrum.finish()
+  const analyser = createSetAnalyser({ spectrum: true })
+  await decodeStreams(file, [ANALYSIS_STREAMS.main], (_, samples) => analyser.push('main', samples))
+  return analyser.finish().spectrum!
 }
