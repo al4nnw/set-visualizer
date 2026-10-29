@@ -124,7 +124,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
   const pps = fitPps * zoom
   const innerW = Math.max(viewW, dur * pps)
   const sorted = mainTracks(project.tracks)
-  const swaps = planSwaps(sorted, project.settings, buildMotion(project.waveform))
+  const swaps = planSwaps(sorted, buildMotion(project.waveform))
   const layered = project.tracks.filter((t) => t.layered)
   const { theme } = project.settings
 

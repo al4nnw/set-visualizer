@@ -1,5 +1,6 @@
 import yts from 'yt-search'
 import type { SearchResult } from '@shared/types'
+import { splitYoutubeTitle, youtubeId, youtubePreview, youtubeThumbnail } from '@shared/youtube'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36'
 
@@ -9,15 +10,14 @@ async function getJson<T>(url: string): Promise<T> {
   return (await res.json()) as T
 }
 
-/** Splits "Artist - Title (Official Video)" style YouTube titles. */
-function splitYoutubeTitle(title: string, channel: string) {
-  const clean = title.replace(/\s*[[(](official|lyric|audio|video|visuali[sz]er|hd|4k)[^\])]*[\])]/gi, '').trim()
-  const m = /^(.*?)\s+[-–—]\s+(.*)$/.exec(clean)
-  if (m) return { artist: m[1].trim(), title: m[2].trim() }
-  return { artist: channel.replace(/\s*-\s*Topic$/, ''), title: clean }
-}
-
 async function searchYoutube(q: string): Promise<SearchResult[]> {
+  // A pasted link looks that one video up.
+  const linked = youtubeId(q)
+  if (linked) {
+    const v = await yts({ videoId: linked })
+    const { artist, title } = splitYoutubeTitle(v.title, v.author?.name ?? '')
+    return [{ provider: 'youtube', id: linked, title, artist, url: v.url, image: youtubeThumbnail(linked), thumbnail: youtubePreview(linked), durationSec: v.seconds }]
+  }
   const r = await yts({ query: q, pages: 1 })
   return r.videos.slice(0, 15).map((v) => {
     const { artist, title } = splitYoutubeTitle(v.title, v.author?.name ?? '')
@@ -27,8 +27,8 @@ async function searchYoutube(q: string): Promise<SearchResult[]> {
       title,
       artist,
       url: v.url,
-      image: `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`,
-      thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`,
+      image: youtubeThumbnail(v.videoId),
+      thumbnail: youtubePreview(v.videoId),
       durationSec: v.seconds
     }
   })

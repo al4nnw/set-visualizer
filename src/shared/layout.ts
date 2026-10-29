@@ -13,20 +13,18 @@ export function mainTracks(tracks: Track[]): Track[] {
   return sortTracks(tracks.filter((t) => !t.layered))
 }
 
-/** Time the track shows up on the right, clamped so it never collides with the previous swap. */
-export function appearTime(
-  tracks: Track[],
-  i: number,
-  settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>,
-  swap = settings.swapDuration
-): number {
+/**
+ * Time the track shows up on the right: its mix-in, clamped so it never collides with the previous
+ * swap. A track without a mix-in only comes in with its own swap.
+ */
+export function appearTime(tracks: Track[], i: number, settings: Pick<RenderSettings, 'swapDuration'>, swap = settings.swapDuration): number {
   const t = tracks[i]
   if (i === 0) return Number.NEGATIVE_INFINITY
+  if (t.mixIn === undefined) return t.start - swap
   const prev = tracks[i - 1]
-  const wanted = t.mixIn ?? t.start - settings.defaultLead
   // The previous swap ends at prev.start; this track's swap starts `swapDuration` before its own.
   const earliest = prev.start + 0.25
-  return Math.min(t.start - swap, Math.max(wanted, earliest))
+  return Math.min(t.start - swap, Math.max(t.mixIn, earliest))
 }
 
 export const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
@@ -78,7 +76,7 @@ export interface CardState {
  * that it's gone before the track after next shows up (two decks, two cards). Undefined when it
  * leaves with the swap.
  */
-export function tailTime(sorted: Track[], i: number, settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration'>): number | undefined {
+export function tailTime(sorted: Track[], i: number, settings: Pick<RenderSettings, 'swapDuration'>): number | undefined {
   const tr = sorted[i]
   if (tr.tailEnd === undefined || i + 1 >= sorted.length) return undefined
   const leave = sorted[i + 1].start
@@ -97,7 +95,7 @@ export function tailTime(sorted: Track[], i: number, settings: Pick<RenderSettin
 export function cardStates(
   sorted: Track[],
   t: number,
-  settings: Pick<RenderSettings, 'defaultLead' | 'swapDuration' | 'swapCurve'>,
+  settings: Pick<RenderSettings, 'swapDuration' | 'swapCurve'>,
   plans?: (SwapPlan | undefined)[]
 ): CardState[] {
   const out: CardState[] = []
@@ -132,8 +130,11 @@ export function cardStates(
       const playing = tr.mixIn !== undefined
       out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming', playing })
     } else if (t < start && i > 0) {
-      const p = into.ease(clamp01((t - swapIn) / into.swap))
-      out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity: 1, mainness: p, role: 'main', playing: true })
+      const x = clamp01((t - swapIn) / into.swap)
+      const p = into.ease(x)
+      // Without a mix-in the card wasn't on the right yet, so it fades in as it slides over.
+      const opacity = tr.mixIn !== undefined ? 1 : clamp01(x * 2.5)
+      out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity, mainness: p, role: 'main', playing: true })
     } else if (t < swapOut) {
       out.push({ track: tr, index: i, slot: 0, opacity: 1, mainness: 1, role: 'main', playing: true })
     } else if (tail !== undefined) {
@@ -149,6 +150,23 @@ export function cardStates(
     }
   }
   return out
+}
+
+/**
+ * How much the stage is shared, 0..1: 0 when one track is alone and takes the centre, 1 while a
+ * second card is on the right. A card coming in fades the pair in; one leaving or fading out on the
+ * right fades it out. A track swapping in without a mix-in only counts as far as it has swapped, so
+ * it pushes a lone track off and lands in the centre (or on the left, if the old one stays on the right).
+ */
+export function stageShare(cards: CardState[]): number {
+  let sum = 0
+  for (const c of cards) {
+    if (c.role === 'leaving') sum += clamp01(c.mainness)
+    else if (c.role === 'main' && c.track.mixIn === undefined) sum += clamp01(c.mainness)
+    else if (c.role === 'main') sum += 1
+    else sum += c.opacity
+  }
+  return clamp01(sum - 1)
 }
 
 /** Index of the main track at time t (-1 before the first one). */

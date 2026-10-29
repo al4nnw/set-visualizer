@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { parseCue, decodeText, parseTracklist, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
 import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
-import { cardStates, parseTime, formatTime, formatTimecode, SWAP_CURVES } from '../src/shared/layout'
+import { cardStates, stageShare, parseTime, formatTime, formatTimecode, SWAP_CURVES } from '../src/shared/layout'
 import type { SwapCurve, Track } from '../src/shared/types'
 import { planSwaps, swapLength } from '../src/shared/swapPlan'
+import { isoDuration, youtubeId } from '../src/shared/youtube'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
@@ -50,9 +51,9 @@ describe('time helpers', () => {
 describe('card layout', () => {
   const tracks: Track[] = [
     { id: '1', title: 'one', artist: '', start: 0, deck: 'A' },
-    { id: '2', title: 'two', artist: '', start: 100, deck: 'B' }
+    { id: '2', title: 'two', artist: '', start: 100, mixIn: 70, deck: 'B' }
   ]
-  const s = { defaultLead: 30, swapDuration: 2 }
+  const s = { swapDuration: 2 }
   it('shows only the main track before the mix', () => {
     expect(cardStates(tracks, 50, s).map((c) => c.track.id)).toEqual(['1'])
   })
@@ -68,6 +69,28 @@ describe('card layout', () => {
     expect(two.slot).toBeLessThan(1)
     expect(cardStates(tracks, 97.9, s).find((x) => x.track.id === '2')).toMatchObject({ slot: 1, mainness: 0 })
     expect(cardStates(tracks, 100, s).map((x) => x.track.id)).toEqual(['2'])
+  })
+  it('gives a lone track the centre, and shares the stage while the next one is mixed in', () => {
+    expect(stageShare(cardStates(tracks, 50, s))).toBe(0)
+    expect(stageShare(cardStates(tracks, 70.3, s))).toBeGreaterThan(0)
+    expect(stageShare(cardStates(tracks, 70.3, s))).toBeLessThan(1)
+    expect(stageShare(cardStates(tracks, 80, s))).toBe(1)
+    expect(stageShare(cardStates(tracks, 99, s))).toBeGreaterThan(0)
+    expect(stageShare(cardStates(tracks, 100, s))).toBe(0)
+  })
+  it('brings a track without a mix-in in with its swap, keeping the centre', () => {
+    const cut = [tracks[0], { ...tracks[1], mixIn: undefined }]
+    expect(cardStates(cut, 97.9, s).map((c) => c.track.id)).toEqual(['1'])
+    const mid = cardStates(cut, 99, s)
+    expect(mid.find((c) => c.track.id === '2')!.opacity).toBe(1)
+    expect(mid.find((c) => c.track.id === '2')!.slot).toBeGreaterThan(0)
+    expect(cardStates(cut, 98.1, s).find((c) => c.track.id === '2')!.opacity).toBeLessThan(1)
+    for (const t of [98, 98.5, 99, 99.5, 100]) expect(stageShare(cardStates(cut, t, s))).toBeCloseTo(0)
+    // If the old track keeps playing on the right, the new one ends up on the left beside it.
+    const tail = [{ ...tracks[0], tailEnd: 130 }, cut[1]]
+    expect(stageShare(cardStates(tail, 98, s))).toBeCloseTo(0)
+    expect(stageShare(cardStates(tail, 100, s))).toBe(1)
+    expect(stageShare(cardStates(tail, 140, s))).toBe(0)
   })
   it('lands every swap curve on the mark', () => {
     for (const swapCurve of Object.keys(SWAP_CURVES) as SwapCurve[]) {
@@ -94,36 +117,34 @@ describe('energy-matched swaps', () => {
     { id: 'a', title: 'A', artist: '', start: 0, deck: 'A', ...a },
     { id: 'b', title: 'B', artist: '', start: 200, deck: 'B', ...b }
   ]
-  const settings = { defaultLead: 45 }
-
   it('punches a drop with a short snappy swap', () => {
-    expect(planSwaps(pair({ mixIn: 150 }), settings, motion(200))[1]).toMatchObject({ curve: 'snappy', duration: 1.1 })
+    expect(planSwaps(pair({ mixIn: 150 }), motion(200))[1]).toMatchObject({ curve: 'snappy', duration: 1.1 })
   })
   it('springs on a quick cut', () => {
-    expect(planSwaps(pair({ mixIn: 196 }), settings, steady())[1]).toMatchObject({ curve: 'spring', duration: 1 })
+    expect(planSwaps(pair({ mixIn: 196 }), steady())[1]).toMatchObject({ curve: 'spring', duration: 1 })
   })
   it('slows down for long blends and long tails', () => {
-    const long = planSwaps(pair({ mixIn: 80 }), settings, steady())[1]!
+    const long = planSwaps(pair({ mixIn: 80 }), steady())[1]!
     expect(long.curve).toBe('smooth')
     expect(long.duration).toBeGreaterThanOrEqual(2.4)
     expect(long.duration).toBeLessThanOrEqual(3)
-    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), settings, steady())[1]).toMatchObject({ curve: 'smooth' })
-    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), settings, steady())[1]!.duration).toBeGreaterThanOrEqual(2.4)
+    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), steady())[1]).toMatchObject({ curve: 'smooth' })
+    expect(planSwaps(pair({ mixIn: 190 }, { tailEnd: 260 }), steady())[1]!.duration).toBeGreaterThanOrEqual(2.4)
   })
   it('uses a normal smooth swap for a normal blend, and a slower one without bass', () => {
-    expect(planSwaps(pair({ mixIn: 185 }), settings, steady())[1]).toMatchObject({ curve: 'smooth', duration: 1.8 })
-    expect(planSwaps(pair({ mixIn: 185 }), settings, motion())[1]).toMatchObject({ curve: 'smooth', duration: 2.2 })
+    expect(planSwaps(pair({ mixIn: 185 }), steady())[1]).toMatchObject({ curve: 'smooth', duration: 1.8 })
+    expect(planSwaps(pair({ mixIn: 185 }), motion())[1]).toMatchObject({ curve: 'smooth', duration: 2.2 })
   })
   it('never starts a swap before the previous takeover', () => {
     const tracks = pair({ start: 1, mixIn: 0.5 })
-    expect(planSwaps(tracks, settings, steady())[1]!.duration).toBeLessThanOrEqual(0.75)
+    expect(planSwaps(tracks, steady())[1]!.duration).toBeLessThanOrEqual(0.75)
   })
   it('ends the planned swap on the takeover point', () => {
     const tracks = pair({ mixIn: 80 })
-    const plans = planSwaps(tracks, settings, steady())
+    const plans = planSwaps(tracks, steady())
     const len = swapLength(plans, { swapDuration: 1.4 }, 1)
     expect(len).toBe(plans[1]!.duration)
-    const s = { defaultLead: 45, swapDuration: 1.4 }
+    const s = { swapDuration: 1.4 }
     expect(cardStates(tracks, 200 - len - 0.01, s, plans).find((c) => c.track.id === 'b')).toMatchObject({ slot: 1, mainness: 0 })
     expect(cardStates(tracks, 200 - len / 2, s, plans).find((c) => c.track.id === 'b')!.slot).toBeLessThan(1)
     expect(cardStates(tracks, 200, s, plans).map((c) => c.track.id)).toEqual(['b'])
@@ -204,7 +225,7 @@ describe('takeover detection', () => {
   })
 
   it('keeps the old track on the right as now playing while it plays under the new one', () => {
-    const settings = { defaultLead: 45, swapDuration: 1 }
+    const settings = { swapDuration: 1 }
     const tracks: Track[] = [
       { id: 'a', title: 'A', artist: '', start: 0, deck: 'A', tailEnd: 130 },
       { id: 'b', title: 'B', artist: '', start: 100, mixIn: 80, deck: 'B' }
@@ -375,5 +396,28 @@ describe('i18n', () => {
     for (const l of LOCALES) expect(Object.values(videoText(l)).every((v) => v.length > 0)).toBe(true)
     expect(videoText(undefined).nowPlaying).toBe('NOW PLAYING')
     expect(videoText('pt-BR').upNext).toBe('A SEGUIR')
+  })
+})
+
+describe('youtube links', () => {
+  it('finds the video id in every kind of link', () => {
+    for (const link of [
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s',
+      'youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://youtu.be/dQw4w9WgXcQ?si=abc',
+      'https://m.youtube.com/shorts/dQw4w9WgXcQ',
+      'https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RD',
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
+    ])
+      expect(youtubeId(link)).toBe('dQw4w9WgXcQ')
+  })
+  it('leaves searches and other sites alone', () => {
+    for (const q of ['Rick Astley - Never Gonna Give You Up', 'dQw4w9WgXcQ', 'https://vimeo.com/123', 'https://www.youtube.com/@channel']) expect(youtubeId(q)).toBeNull()
+  })
+  it('reads API durations', () => {
+    expect(isoDuration('PT3M33S')).toBe(213)
+    expect(isoDuration('PT1H2M3S')).toBe(3723)
+    expect(isoDuration('P0D')).toBe(0)
+    expect(isoDuration(undefined)).toBeUndefined()
   })
 })

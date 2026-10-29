@@ -4,12 +4,14 @@ import type { Preferences } from '@shared/types'
 import { AnalysisError, analyseFile, detectTakeoversOffThread } from '../analysis'
 import { i18n } from '../i18n'
 import type { FileRef, Platform } from './types'
+import { downloadArtwork, searchYoutube } from './webArt'
 
 /**
  * The browser: files the user picks or drops are kept for the session under refs like
  * "web:3/set.wav" (ending in the file's name, as the UI looks at the extension). Audio is decoded
- * and analysed on the computer's own cores (../analysis); nothing is uploaded. Saving projects,
- * artwork search and video export aren't in the web version yet and say so.
+ * and analysed on the computer's own cores (../analysis); nothing is uploaded. Artwork comes from
+ * YouTube, fetched by the browser itself (./webArt). Saving projects, the other artwork sources and
+ * video export aren't in the web version yet and say so.
  */
 
 const files = new Map<FileRef, File>()
@@ -49,7 +51,7 @@ const PREFS_KEY = 'setvis.prefs'
 const defaultPrefs = (): Preferences => ({
   autosave: true,
   projectsDir: '',
-  // Artwork lookup needs a server-side search the web version doesn't have yet.
+  // No automatic lookup in the browser (see autoArtwork below).
   autoArtwork: false,
   defaultWidth: 1920,
   defaultHeight: 1080,
@@ -173,8 +175,9 @@ export function webPlatform(): Platform {
       return next
     },
 
-    search: () => notYet('search'),
-    downloadArt: () => notYet('search'),
+    search: (provider, q) => (provider === 'youtube' ? searchYoutube(q) : notYet('search')),
+    downloadArt: async (url) => register(await downloadArtwork(url)),
+    // Looking every track up by itself would spend the shared YouTube quota; search runs on request.
     autoArtwork: async () => null,
 
     exportBegin: () => notYet('export'),

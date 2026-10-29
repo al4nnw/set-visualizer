@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatTime } from '@shared/layout'
 import type { SearchResult, Track } from '@shared/types'
 import { useTranslation } from 'react-i18next'
+import { youtubeId, youtubeThumbnail, youtubeUrl } from '@shared/youtube'
 import { errMsg, platform } from '../platform'
 
 const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
@@ -63,7 +64,8 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
         artwork,
         sourceUrl: r.url,
         source: PROVIDER_NAME[r.provider],
-        ...(useMeta ? { title: r.title, artist: r.artist } : {})
+        // A pasted link without the API's details has no title to give.
+        ...(useMeta && r.title ? { title: r.title, artist: r.artist } : {})
       })
       onClose()
     } catch (e) {
@@ -78,7 +80,13 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
     setApplying('url')
     setError(null)
     try {
-      onApply({ artwork: await platform.downloadArt(url.trim()) })
+      // A YouTube link means that video's thumbnail.
+      const video = youtubeId(url)
+      onApply(
+        video
+          ? { artwork: await platform.downloadArt(youtubeThumbnail(video)), sourceUrl: youtubeUrl(video), source: 'YouTube' }
+          : { artwork: await platform.downloadArt(url.trim()) }
+      )
       onClose()
     } catch (e) {
       setError(t('search.downloadFailed', { error: errMsg(e) }))

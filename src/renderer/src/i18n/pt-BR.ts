@@ -213,7 +213,8 @@ export const ptBR: Messages = {
     quickCut: 'corte rápido (mixagem de {{blend}} s)',
     longBlend: 'mixagem longa ({{blend}} s de entrada, {{tail}} s de cauda)',
     noBass: 'sem grave quando a faixa assume',
-    normal: 'mixagem normal ({{blend}} s)'
+    normal: 'mixagem normal ({{blend}} s)',
+    noMixIn: 'sem mix in'
   },
   inspector: {
     tabs: { tracks: 'Faixas', style: 'Estilo', project: 'Projeto' },
@@ -242,7 +243,7 @@ export const ptBR: Messages = {
     playhead: 'Cursor',
     playheadTitle: 'Definir no cursor ({{key}})',
     mixInTitle: "Quando ela começa a ser ouvida. A partir daqui aparece à direita como 'tocando agora'.",
-    mixInAuto: 'auto (−{{lead}}s)',
+    mixInNone: 'nenhum (entra na troca)',
     playsUntilTitle: 'Quando ela deixa de ser ouvida, se continua tocando por baixo da próxima faixa depois da troca.',
     playsUntilNone: 'sai na troca',
     format: 'Formato',
@@ -271,8 +272,6 @@ export const ptBR: Messages = {
     colors: 'Cores',
     background: 'Fundo',
     transitions: 'Transições',
-    lead: 'Antecedência do "a seguir"',
-    leadTitle: 'Quanto tempo antes de assumir uma faixa sem mix in aparece à direita',
     curve: 'Curva da troca',
     curveTitle: 'Como os cards se movem durante a troca. Ela sempre termina no ponto em que a faixa assume.',
     curves: { auto: 'Pela energia (auto)', smooth: 'Suave', snappy: 'Rápida', anticipate: 'Antecipada', spring: 'Mola' },
@@ -336,7 +335,7 @@ export const ptBR: Messages = {
     search: 'Buscar',
     useMeta: 'Usar também o título e o artista do resultado',
     noResults: 'Nenhum resultado.',
-    urlPlaceholder: '…ou cole a URL de uma imagem',
+    urlPlaceholder: '…ou cole a URL de uma imagem ou um link do YouTube',
     useUrl: 'Usar URL',
     downloadFailed: 'Não foi possível baixar essa imagem: {{error}}'
   },
@@ -366,7 +365,9 @@ export const ptBR: Messages = {
   web: {
     projectsNotYet: 'Salvar e abrir projetos no navegador chega numa próxima atualização. Para guardar um projeto, use o app para desktop.',
     exportNotYet: 'Exportar vídeo pelo navegador chega numa próxima atualização. Por enquanto, use o app para desktop para exportar.',
-    searchNotYet: 'A busca de capas chega à versão web numa próxima atualização. Por enquanto, escolha uma imagem do seu computador.',
+    searchNotYet: 'Esta fonte chega à versão web numa próxima atualização. Use o YouTube ou escolha uma imagem do seu computador.',
+    youtubeNoKey: 'A busca no YouTube ainda não está configurada nesta versão web. Cole um link do YouTube na caixa de busca.',
+    youtubeQuota: 'As buscas no YouTube de hoje acabaram. Cole um link do YouTube na caixa de busca; links sempre funcionam.',
     fileGone: '{{name}} não está mais aberto nesta aba. Abra o arquivo de novo.',
     codec: 'Este navegador não consegue decodificar áudio {{codec}}. Tente o Chrome ou o Edge, ou converta a gravação para WAV.',
     format: '{{name}} não é um arquivo de áudio que este navegador consiga ler.',

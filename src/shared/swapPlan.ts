@@ -30,11 +30,12 @@ function mean(a: Float32Array, rate: number, from: number, to: number): number {
  *  - anything else: a normal smooth swap.
  * The swap always ends on the takeover; only its curve and length change.
  */
-export function planSwaps(sorted: Track[], settings: Pick<RenderSettings, 'defaultLead'>, motion?: Motion): (SwapPlan | undefined)[] {
+export function planSwaps(sorted: Track[], motion?: Motion): (SwapPlan | undefined)[] {
   return sorted.map((tr, i) => {
     if (i === 0) return undefined
     const prev = sorted[i - 1]
-    const blend = tr.mixIn !== undefined ? Math.max(0, tr.start - tr.mixIn) : settings.defaultLead
+    // Without a mix-in the blend length is unknown, so only the drop, tail and bass rules apply.
+    const blend = tr.mixIn !== undefined ? Math.max(0, tr.start - tr.mixIn) : undefined
     const tail = prev.tailEnd !== undefined ? Math.max(0, prev.tailEnd - tr.start) : 0
 
     let bassBefore = 0.5
@@ -53,15 +54,15 @@ export function planSwaps(sorted: Track[], settings: Pick<RenderSettings, 'defau
       curve = 'snappy'
       duration = 1.1
       reason = { key: 'drop' }
-    } else if (blend < 8 && tail < 4) {
+    } else if (blend !== undefined && blend < 8 && tail < 4) {
       curve = 'spring'
       duration = 1.0
       reason = { key: 'quickCut', values: { blend: Math.round(blend) } }
-    } else if (blend > 30 || tail > 30) {
+    } else if ((blend ?? 0) > 30 || tail > 30) {
       curve = 'smooth'
       // 2.4 s for a 30 s overlap, up to 3 s for the longest blends.
-      duration = 2.4 + 0.6 * Math.min(1, (Math.max(blend, tail) - 30) / 90)
-      reason = { key: 'longBlend', values: { blend: Math.round(blend), tail: Math.round(tail) } }
+      duration = 2.4 + 0.6 * Math.min(1, (Math.max(blend ?? 0, tail) - 30) / 90)
+      reason = { key: 'longBlend', values: { blend: Math.round(blend ?? 0), tail: Math.round(tail) } }
     } else if (bassAfter < 0.3) {
       curve = 'smooth'
       duration = 2.2
@@ -69,7 +70,7 @@ export function planSwaps(sorted: Track[], settings: Pick<RenderSettings, 'defau
     } else {
       curve = 'smooth'
       duration = 1.8
-      reason = { key: 'normal', values: { blend: Math.round(blend) } }
+      reason = blend === undefined ? { key: 'noMixIn' } : { key: 'normal', values: { blend: Math.round(blend) } }
     }
     // Never start the swap before the previous one has finished.
     duration = Math.max(0.3, Math.min(duration, tr.start - prev.start - 0.25))

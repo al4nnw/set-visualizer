@@ -7,12 +7,15 @@ import type { Waveform } from './types'
  * - `vocal`: a smoothed envelope of the vocal band (250 Hz to 3.5 kHz), also relative to its
  *   surroundings, for a slower "breathing" when there's no beat.
  * - `bassy`: 0..1, how much bass there is right now; it fades between the two.
+ * - `soft`: the resulting bounce, smoothed with a slower attack and a long release, for things that
+ *   should float with the music rather than hit with it (the track text under the artwork).
  */
 export interface Motion {
   rate: number
   kick: Float32Array
   vocal: Float32Array
   bassy: Float32Array
+  soft?: Float32Array
 }
 
 const cache = new WeakMap<Waveform, Motion>()
@@ -107,7 +110,11 @@ export function buildMotion(wf: Waveform): Motion {
     vocal[i] = Math.pow(Math.max(0, (env[i] - vfloor) / (top - vfloor)), 1.4)
   }
 
-  const m = { rate, kick, vocal, bassy }
+  const beat = new Float32Array(n)
+  for (let i = 0; i < n; i++) beat[i] = beatOf(kick[i], vocal[i], bassy[i])
+  const soft = follow(beat, rate, 0.09, 0.32)
+
+  const m = { rate, kick, vocal, bassy, soft }
   cache.set(wf, m)
   return m
 }
@@ -121,16 +128,20 @@ const sample = (a: Float32Array, rate: number, t: number) => {
   return a[i] * (1 - f) + a[j] * f
 }
 
+const beatOf = (kick: number, vocal: number, bassy: number) => kick * bassy + vocal * 0.55 * (1 - bassy)
+
 /**
  * Card movement at time t, 0..1 each: `beat` is the bounce (kicks where there's bass, vocals
- * where there isn't) and `glow` the glow's swell.
+ * where there isn't), `glow` the glow's swell and `soft` the smoothed bounce.
  */
-export function motionAt(m: Motion, t: number): { beat: number; glow: number } {
+export function motionAt(m: Motion, t: number): { beat: number; glow: number; soft: number } {
   const kick = sample(m.kick, m.rate, t)
   const vocal = sample(m.vocal, m.rate, t)
   const bassy = sample(m.bassy, m.rate, t)
+  const beat = beatOf(kick, vocal, bassy)
   return {
-    beat: kick * bassy + vocal * 0.55 * (1 - bassy),
-    glow: kick * bassy * 0.9 + vocal * 0.8 * (1 - bassy)
+    beat,
+    glow: kick * bassy * 0.9 + vocal * 0.8 * (1 - bassy),
+    soft: m.soft ? sample(m.soft, m.rate, t) : beat
   }
 }

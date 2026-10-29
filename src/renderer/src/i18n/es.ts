@@ -213,7 +213,8 @@ export const es: Messages = {
     quickCut: 'corte rápido (mezcla de {{blend}} s)',
     longBlend: 'mezcla larga ({{blend}} s de entrada, {{tail}} s de cola)',
     noBass: 'sin bajo al tomar el relevo',
-    normal: 'mezcla normal ({{blend}} s)'
+    normal: 'mezcla normal ({{blend}} s)',
+    noMixIn: 'sin mix in'
   },
   inspector: {
     tabs: { tracks: 'Temas', style: 'Estilo', project: 'Proyecto' },
@@ -242,7 +243,7 @@ export const es: Messages = {
     playhead: 'Cursor',
     playheadTitle: 'Fijar en el cursor ({{key}})',
     mixInTitle: "Cuando se empieza a oír. Desde aquí aparece a la derecha como 'sonando ahora'.",
-    mixInAuto: 'auto (−{{lead}}s)',
+    mixInNone: 'ninguno (entra con el cambio)',
     playsUntilTitle: 'Cuando deja de oírse, si sigue sonando por debajo del siguiente tema tras el cambio.',
     playsUntilNone: 'sale en el cambio',
     format: 'Formato',
@@ -271,8 +272,6 @@ export const es: Messages = {
     colors: 'Colores',
     background: 'Fondo',
     transitions: 'Transiciones',
-    lead: 'Antelación de "a continuación"',
-    leadTitle: 'Cuánto antes de tomar el relevo aparece a la derecha un tema sin mix in',
     curve: 'Curva del cambio',
     curveTitle: 'Cómo se mueven las tarjetas durante el cambio. Siempre termina en el punto en que toma el relevo.',
     curves: { auto: 'Según la energía (auto)', smooth: 'Suave', snappy: 'Rápida', anticipate: 'Anticipada', spring: 'Muelle' },
@@ -336,7 +335,7 @@ export const es: Messages = {
     search: 'Buscar',
     useMeta: 'Usar también el título y el artista del resultado',
     noResults: 'Sin resultados.',
-    urlPlaceholder: '…o pega la URL de una imagen',
+    urlPlaceholder: '…o pega la URL de una imagen o un enlace de YouTube',
     useUrl: 'Usar URL',
     downloadFailed: 'No se pudo descargar esa imagen: {{error}}'
   },
@@ -366,7 +365,9 @@ export const es: Messages = {
   web: {
     projectsNotYet: 'Guardar y abrir proyectos en el navegador llegará en una próxima actualización. Para conservar un proyecto, usa la app de escritorio.',
     exportNotYet: 'Exportar video desde el navegador llegará en una próxima actualización. Por ahora, usa la app de escritorio para exportar.',
-    searchNotYet: 'La búsqueda de portadas llegará a la versión web en una próxima actualización. Por ahora, elige una imagen de tu equipo.',
+    searchNotYet: 'Esta fuente llegará a la versión web en una próxima actualización. Usa YouTube o elige una imagen de tu equipo.',
+    youtubeNoKey: 'La búsqueda en YouTube aún no está configurada en esta versión web. Pega un enlace de YouTube en el cuadro de búsqueda.',
+    youtubeQuota: 'Las búsquedas de YouTube de hoy se han agotado. Pega un enlace de YouTube en el cuadro de búsqueda; los enlaces siempre funcionan.',
     fileGone: '{{name}} ya no está abierto en esta pestaña. Ábrelo de nuevo.',
     codec: 'Este navegador no puede decodificar audio {{codec}}. Prueba con Chrome o Edge, o convierte la grabación a WAV.',
     format: '{{name}} no es un archivo de audio que este navegador pueda leer.',
