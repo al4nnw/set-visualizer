@@ -113,7 +113,10 @@ type Kind = keyof typeof TYPES
 async function pick(kinds: Kind[], multiple = false): Promise<FileRef[]> {
   if (fsw.showOpenFilePicker) {
     try {
-      const handles = await fsw.showOpenFilePicker({ multiple, types: kinds.map((k) => TYPES[k]), id: kinds[0] })
+      // One filter for all the kinds (the first is the one shown), so they can be picked together.
+      const all = { description: kinds.map((k) => TYPES[k].description).join(', '), accept: Object.assign({}, ...kinds.map((k) => TYPES[k].accept)) }
+      const types = kinds.length > 1 ? [all, ...kinds.map((k) => TYPES[k])] : kinds.map((k) => TYPES[k])
+      const handles = await fsw.showOpenFilePicker({ multiple, types, id: kinds[0] })
       return Promise.all(handles.map(async (h) => register(await h.getFile(), h)))
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return []
