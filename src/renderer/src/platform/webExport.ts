@@ -1,4 +1,4 @@
-import { ALL_FORMATS, AudioSample, AudioSampleSink, AudioSampleSource, BlobSource, BufferTarget, EncodedPacket, EncodedVideoPacketSource, getFirstEncodableAudioCodec, Input, Mp4OutputFormat, Output, StreamTarget, type StreamTargetChunk } from 'mediabunny'
+import { ALL_FORMATS, AudioSample, AudioSampleSink, AudioSampleSource, BlobSource, BufferTarget, EncodedPacket, EncodedVideoPacketSource, canEncodeAudio, Input, Mp4OutputFormat, Output, StreamTarget, type StreamTargetChunk } from 'mediabunny'
 import type { ExportRange, ProjectFile } from '@shared/types'
 import { leadIn } from '../analysis/decode'
 import { i18n } from '../i18n'
@@ -20,6 +20,17 @@ export interface ChunkInfo {
   duration: number
   key: boolean
   decoderConfig?: VideoDecoderConfig
+}
+
+/**
+ * The audio encoding this browser can do: AAC (Opus where there's no AAC encoder, as in Chrome on
+ * Linux), at the set's own sample rate or else resampled to 48 kHz, at 320 kbps or else 192.
+ */
+async function audioEncoding(channels: number, sampleRate: number) {
+  for (const [rate, bitrate] of [[sampleRate, 320_000], [48_000, 320_000], [48_000, 192_000], [sampleRate, 192_000]])
+    for (const codec of ['aac', 'opus'] as const)
+      if (await canEncodeAudio(codec, { numberOfChannels: channels, sampleRate: rate, bitrate }).catch(() => false)) return { codec, sampleRate: rate, bitrate }
+  return null
 }
 
 const SCRATCH = 'export-'
@@ -53,8 +64,8 @@ export async function startExport(audio: File, p: ProjectFile, target: VideoTarg
   const track = await input.getPrimaryAudioTrack()
   if (!track) throw new Error(i18n.t('web.noAudio', { name: audio.name }))
   const channels = Math.min(2, track.numberOfChannels)
-  const codec = await getFirstEncodableAudioCodec(['aac', 'opus'], { numberOfChannels: channels, sampleRate: track.sampleRate, bitrate: 320_000 })
-  if (!codec) throw new Error(i18n.t('web.noAudioEncoder'))
+  const enc = await audioEncoding(channels, track.sampleRate)
+  if (!enc) throw new Error(i18n.t('web.noAudioEncoder'))
   const offset = (await leadIn(audio)) / track.sampleRate
 
   const scratch = target.kind === 'download' ? await scratchFile() : null
@@ -64,7 +75,7 @@ export async function startExport(audio: File, p: ProjectFile, target: VideoTarg
     target: writable ? new StreamTarget(writable, { chunked: true }) : new BufferTarget()
   })
   const video = new EncodedVideoPacketSource('avc')
-  const sound = new AudioSampleSource({ codec, bitrate: 320_000 })
+  const sound = new AudioSampleSource({ codec: enc.codec, bitrate: enc.bitrate, transform: { sampleRate: enc.sampleRate, numberOfChannels: channels } })
   output.addVideoTrack(video, { frameRate: fps })
   output.addAudioTrack(sound)
   await output.start()
