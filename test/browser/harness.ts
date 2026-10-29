@@ -11,10 +11,10 @@ const b64 = (a: Float32Array) => {
   return btoa(s)
 }
 
-async function analyse(url: string, opts: { threads?: number; cues?: number[]; songs?: Array<{ title: string; artist: string }> } = {}) {
+async function analyse(url: string, opts: { threads?: number; decodeInOrder?: boolean; cues?: number[]; songs?: Array<{ title: string; artist: string }> } = {}) {
   const file = await (await fetch(url)).blob()
   const t0 = performance.now()
-  const r = await analyseFile(file, { threads: opts.threads })
+  const r = await analyseFile(file, { threads: opts.threads, decodeInOrder: opts.decodeInOrder })
   const ms = performance.now() - t0
   const takeovers = opts.cues ? await detectTakeoversOffThread(r.spectrum, opts.cues, r.duration, opts.songs) : null
   const w = r.waveform

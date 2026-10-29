@@ -4,7 +4,7 @@
  * comes out downmixed to mono at exact frame positions from 0, trimmed at both ends the way ffmpeg
  * trims it for the desktop app (encoder delay and padding), so both analyse the same samples.
  */
-import { ALL_FORMATS, AudioSampleSink, BlobSource, Input, OggInputFormat, UnsupportedInputFormatError } from 'mediabunny'
+import { ALL_FORMATS, AudioSampleSink, BlobSource, EncodedPacketSink, Input, OggInputFormat, UnsupportedInputFormatError } from 'mediabunny'
 import { mp3Gapless } from '@shared/mp3'
 
 export interface CompressedInfo {
@@ -13,6 +13,41 @@ export interface CompressedInfo {
   channels: number
   /** From the file's metadata (what ffprobe reports for the desktop app); null when it has none. */
   duration: number | null
+  /** Whether it can be decoded in pieces on several threads (see MIDSTREAM). */
+  parallel: boolean
+}
+
+/**
+ * Codecs whose decoder, started at any packet, gives exactly the samples a decode from the start
+ * gives once it has decoded this much before them: so a set in them is decoded on several threads,
+ * each thread from where its segment starts. An MP3 decoder carries up to 511 bytes of earlier
+ * frames (the bit reservoir) and its filter banks from frame to frame; FLAC frames stand alone.
+ * (AAC and Opus decoders never quite converge to the same samples, so they decode in one piece.)
+ */
+const MIDSTREAM: Record<string, { packets: number; bytes: number }> = {
+  mp3: { packets: 10, bytes: 4096 },
+  flac: { packets: 0, bytes: 0 }
+}
+
+/** An encoded packet at its place in the set: `at` is the set's frame index of its first sample. */
+export interface Packet {
+  data: Uint8Array
+  /** Microseconds, for the decoder. */
+  timestamp: number
+  duration: number
+  at: number
+  frames: number
+}
+
+/** What a thread needs to decode packets of the set itself. */
+export interface PacketDecoding {
+  config: AudioDecoderConfig
+  sampleRate: number
+  /** Decoded samples at the start that aren't part of the set (encoder delay). */
+  skip: number
+  /** Where the set ends, when the file says (MP3 encoder padding is cut there); else null. */
+  limit: number | null
+  warmUp: { packets: number; bytes: number }
 }
 
 /** Mono samples of the set, `at` being the set's frame index of the first one. */
@@ -70,11 +105,30 @@ export async function openCompressed(file: Blob) {
   // Ogg's last page says where the audio ends, inside the last packet the decoder gives whole; ffmpeg
   // trims there. (Finding it is cheap for Ogg; for MP3 or FLAC it would mean reading the whole file.)
   const oggEnd = (await input.getFormat()) instanceof OggInputFormat ? await track.computeDuration().catch(() => null) : null
+  const warmUp = MIDSTREAM[codec]
+  const config = warmUp ? await track.getDecoderConfig() : null
   const info: CompressedInfo = {
     codec,
     sampleRate: track.sampleRate,
     channels: track.numberOfChannels,
-    duration: (await track.getDurationFromMetadata().catch(() => null)) ?? oggEnd
+    duration: (await track.getDurationFromMetadata().catch(() => null)) ?? oggEnd,
+    parallel: !!config
+  }
+  const decoding: PacketDecoding | null = config && { config, sampleRate: track.sampleRate, skip: gapless?.skip ?? 0, limit: gapless?.length ?? null, warmUp }
+
+  /** The file's packets in order, without decoding them (for decoding on several threads). */
+  async function* packets(): AsyncGenerator<Packet> {
+    const sr = track!.sampleRate
+    const skip = decoding?.skip ?? 0
+    try {
+      for await (const p of new EncodedPacketSink(track!).packets()) {
+        // Positions from the timestamps the demuxer counts in samples, so exact once rounded.
+        const at = Math.round(p.timestamp * sr) - skip
+        yield { data: p.data, timestamp: Math.round(p.timestamp * 1e6), duration: Math.round(p.duration * 1e6), at, frames: Math.round((p.timestamp + p.duration) * sr) - skip - at }
+      }
+    } finally {
+      input.dispose()
+    }
   }
 
   /**
@@ -140,5 +194,5 @@ export async function openCompressed(file: Blob) {
     }
   }
 
-  return { info, mono, dispose: () => input.dispose() }
+  return { info, mono, decoding, packets, dispose: () => input.dispose() }
 }

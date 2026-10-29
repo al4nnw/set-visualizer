@@ -228,7 +228,15 @@ async function main() {
         console.log(formatDiff(d).replace(/^/gm, '  '))
         const bad = verdict(d)
         if (bad.length) failures.push(`${basename(file)}: ${bad.join('; ')}`)
-        console.log(bad.length ? `  ✗ ${bad.join('; ')}\n` : '  ✓ matches\n')
+        console.log(bad.length ? `  ✗ ${bad.join('; ')}` : '  ✓ matches')
+        // MP3 and FLAC decode in pieces on every thread: in one piece they must give the same, to the bit.
+        if (r.codec === 'mp3' || r.codec === 'flac') {
+          const o = await browser.evaluate<BrowserResult>(`harness.analyse(${JSON.stringify(url(file))}, ${JSON.stringify({ threads, decodeInOrder: true })})`)
+          const same = (['peaks', 'rms', 'bass', 'vocal'] as const).every((k) => o.waveform[k] === r.waveform[k]) && o.spectrum.frames === r.spectrum.frames && o.spectrum.power === r.spectrum.power && o.duration === r.duration
+          console.log(`  ${same ? '✓' : '✗'} decoded on one thread in ${(o.ms / 1000).toFixed(2)} s: ${same ? 'identical' : 'differs'}`)
+          if (!same) failures.push(`${basename(file)}: decoding in pieces differs from decoding in one`)
+        }
+        console.log()
       }
       if (unsupported) {
         console.log('== Cancelling, and files that can\'t be analysed')

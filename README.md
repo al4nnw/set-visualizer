@@ -75,9 +75,9 @@ UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and
 
 The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`) and the web version with browser APIs (`web.ts`). `npm run dev:web` runs the same editor in the browser: open a recording and its .cue, and it shows the waveform, places the tracks and finds the takeovers. Saving projects, artwork search and video export aren't in the web version yet and say so.
 
-**Set analysis in the browser** (`src/renderer/src/analysis/`) runs on the computer's own cores in Web Workers; the recording is never uploaded. WAV, RF64 and AIFF are read straight from the file (`src/shared/pcm.ts`), each worker taking the next piece of the set. MP3, FLAC, M4A/AAC, Ogg (Vorbis, Opus) and WebM are decoded by the browser (WebCodecs, with Mediabunny reading the container) on one worker that hands each piece of the set to whichever worker is free. Those need a browser with WebCodecs audio (Chrome, Edge); a codec the browser can't decode gets a message suggesting WAV.
+**Set analysis in the browser** (`src/renderer/src/analysis/`) runs on the computer's own cores in Web Workers; the recording is never uploaded. WAV, RF64 and AIFF are read straight from the file (`src/shared/pcm.ts`), each worker taking the next piece of the set. MP3, FLAC, M4A/AAC, Ogg (Vorbis, Opus) and WebM are decoded by the browser (WebCodecs, with Mediabunny reading the container). MP3 and FLAC decode the same from mid-file, so every worker decodes its own piece (with a few packets before it to warm its decoder up) and the result is identical to decoding in one piece; the other codecs are decoded on one worker that hands each piece to whichever worker is free. Those need a browser with WebCodecs audio (Chrome, Edge); a codec the browser can't decode gets a message suggesting WAV.
 
-It gives the desktop app's result, not an approximation: `src/shared/analyseSource.ts` and `src/shared/dsp.ts` run the same filter graph the desktop gives ffmpeg (`src/main/audio.ts`, spelled out there for this reason), with ffmpeg's biquads in the same float arithmetic, libswresample's resampler, and its stereo downmix and gapless trimming (`src/shared/mp3.ts` for MP3). On test sets 99.9 to 100% of the waveform values are identical (the rest differ by one step of 0.001) and every takeover is the same. Two checks keep it that way:
+It gives the desktop app's result, not an approximation: `src/shared/analyseSource.ts` and `src/shared/dsp.ts` run the same filter graph the desktop gives ffmpeg (`src/main/audio.ts`, spelled out there for this reason), with ffmpeg's biquads in the same float arithmetic, libswresample's resampler (its inner loop in WebAssembly SIMD, `src/shared/resample.wat`, rebuilt with `npm run build:wasm`), and its stereo downmix and gapless trimming (`src/shared/mp3.ts` for MP3). On test sets 99.9 to 100% of the waveform values are identical (the rest differ by one step of 0.001) and every takeover is the same. Two checks keep it that way:
 
 ```bash
 npm run test:browser                              # a synthetic set in 9 formats, in Electron's Chromium
@@ -85,7 +85,7 @@ npm run test:browser -- set.wav --cue set.cue     # your own recordings (on Linu
 npm run compare-analysis -- set.wav --cue set.cue # the same math in Node against ffmpeg, without a browser
 ```
 
-A 2-hour set takes about 16 s as WAV, 21 s as FLAC and 39 s as MP3 on 4 cores (the desktop's ffmpeg: 34, 12 and 37 s). Still to do for the web: muxing the MP4 in the browser and browser storage for projects (see the web study).
+A 2-hour set takes about 7 s as WAV, 11 s as FLAC and 17 s as MP3 on 4 cores (the desktop's ffmpeg: 32, 12 and 36 s). Still to do for the web: muxing the MP4 in the browser and browser storage for projects (see the web study).
 
 ## Notes and limits
 

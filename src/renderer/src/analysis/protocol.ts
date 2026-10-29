@@ -4,7 +4,7 @@
  */
 import type { PackedSpectrum, SegmentAnalysis, SegmentRange } from '@shared/analysis'
 import type { PcmLayout } from '@shared/pcm'
-import type { CompressedInfo } from './decode'
+import type { CompressedInfo, PacketDecoding } from './decode'
 
 export type Song = { title: string; artist: string }
 export type Takeover = { start: number; audibleAt: number; tailEnd: number } | null
@@ -17,11 +17,27 @@ export type WorkerJob =
   | { type: 'feed'; port: MessagePort }
   | { type: 'takeovers'; id: number; spectrum: PackedSpectrum; cues: number[]; duration: number; songs?: Song[] }
 
-/** Decoder → segment worker, over the port. */
+/**
+ * Decoder → segment worker, over the port: a segment's decoded audio (begin, chunks, end), or for
+ * codecs that decode the same from mid-file, its packets to decode there (packet i is
+ * data[offsets[i], offsets[i + 1]); the first ones only warm the decoder up).
+ */
 export type FeedMessage =
   | { type: 'begin'; id: number; range: SegmentRange; sampleRate: number }
   | { type: 'chunk'; id: number; at: number; samples: Float32Array }
   | { type: 'end'; id: number; atEnd: boolean }
+  | {
+      type: 'decode'
+      id: number
+      range: SegmentRange
+      decoding: PacketDecoding
+      /** The file ends in this segment. */
+      atEnd: boolean
+      data: Uint8Array
+      offsets: Uint32Array
+      timestamps: Float64Array
+      durations: Float64Array
+    }
 
 /** Segment worker → decoder, over the port: ready for the next segment. */
 export type FeedReply = { type: 'free' }
@@ -34,7 +50,10 @@ export type WorkerReply =
   | { type: 'error'; id: number; message: string }
 
 /** Page → decoder. */
-export type DecoderJob = { type: 'open'; file: Blob } | { type: 'run'; ports: MessagePort[]; segmentLength: number }
+export type DecoderJob =
+  | { type: 'open'; file: Blob }
+  /** inOrder: decode on this thread even where the segment workers could decode their own. */
+  | { type: 'run'; ports: MessagePort[]; segmentLength: number; inOrder?: boolean }
 
 /** Decoder → page. */
 export type DecoderReply =

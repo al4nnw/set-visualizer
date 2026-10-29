@@ -5,6 +5,7 @@
  * sinc, filter size 32, cutoff 0.97, beta 9, exact rational phases). No Node or DOM dependencies.
  */
 import type { FilterStage } from './analysis'
+import { RESAMPLE_WASM } from './resampleWasm'
 
 /** ffmpeg's default width for lowpass/highpass (a Q factor). */
 const FFMPEG_Q = 0.707
@@ -125,8 +126,20 @@ export interface PolyphaseFilter {
 /** Most phases computed exactly; above this a rate pair falls back to the nearest of this many. */
 const MAX_PHASES = 1024
 
-/** Designs the anti-alias/interpolation filter libswresample uses for inRate → outRate. */
+const designs = new Map<string, PolyphaseFilter>()
+
+/**
+ * The anti-alias/interpolation filter libswresample uses for inRate → outRate. Designed once per
+ * rate pair and shared by every resampler for it, so don't change it.
+ */
 export function designResampler(inRate: number, outRate: number, opts: ResamplerOptions = {}): PolyphaseFilter {
+  const key = `${inRate}/${outRate}/${opts.filterSize ?? 32}/${opts.cutoff ?? 0.97}/${opts.beta ?? 9}`
+  let f = designs.get(key)
+  if (!f) designs.set(key, (f = design(inRate, outRate, opts)))
+  return f
+}
+
+function design(inRate: number, outRate: number, opts: ResamplerOptions): PolyphaseFilter {
   const filterSize = opts.filterSize ?? 32
   const cutoff = opts.cutoff ?? 0.97
   const beta = opts.beta ?? 9
@@ -159,8 +172,8 @@ export function designResampler(inRate: number, outRate: number, opts: Resampler
 /**
  * Computes `count` outputs into `out` (from `outOffset`): output j uses the input window starting
  * at x[start_j] with filter phase p_j, starting from (`start`, `phase`) and stepping `down` input
- * positions per output in units of 1/`up`. Returns the window start and phase after the last one.
- * This is the hot loop of the browser analysis (it can be swapped for a faster kernel).
+ * positions per output in units of 1/`up`. This is the hot loop of the browser analysis: jsKernel
+ * computes it in JavaScript, wasmKernel the same way in WebAssembly SIMD.
  */
 export type ResampleKernel = (
   f: PolyphaseFilter,
@@ -201,6 +214,55 @@ export const jsKernel: ResampleKernel = (f, x, start, phase, count, out, outOffs
   }
 }
 
+interface ResampleWasm {
+  memory: WebAssembly.Memory
+  resample(table: number, taps: number, up: number, down: number, phases: number, x: number, phase: number, count: number, out: number): void
+}
+
+/**
+ * jsKernel in WebAssembly SIMD (resample.wat): the same output to the bit, about 5 times faster.
+ * Null where WebAssembly SIMD isn't available (resamplers use jsKernel there).
+ */
+export const wasmKernel: ResampleKernel | null = (() => {
+  let wasm: ResampleWasm
+  try {
+    const bytes = Uint8Array.from(atob(RESAMPLE_WASM), (c) => c.charCodeAt(0))
+    wasm = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports as unknown as ResampleWasm
+  } catch {
+    return null
+  }
+  const { memory, resample } = wasm
+  // Each filter's table is copied in once (there's one filter per rate pair, so few of them);
+  // each call's input and outputs go after the tables.
+  const tables = new Map<PolyphaseFilter, number>()
+  let tablesEnd = 0
+  let heap = new Float32Array(memory.buffer)
+  const reserve = (bytes: number) => {
+    const have = memory.buffer.byteLength
+    if (bytes > have) memory.grow(Math.ceil((bytes - have) / 65536))
+    if (heap.buffer !== memory.buffer) heap = new Float32Array(memory.buffer)
+  }
+  return (f, x, start, phase, count, out, outOffset) => {
+    if (count <= 0) return
+    let table = tables.get(f)
+    if (table === undefined) {
+      table = tablesEnd
+      tablesEnd += f.table.length * 4
+      reserve(tablesEnd)
+      heap.set(f.table, table / 4)
+      tables.set(f, table)
+    }
+    // The input the outputs read: up to the last one's window.
+    const span = Math.floor((phase + (count - 1) * f.down) / f.up) + f.taps
+    const xAt = tablesEnd
+    const outAt = xAt + span * 4
+    reserve(outAt + count * 4)
+    heap.set(x.subarray(start, start + span), xAt / 4)
+    resample(table, f.taps, f.up, f.down, f.phases, xAt, phase, count, outAt)
+    out.set(heap.subarray(outAt / 4, outAt / 4 + count), outOffset)
+  }
+})()
+
 /**
  * Streaming resampler. Output n sits at input position n * inRate / outRate (the filter is
  * centred on it), so a stream resampled in pieces lines up sample for sample with one resampled
@@ -225,7 +287,7 @@ export class Resampler {
    */
   constructor(inRate: number, outRate: number, opts: ResamplerOptions & { inputStart?: number; outputStart?: number; kernel?: ResampleKernel } = {}) {
     this.f = designResampler(inRate, outRate, opts)
-    this.kernel = opts.kernel ?? jsKernel
+    this.kernel = opts.kernel ?? wasmKernel ?? jsKernel
     this.n = opts.outputStart ?? 0
     const inputStart = opts.inputStart ?? 0
     const first = this.windowStart(this.n)

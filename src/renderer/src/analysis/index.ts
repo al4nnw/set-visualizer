@@ -2,8 +2,9 @@
  * The set analysis in the browser: the waveform and spectral frames the desktop app gets from ffmpeg
  * (src/main/audio.ts), computed on the computer's own cores, so the recording never leaves it.
  * WAV and AIFF recordings are read straight from the file by every worker, each taking the next
- * segment of the set. Compressed ones are decoded once, in order, by a decoder worker that hands
- * each segment to whichever worker is free.
+ * segment of the set. For compressed ones a decoder worker reads the file in order and hands each
+ * segment to whichever worker is free: as packets that worker decodes itself (MP3, FLAC), or as
+ * audio it decoded (codecs that only decode the same from the start).
  */
 import { mergeSegments, packSpectrum, type PackedSpectrum, type SegmentAnalysis } from '@shared/analysis'
 import { planSegments } from '@shared/analyseSource'
@@ -42,6 +43,8 @@ export interface AnalyseOptions {
   signal?: AbortSignal
   /** Threads to use; all the cores by default (up to 8). */
   threads?: number
+  /** Decode MP3 and FLAC on one thread, as other codecs are (to check both give the same). */
+  decodeInOrder?: boolean
 }
 
 const segmentWorker = () => new Worker(new URL('./segmentWorker.ts', import.meta.url), { type: 'module' })
@@ -69,7 +72,7 @@ export async function analyseFile(file: Blob, opts: AnalyseOptions = {}): Promis
   cancelled.catch(() => {})
   try {
     const layout = await probePcm(file)
-    const run = layout ? analysePcm(file, layout, threads, workers, progress) : analyseCompressed(file, threads, workers, progress)
+    const run = layout ? analysePcm(file, layout, threads, workers, progress) : analyseCompressed(file, threads, !!opts.decodeInOrder, workers, progress)
     const { duration, parts, codec } = await Promise.race([run, cancelled])
     const { waveform, spectrum } = mergeSegments(parts)
     return { duration, waveform, spectrum: packSpectrum(spectrum ?? { fps: 0, frames: [] }), codec }
@@ -122,7 +125,7 @@ function analysePcm(file: Blob, layout: PcmLayout, threads: number, workers: Wor
 
 const decodeFailure = (m: Extract<DecoderReply, { type: 'error' }>) => new AnalysisError(m.reason ?? 'failed', m.message, m.codec)
 
-async function analyseCompressed(file: Blob, threads: number, workers: Worker[], progress: (p: number) => void): Promise<Analysed> {
+async function analyseCompressed(file: Blob, threads: number, inOrder: boolean, workers: Worker[], progress: (p: number) => void): Promise<Analysed> {
   const dec = decoderWorker()
   workers.push(dec)
   const info = await new Promise<CompressedInfo>((resolve, reject) => {
@@ -133,9 +136,11 @@ async function analyseCompressed(file: Blob, threads: number, workers: Worker[],
     dec.onerror = (e) => reject(failed(e))
     dec.postMessage({ type: 'open', file } satisfies DecoderJob)
   })
-  // One thread decodes; the others analyse. Segments short enough that the last one doesn't keep
-  // everyone waiting, long enough that each one's warm-up costs little.
-  const n = Math.max(1, threads - 1)
+  // Every thread decodes and analyses its own segments where the codec allows; otherwise one thread
+  // decodes and the others analyse. Segments short enough that the last one doesn't keep everyone
+  // waiting, long enough that each one's warm-up costs little.
+  const parallel = info.parallel && !inOrder
+  const n = parallel ? threads : Math.max(1, threads - 1)
   const estimate = info.duration ?? 0
   const length = Math.max(20, Math.min(60, Math.round(estimate / (n * 4)) || 45))
   const parts = new Map<number, SegmentAnalysis>()
@@ -180,7 +185,7 @@ async function analyseCompressed(file: Blob, threads: number, workers: Worker[],
         finish()
       } else if (m.type === 'error') reject(decodeFailure(m))
     }
-    dec.postMessage({ type: 'run', ports, segmentLength: length } satisfies DecoderJob, ports)
+    dec.postMessage({ type: 'run', ports, segmentLength: length, inOrder: !parallel } satisfies DecoderJob, ports)
   })
 }
 

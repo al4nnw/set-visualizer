@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { ANALYSIS_STREAMS, mergeSegments, packSpectrum, SPECTRUM_BANDS, SPECTRUM_POWER_BANDS, unpackSpectrum } from '../src/shared/analysis'
 import { analyseSegment, createSegmentPipeline, downmix, planSegments, segmentInput } from '../src/shared/analyseSource'
 import type { AudioSource } from '../src/shared/audioSource'
-import { biquadFor, designResampler, FilterChain, Resampler } from '../src/shared/dsp'
+import { biquadFor, designResampler, FilterChain, jsKernel, Resampler, wasmKernel } from '../src/shared/dsp'
+import { RESAMPLE_WASM } from '../src/shared/resampleWasm'
+import { compileWat } from '../scripts/build-wasm'
 import { mp3Gapless } from '../src/shared/mp3'
 import { pcmSource, probePcm } from '../src/shared/pcm'
 
@@ -83,6 +85,35 @@ describe('browser analysis filters and resampler', () => {
 
     // The first output wanted needs input from before the first sample given.
     expect(() => new Resampler(44100, 11025, { inputStart: 42000, outputStart: 10500 })).toThrow()
+  })
+
+  it.each([
+    [44100, 11025],
+    [48000, 11025],
+    [96000, 11025],
+    [44056, 11025],
+    [11025, 2000],
+    [11025, 8000],
+    [8000, 11025]
+  ])('computes %i Hz to %i Hz in WebAssembly exactly as in JavaScript', (inRate, outRate) => {
+    expect(wasmKernel).not.toBeNull()
+    const x = noise(inRate * 3, inRate)
+    const viaJs = resampleAll(new Resampler(inRate, outRate, { kernel: jsKernel }), x, 5000)
+    const viaWasm = resampleAll(new Resampler(inRate, outRate, { kernel: wasmKernel! }), x, 5000)
+    expect(viaWasm).toEqual(viaJs)
+    // One call over most of the input (the memory grows for it), and an odd starting phase.
+    const f = designResampler(inRate, outRate)
+    const count = Math.floor(((x.length - f.taps - 2) * f.up) / f.down)
+    const a = new Float32Array(count)
+    const b = new Float32Array(count)
+    jsKernel(f, x, 1, f.up - 1, count, a, 0)
+    wasmKernel!(f, x, 1, f.up - 1, count, b, 0)
+    expect(b).toEqual(a)
+  })
+
+  it('embeds the WebAssembly compiled from resample.wat', async () => {
+    const bytes = await compileWat(new URL('../src/shared/resample.wat', import.meta.url).pathname)
+    expect(Buffer.from(bytes).toString('base64'), 'run npm run build:wasm').toBe(RESAMPLE_WASM)
   })
 
   it('mirrors the input past both ends of the file, like libswresample', () => {

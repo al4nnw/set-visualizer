@@ -231,8 +231,12 @@ function fft(re: Float64Array, im: Float64Array) {
     for (; j & bit; bit >>= 1) j ^= bit
     j ^= bit
     if (i < j) {
-      ;[re[i], re[j]] = [re[j], re[i]]
-      ;[im[i], im[j]] = [im[j], im[i]]
+      const r = re[i]
+      re[i] = re[j]
+      re[j] = r
+      const m = im[i]
+      im[i] = im[j]
+      im[j] = m
     }
   }
   for (let len = 2, stage = 0; len <= n; len <<= 1, stage++) {

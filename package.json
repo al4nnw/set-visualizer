@@ -18,6 +18,7 @@
     "test:browser": "tsx test/browser/run.ts",
     "render": "tsx scripts/render-cli.ts",
     "compare-analysis": "tsx scripts/compare-analysis.ts",
+    "build:wasm": "tsx scripts/build-wasm.ts",
     "dist": "electron-vite build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "make-tutorial": "tsx scripts/make-tutorial.ts"
@@ -46,7 +47,8 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wabt": "1.0.39"
   },
   "build": {
     "appId": "com.setvisualizer.app",
