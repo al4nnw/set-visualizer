@@ -95,11 +95,11 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
 
   const exportClip = async (c: ClipSuggestion) => {
     const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
-    const out = await platform.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
-    if (!out) return
-    abort.current = new AbortController()
     const set = (v: { progress?: ExportProgress; error?: string }) => setJobs((j) => ({ ...j, [c.id]: v }))
     try {
+      const out = await platform.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
+      if (!out) return
+      abort.current = new AbortController()
       await runExport(clipProject(project, format), out, (progress) => set({ progress }), abort.current.signal, { from: c.from, to: c.to })
     } catch (e) {
       set({ error: (e as Error).message })

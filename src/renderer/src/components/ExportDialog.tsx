@@ -44,11 +44,11 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
 
   const start = async () => {
     const name = (s.setTitle || project.audioName.replace(/\.[^.]+$/, '')).replace(/[\\/:*?"<>|]+/g, '-') + '.mp4'
-    const out = await platform.chooseVideoPath(name)
-    if (!out) return
     setError(null)
-    abortRef.current = new AbortController()
     try {
+      const out = await platform.chooseVideoPath(name)
+      if (!out) return
+      abortRef.current = new AbortController()
       await runExport(project, out, setProgress, abortRef.current.signal)
     } catch (e) {
       setError((e as Error).message)

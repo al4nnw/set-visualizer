@@ -271,13 +271,15 @@ export function App() {
         createdAt: new Date().toISOString(),
         settings: { ...DEFAULT_SETTINGS, width: p.defaultWidth, height: p.defaultHeight, fps: p.defaultFps, videoLanguage: uiLocale(p.language), setTitle: opts.tutorial ? t('app.tutorialTitle') : name.replace(/\.[^.]+$/, '') }
       }
-      // The tutorial works on a throwaway project: no file, nothing to save.
-      const saved = opts.tutorial
-        ? null
-        : await platform.createProject(forDisk(fresh)).catch((e) => {
-            showToast(t('app.couldNotCreate', { error: errMsg(e) }))
-            return null
-          })
+      // The tutorial works on a throwaway project: no file, nothing to save. Without a projects
+      // folder (the web version) a new project starts unsaved, like a new document.
+      const saved =
+        opts.tutorial || !platform.features.projectsFolder
+          ? null
+          : await platform.createProject(forDisk(fresh)).catch((e) => {
+              showToast(t('app.couldNotCreate', { error: errMsg(e) }))
+              return null
+            })
       reset({ ...fresh, savedAt: saved?.savedAt })
       setProjectPath(saved?.path ?? null)
       setDirty(!saved && !opts.tutorial)

@@ -17,6 +17,7 @@ Desktop app (Electron) that turns a recorded DJ set into a YouTube-ready video:
 npm install
 npm run dev        # run the app with hot reload
 npm run dist       # build an installer for your OS into dist/
+npm run dev:web    # the web version at http://localhost:5174 (npm run build:web builds it into out/web)
 ```
 
 ffmpeg and ffprobe come bundled (`ffmpeg-static`, `ffprobe-static`), nothing else to install.
@@ -57,9 +58,11 @@ npm run render -- --project my-set.djvis --out set.mp4 --width 1280 --height 720
 src/shared/     scene renderer, A/B card layout, cue sheet parser, set analysis math, video text (no Node or DOM deps)
 src/main/       Electron main: projects/autosave, search, art download, export muxing; audio analysis runs in a worker thread (analysisWorker.ts, one ffmpeg decode per set) and is cached (analysisCache.ts)
 src/preload/    the API the UI uses (window.api)
-src/renderer/   React UI, Platform interface (platform/), UI catalogs (i18n/), WebCodecs export worker
+src/renderer/   React UI, Platform interface (platform/), UI catalogs (i18n/), WebCodecs export worker, browser set analysis (analysis/)
+src/web/        entry page of the web version
 src/node/       headless Skia/x264 exporter used by the CLI
-scripts/        render-cli.ts
+scripts/        render-cli.ts, compare-analysis.ts
+test/browser/   the browser analysis checked against the desktop's in a real browser (npm run test:browser)
 ```
 
 ## Languages
@@ -70,7 +73,19 @@ UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and
 
 ## Toward a web version
 
-The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`), and a web build will implement the same interface with browser APIs. The set analysis math (waveform envelopes, spectral frames) is in `src/shared/analysis.ts` with no Node dependencies; the desktop app feeds it samples decoded by ffmpeg, a browser worker will feed it samples from WebCodecs/WAV parsing. Still to do for the web: browser audio decode, muxing the MP4 in the browser, and browser storage for projects (see the web study).
+The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`) and the web version with browser APIs (`web.ts`). `npm run dev:web` runs the same editor in the browser: open a recording and its .cue, and it shows the waveform, places the tracks and finds the takeovers. Saving projects, artwork search and video export aren't in the web version yet and say so.
+
+**Set analysis in the browser** (`src/renderer/src/analysis/`) runs on the computer's own cores in Web Workers; the recording is never uploaded. WAV, RF64 and AIFF are read straight from the file (`src/shared/pcm.ts`), each worker taking the next piece of the set. MP3, FLAC, M4A/AAC, Ogg (Vorbis, Opus) and WebM are decoded by the browser (WebCodecs, with Mediabunny reading the container). MP3 and FLAC decode the same from mid-file, so every worker decodes its own piece (with a few packets before it to warm its decoder up) and the result is identical to decoding in one piece; the other codecs are decoded on one worker that hands each piece to whichever worker is free. Those need a browser with WebCodecs audio (Chrome, Edge); a codec the browser can't decode gets a message suggesting WAV.
+
+It gives the desktop app's result, not an approximation: `src/shared/analyseSource.ts` and `src/shared/dsp.ts` run the same filter graph the desktop gives ffmpeg (`src/main/audio.ts`, spelled out there for this reason), with ffmpeg's biquads in the same float arithmetic, libswresample's resampler (its inner loop in WebAssembly SIMD, `src/shared/resample.wat`, rebuilt with `npm run build:wasm`), and its stereo downmix and gapless trimming (`src/shared/mp3.ts` for MP3). On test sets 99.9 to 100% of the waveform values are identical (the rest differ by one step of 0.001) and every takeover is the same. Two checks keep it that way:
+
+```bash
+npm run test:browser                              # a synthetic set in 9 formats, in Electron's Chromium
+npm run test:browser -- set.wav --cue set.cue     # your own recordings (on Linux without a display: xvfb-run -a)
+npm run compare-analysis -- set.wav --cue set.cue # the same math in Node against ffmpeg, without a browser
+```
+
+A 2-hour set takes about 7 s as WAV, 11 s as FLAC and 17 s as MP3 on 4 cores (the desktop's ffmpeg: 32, 12 and 36 s). Still to do for the web: muxing the MP4 in the browser and browser storage for projects (see the web study).
 
 ## Notes and limits
 

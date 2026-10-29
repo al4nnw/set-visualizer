@@ -362,5 +362,15 @@ export const es: Messages = {
   errors: {
     exportCancelled: 'Exportación cancelada',
     workerCrashed: 'El renderizador se bloqueó'
+  },
+  web: {
+    projectsNotYet: 'Guardar y abrir proyectos en el navegador llegará en una próxima actualización. Para conservar un proyecto, usa la app de escritorio.',
+    exportNotYet: 'Exportar video desde el navegador llegará en una próxima actualización. Por ahora, usa la app de escritorio para exportar.',
+    searchNotYet: 'La búsqueda de portadas llegará a la versión web en una próxima actualización. Por ahora, elige una imagen de tu equipo.',
+    fileGone: '{{name}} ya no está abierto en esta pestaña. Ábrelo de nuevo.',
+    codec: 'Este navegador no puede decodificar audio {{codec}}. Prueba con Chrome o Edge, o convierte la grabación a WAV.',
+    format: '{{name}} no es un archivo de audio que este navegador pueda leer.',
+    noAudio: '{{name}} no tiene audio.',
+    analysisFailed: 'No se pudo analizar {{name}}: {{error}}'
   }
 }
