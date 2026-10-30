@@ -317,18 +317,11 @@ export function webPlatform(): Platform {
     openAnyDialog: () => pick(['audio', 'cue', 'project'], true),
     openTracklistDialog: async () => (await pick(['cue']))[0] ?? null,
     pickImage: async () => (await pick(['image']))[0] ?? null,
-    /** Where the video goes: a file the user picks (Chrome, Edge), or else a download. */
+    /**
+     * Where the video goes: always a regular browser download, so it shows in the browser's
+     * downloads list, where it can be opened or shown in its folder.
+     */
     chooseVideoPath: async (name) => {
-      if (fsw.showSaveFilePicker) {
-        try {
-          const handle = await fsw.showSaveFilePicker({ suggestedName: name, types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }], id: 'video' })
-          const ref = `video:${crypto.randomUUID()}/${handle.name}`
-          videoTargets.set(ref, { kind: 'file', handle: handle as unknown as Extract<VideoTarget, { kind: 'file' }>['handle'], name: handle.name })
-          return ref
-        } catch (e) {
-          if ((e as Error)?.name === 'AbortError') return null
-        }
-      }
       const ref = `video:${crypto.randomUUID()}/${name}`
       videoTargets.set(ref, { kind: 'download', name })
       return ref
