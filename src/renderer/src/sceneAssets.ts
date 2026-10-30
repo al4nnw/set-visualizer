@@ -1,14 +1,16 @@
 import type { ArtAsset, CanvasFactory, ImageLike } from '@shared/scene'
 import { makeBlurred } from '@shared/scene'
 import type { Project } from '@shared/types'
-import { platform } from './platform'
 
 export const offscreenFactory: CanvasFactory = (w, h) => new OffscreenCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)))
 
 const cache = new Map<string, Promise<ArtAsset | null>>()
 
-/** Loads (and caches by path) every track's artwork plus its blurred background version. */
-export async function loadArtMap(project: Project): Promise<Map<string, ArtAsset>> {
+/**
+ * Loads (and caches by path) every track's artwork plus its blurred background version. `urlFor`
+ * turns an artwork ref into a URL (platform.mediaUrl on the page; a worker gets URLs already).
+ */
+export async function loadArtMap(project: Project, urlFor: (ref: string) => string = (r) => r): Promise<Map<string, ArtAsset>> {
   const out = new Map<string, ArtAsset>()
   await Promise.all(
     project.tracks.map(async (t) => {
@@ -17,7 +19,7 @@ export async function loadArtMap(project: Project): Promise<Map<string, ArtAsset
       if (!p) {
         p = (async () => {
           try {
-            const blob = await (await fetch(platform.mediaUrl(t.artwork!))).blob()
+            const blob = await (await fetch(urlFor(t.artwork!))).blob()
             const image = (await createImageBitmap(blob)) as unknown as ImageLike
             return { image, blurred: makeBlurred(image, offscreenFactory) }
           } catch {

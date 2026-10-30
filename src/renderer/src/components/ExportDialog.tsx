@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { formatTime, mainTracks } from '@shared/layout'
-import type { ExportProgress, Project, Quality, RenderSettings } from '@shared/types'
+import type { Project, Quality, RenderSettings } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { lang } from '../i18n'
 import { platform } from '../platform'
-import { runExport, webCodecsAvailable } from '../export/runExport'
+import { webCodecsAvailable } from '../export/runExport'
+import { exportQueue } from '../export/queue'
 import { Icon } from './icons'
 
 interface Props {
@@ -35,11 +36,8 @@ export function youtubeChapters(project: Project): string {
 export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
   const { t } = useTranslation()
   const s = project.settings
-  const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
-  const running = progress !== null && ['preparing', 'rendering', 'finishing'].includes(progress.stage)
   const chapters = youtubeChapters(project)
 
   const start = async () => {
@@ -48,22 +46,20 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
     try {
       const out = await platform.chooseVideoPath(name)
       if (!out) return
-      abortRef.current = new AbortController()
-      await runExport(project, out, setProgress, abortRef.current.signal)
+      // It runs in the background (see ExportJobs), with the project as it is now.
+      exportQueue.add({ label: name.replace(/\.mp4$/, ''), project, out })
+      onClose()
     } catch (e) {
       setError((e as Error).message)
-      setProgress(null)
     }
   }
 
-  const pct = progress ? Math.min(100, (progress.frame / Math.max(1, progress.totalFrames)) * 100) : 0
-
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal export-modal">
         <div className="modal-head">
           <h3>{t('export.title')}</h3>
-          <button className="icon-btn" onClick={onClose} disabled={running}>
+          <button className="icon-btn" onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>
@@ -75,7 +71,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               {t('export.resolution')}
               <div className="seg">
                 {RESOLUTIONS.map((r) => (
-                  <button key={r.label} className={Math.min(s.width, s.height) === r.h ? 'on' : ''} onClick={() => onChangeSettings(sizeFor(r, s.height > s.width))} disabled={running}>
+                  <button key={r.label} className={Math.min(s.width, s.height) === r.h ? 'on' : ''} onClick={() => onChangeSettings(sizeFor(r, s.height > s.width))}>
                     {r.label}
                   </button>
                 ))}
@@ -85,7 +81,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               {t('export.frameRate')}
               <div className="seg">
                 {[24, 30, 60].map((f) => (
-                  <button key={f} className={s.fps === f ? 'on' : ''} onClick={() => onChangeSettings({ fps: f })} disabled={running}>
+                  <button key={f} className={s.fps === f ? 'on' : ''} onClick={() => onChangeSettings({ fps: f })}>
                     {t('common.fps', { fps: f })}
                   </button>
                 ))}
@@ -95,7 +91,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               {t('export.quality')}
               <div className="seg">
                 {(['standard', 'high', 'max'] as Quality[]).map((q) => (
-                  <button key={q} className={s.quality === q ? 'on' : ''} onClick={() => onChangeSettings({ quality: q })} disabled={running}>
+                  <button key={q} className={s.quality === q ? 'on' : ''} onClick={() => onChangeSettings({ quality: q })}>
                     {t(`export.qualities.${q}`)}
                   </button>
                 ))}
@@ -121,24 +117,6 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
           </div>
         </div>
 
-        {progress && (
-          <div className="export-progress">
-            <div className="bar big">
-              <div style={{ width: `${pct}%` }} />
-            </div>
-            <div className="row small muted">
-              <span>
-                {progress.stage === 'preparing' && t('export.preparing')}
-                {progress.stage === 'rendering' &&
-                  t('export.rendering', { frame: progress.frame.toLocaleString(lang()), total: progress.totalFrames.toLocaleString(lang()), fps: progress.fps.toFixed(0) })}
-                {progress.stage === 'finishing' && t('export.finishing')}
-                {progress.stage === 'done' && t('export.done')}
-              </span>
-              <div className="grow" />
-              {progress.stage === 'rendering' && <span>{t('export.eta', { time: formatTime(progress.etaSec) })}</span>}
-            </div>
-          </div>
-        )}
         {error && <div className="error">{error}</div>}
 
         <div className="modal-foot">
@@ -146,19 +124,9 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             {formatTime(project.duration)} · {s.width}×{s.height} · {t('common.fps', { fps: s.fps })} · {t('export.frames', { count: Math.ceil(project.duration * s.fps).toLocaleString(lang()) })}
           </span>
           <div className="grow" />
-          {running ? (
-            <button className="btn" onClick={() => abortRef.current?.abort()}>
-              {t('common.cancel')}
-            </button>
-          ) : progress?.stage === 'done' && progress.outputPath && platform.features.reveal ? (
-            <button className="btn primary" onClick={() => platform.reveal(progress.outputPath!)}>
-              {t('export.showInFolder')}
-            </button>
-          ) : (
-            <button className="btn primary" onClick={start} disabled={!webCodecsAvailable()}>
-              {t('export.render')}
-            </button>
-          )}
+          <button className="btn primary" onClick={start} disabled={!webCodecsAvailable()}>
+            {t('export.render')}
+          </button>
         </div>
       </div>
     </div>

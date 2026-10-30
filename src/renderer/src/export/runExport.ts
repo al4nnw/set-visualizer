@@ -46,7 +46,7 @@ export async function runExport(
       let last = 0
       worker.onmessage = (e: MessageEvent) => {
         const m = e.data
-        if (m.type === 'chunk') platform.exportChunk(m.data)
+        if (m.type === 'chunk') platform.exportChunk(m.data, m)
         else if (m.type === 'progress') {
           done += m.frames
           if (performance.now() - last > 250) {
@@ -58,7 +58,9 @@ export async function runExport(
         else if (m.type === 'error') reject(new Error(m.message))
       }
       worker.onerror = (e) => reject(new Error(e.message || i18n.t('errors.workerCrashed')))
-      worker.postMessage({ type: 'start', project, fonts: SCENE_FONTS, firstFrame, endFrame })
+      // The worker has no platform of its own: it gets the artwork as URLs it can fetch.
+      const withUrls = { ...project, tracks: project.tracks.map((t) => (t.artwork ? { ...t, artwork: platform.mediaUrl(t.artwork) } : t)) }
+      worker.postMessage({ type: 'start', project: withUrls, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')
     const out = await platform.exportFinish()
