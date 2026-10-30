@@ -1,0 +1,46 @@
+# Deploys the site and the Cloud Functions to Firebase (set-visualizer-app) on every push to main,
+# or by hand from the Actions tab. It signs in to Google Cloud as the github-deploy service account
+# through Workload Identity Federation, so no key is stored: the two secrets only name the provider
+# and the account, and only this repository can use them.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: functions
+      - run: npm run typecheck
+      - run: npm test
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # firebase.json's predeploy steps build the site and the functions.
+      - run: npx --yes firebase-tools@15 deploy --only hosting,functions --project set-visualizer-app --non-interactive --force
