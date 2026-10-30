@@ -10,8 +10,8 @@ import { startExport, type VideoTarget } from './webExport'
 import { downloadArtwork, searchDeezer, searchItunes, searchYoutube, youtubeReady } from './webArt'
 
 /**
- * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved like on
- * the desktop, and can be saved to disk as .djvis files and opened from them. Files the user picks
+ * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved, and
+ * can be saved to disk as .djvis files and opened from them. Files the user picks
  * or drops get refs like "file:5242880-1730000000000/set.wav": the file's size and date, then its
  * name (the UI looks at the extension), so the same file always gets the same ref and its stored
  * analysis. A recording is never copied: where the browser can (Chrome, Edge) its handle on disk
@@ -153,7 +153,6 @@ const PREFS_KEY = 'setvis.prefs'
 
 const defaultPrefs = (): Preferences => ({
   autosave: true,
-  projectsDir: '',
   autoArtwork: true,
   defaultWidth: 1920,
   defaultHeight: 1080,
@@ -290,9 +289,7 @@ export function webPlatform(): Platform {
   const create = (p: ProjectFile) => write(crypto.randomUUID(), p, fileNameFor(p.audioName))
 
   return {
-    kind: 'web',
     os: os(),
-    features: { reveal: false, projectsFolder: false, windowControls: false, tutorial: false },
 
     mediaUrl(ref) {
       if (/^(https?|data|blob):/.test(ref)) return ref
@@ -336,7 +333,6 @@ export function webPlatform(): Platform {
       videoTargets.set(ref, { kind: 'download', name })
       return ref
     },
-    chooseFolder: async () => null,
 
     analyseAudio: async (ref) => {
       const r = await analysisOf(ref)
@@ -402,7 +398,7 @@ export function webPlatform(): Platform {
       const path = projectRef(rec)
       const p = rec.project
       // The recording: open in this tab, or from its handle (asking for permission: this follows
-      // the click that opened the project). A desktop project's path means nothing here.
+      // the click that opened the project). A path from somewhere else means nothing here.
       const audio = await resolve(p.audioPath, true)
       if (!audio) throw new NeedsFileError(path, p.audioName)
       const { waveform } = await analysisOf(p.audioPath)
@@ -448,7 +444,7 @@ export function webPlatform(): Platform {
 
     search: webSearch,
     downloadArt: async (url) => register(await downloadArtwork(url)),
-    // Like the desktop, except YouTube only for someone already signed in: a lookup can't open the
+    // YouTube only for someone already signed in: a lookup can't open the
     // sign-in window by itself, and each one spends the quota everyone shares.
     autoArtwork: async (artist, title) => {
       const order = (await youtubeReady()) ? AUTO_ART_ORDER : AUTO_ART_ORDER.filter((p) => p !== 'youtube')
@@ -479,8 +475,6 @@ export function webPlatform(): Platform {
       await job?.abort()
     },
 
-    onOpenPath: () => () => {},
-    onMenuCommand: () => () => {},
     setUnsaved: (u) => void (unsaved = u),
     // A page can't wait for a save as it closes: leaving with changes not yet saved asks first,
     // and autosave writes them meanwhile (and whenever the tab is hidden).
@@ -499,11 +493,6 @@ export function webPlatform(): Platform {
         document.removeEventListener('visibilitychange', hidden)
       }
     },
-    closeOk: () => {},
-    quit: () => {},
-    toggleDevTools: () => {},
-    toggleFullScreen: () => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {}),
-    reveal: () => {},
     openExternal: (url) => void window.open(url, '_blank', 'noopener')
   }
 }

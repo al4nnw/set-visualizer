@@ -1,23 +1,22 @@
 /**
  * Checks the web app's analysis (src/renderer/src/analysis: browser decoders and worker threads)
- * against the desktop app's ffmpeg analysis, in a real browser engine:
+ * against ffmpeg's analysis of the same graph (scripts/ffmpeg/audio.ts), in a real browser engine:
  *   npm run test:browser                          a synthetic set in every format the browser decodes
  *   npm run test:browser -- set.wav [--cue set.cue]  your own recordings (a cue checks takeovers too)
- * Options: --browser electron|chromium (Chromium needs Playwright installed), --threads n.
- * Electron is Chromium with the codecs Chrome has (AAC included). On Linux without a display, run
- * it under xvfb-run. Needs ffmpeg (ffmpeg-static, or SETVIS_FFMPEG / SETVIS_FFPROBE).
+ * Options: --channel chrome (an installed Chrome instead), --threads n.
+ * Runs in Playwright's Chromium (npx playwright install chromium). Needs ffmpeg (ffmpeg-static,
+ * or SETVIS_FFMPEG / SETVIS_FFPROBE).
  */
-import { spawn } from 'node:child_process'
 import { createReadStream, statSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, extname, join, resolve } from 'node:path'
-import { createInterface } from 'node:readline'
+import { chromium } from 'playwright'
 import { build } from 'vite'
-import { analyseAudio } from '../../src/main/audio'
-import { runFfmpeg } from '../../src/main/ffmpeg'
+import { analyseAudio } from '../../scripts/ffmpeg/audio'
+import { runFfmpeg } from '../../scripts/ffmpeg/ffmpeg'
 import { unpackSpectrum } from '../../src/shared/analysis'
 import { dropRepeatedLoads, parseTracklist } from '../../src/shared/tracklist'
 import { cuesFrom, diffAnalyses, formatDiff, type AnalysisDiff, type Cues } from '../../scripts/analysisDiff'
@@ -93,50 +92,9 @@ interface Browser {
   close(): Promise<void>
 }
 
-async function electron(url: string): Promise<Browser> {
-  const bin = (await import('electron')).default as unknown as string
-  const args = [...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), join(__dirname, 'electron.cjs'), url]
-  const p = spawn(bin, args, { stdio: ['pipe', 'pipe', 'pipe'] })
-  // Chromium's own log lines ("[pid:date:ERROR:dbus/bus.cc...]") are noise here.
-  createInterface({ input: p.stderr! }).on('line', (line) => /^\[\d+:\d+\//.test(line) || console.error(line))
-  const waiting = new Map<number, (m: { value?: unknown; error?: string }) => void>()
-  let name = 'Electron'
-  const ready = new Promise<void>((ok, fail) => {
-    p.on('exit', (code) => fail(new Error(`Electron exited (${code})`)))
-    createInterface({ input: p.stdout! }).on('line', (line) => {
-      let m: { ready?: boolean; id?: number; versions?: { electron: string; chrome: string } }
-      try {
-        m = JSON.parse(line)
-      } catch {
-        return
-      }
-      if (m.ready) {
-        name = `Electron ${m.versions!.electron} (Chromium ${m.versions!.chrome})`
-        ok()
-      } else if (m.id !== undefined) waiting.get(m.id)?.(m)
-    })
-  })
-  await ready
-  let next = 0
-  return {
-    name,
-    evaluate: <T>(expr: string) =>
-      new Promise<T>((ok, fail) => {
-        const id = next++
-        waiting.set(id, (m) => (m.error ? fail(new Error(m.error)) : ok(m.value as T)))
-        p.stdin!.write(JSON.stringify({ id, expr }) + '\n')
-      }),
-    close: async () => {
-      p.stdin!.end()
-      await new Promise((ok) => p.once('exit', ok))
-    }
-  }
-}
-
-async function chromium(url: string): Promise<Browser> {
-  const pw = 'playwright'
-  const { chromium } = (await import(pw)) as typeof import('playwright')
-  const b = await chromium.launch()
+async function launch(url: string): Promise<Browser> {
+  // --channel chrome runs an installed Chrome instead of Playwright's Chromium.
+  const b = await chromium.launch({ channel: arg('channel') })
   const page = await b.newPage()
   page.on('pageerror', (e) => console.error('[page]', e.message))
   await page.goto(url)
@@ -158,7 +116,7 @@ const floats = (b64: string) => {
 // Back to the 3 decimals the analysis rounds to (they went through float32).
 const decimals = (b64: string) => Array.from(floats(b64), (v) => Math.round(v * 1000) / 1000)
 
-/** Whether a synthetic-set result is close enough to the desktop's. */
+/** Whether a synthetic-set result is close enough to ffmpeg's. */
 function verdict(d: AnalysisDiff): string[] {
   const bad: string[] = []
   for (const [k, v] of Object.entries(d.waveform)) {
@@ -195,7 +153,7 @@ async function main() {
     const url = (file: string) => `/media/${media.indexOf(file)}/${basename(file)}`
     const server = await serve(join(root, 'out/browser-test'), media)
     const page = `${server.url}/harness.html`
-    const browser = arg('browser') === 'chromium' ? await chromium(page) : await electron(page)
+    const browser = await launch(page)
     console.log(`Browser: ${browser.name}\n`)
     const threads = arg('threads') ? Number(arg('threads')) : undefined
     const failures: string[] = []
@@ -204,8 +162,8 @@ async function main() {
       for (const file of inputs) {
         console.log(`== ${basename(file)} (${(statSync(file).size / 1e6).toFixed(1)} MB)`)
         let t = performance.now()
-        const desktop = await analyseAudio(file, undefined, { spectrum: true })
-        const desktopS = (performance.now() - t) / 1000
+        const reference = await analyseAudio(file, undefined, { spectrum: true })
+        const ffmpegS = (performance.now() - t) / 1000
         t = performance.now()
         let r: BrowserResult
         try {
@@ -221,10 +179,10 @@ async function main() {
           spectrum: unpackSpectrum({ fps: r.spectrum.fps, count: r.spectrum.count, frames: floats(r.spectrum.frames), power: floats(r.spectrum.power) })
         }
         console.log(
-          `  ${desktop.duration.toFixed(2)} s; ffmpeg ${desktopS.toFixed(2)} s, browser (${r.codec}) ${(r.ms / 1000).toFixed(2)} s = ${(r.duration / (r.ms / 1000)).toFixed(0)}x realtime` +
-            (Math.abs(r.duration - desktop.duration) > 0.001 ? `; duration ${r.duration.toFixed(3)} vs ${desktop.duration.toFixed(3)}` : '')
+          `  ${reference.duration.toFixed(2)} s; ffmpeg ${ffmpegS.toFixed(2)} s, browser (${r.codec}) ${(r.ms / 1000).toFixed(2)} s = ${(r.duration / (r.ms / 1000)).toFixed(0)}x realtime` +
+            (Math.abs(r.duration - reference.duration) > 0.001 ? `; duration ${r.duration.toFixed(3)} vs ${reference.duration.toFixed(3)}` : '')
         )
-        const d = diffAnalyses({ ...desktop, spectrum: desktop.spectrum! }, b, cues)
+        const d = diffAnalyses({ ...reference, spectrum: reference.spectrum! }, b, cues)
         console.log(formatDiff(d).replace(/^/gm, '  '))
         const bad = verdict(d)
         if (bad.length) failures.push(`${basename(file)}: ${bad.join('; ')}`)
@@ -262,7 +220,7 @@ async function main() {
     if (failures.length) {
       console.log(`${failures.length} failed:\n  ${failures.join('\n  ')}`)
       if (synthetic) process.exitCode = 1
-    } else console.log(`All ${inputs.length} match the desktop analysis${unsupported ? ', and failures are reported right' : ''}.`)
+    } else console.log(`All ${inputs.length} match the ffmpeg analysis${unsupported ? ', and failures are reported right' : ''}.`)
   } finally {
     await rm(tmp, { recursive: true, force: true })
   }

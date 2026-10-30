@@ -18,7 +18,6 @@ type Page = 'general' | 'video'
 export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
   const [page, setPage] = useState<Page>('general')
   const [cleared, setCleared] = useState(false)
-  const web = platform.kind === 'web'
   const { t } = useTranslation()
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -55,40 +54,18 @@ export function PreferencesDialog({ prefs, onChange, onClose }: Props) {
                   <input type="checkbox" checked={prefs.autosave} onChange={(e) => onChange({ autosave: e.target.checked })} />
                   {t('prefs.autosave')}
                 </label>
-                <p className="muted small">{t(web ? 'prefs.savingNoteWeb' : 'prefs.savingNote', { keys: platform.os === 'darwin' ? '⌘S' : 'Ctrl+S' })}</p>
-                {platform.features.projectsFolder && (
-                  <label>
-                    {t('prefs.projectsFolder')}
-                    <div className="row">
-                      <input className="grow" readOnly value={prefs.projectsDir} title={prefs.projectsDir} />
-                      <button
-                        className="btn small"
-                        onClick={async () => {
-                          const dir = await platform.chooseFolder(prefs.projectsDir)
-                          if (dir) onChange({ projectsDir: dir })
-                        }}
-                      >
-                        {t('prefs.change')}
-                      </button>
-                    </div>
-                  </label>
-                )}
+                <p className="muted small">{t('prefs.savingNoteWeb', { keys: platform.os === 'darwin' ? '⌘S' : 'Ctrl+S' })}</p>
                 <div className="row">
-                  {platform.features.reveal && platform.features.projectsFolder && (
-                    <button className="btn small" onClick={() => platform.reveal(prefs.projectsDir)}>
-                      <Icon name="folder" size={12} /> {t('prefs.showFolder')}
-                    </button>
-                  )}
                   <button
                     className="btn small ghost"
                     onClick={async () => {
                       // In the browser the recent list is where projects are kept.
-                      if (web && !confirm(t('prefs.clearBrowserConfirm'))) return
+                      if (!confirm(t('prefs.clearBrowserConfirm'))) return
                       await platform.clearRecent()
                       setCleared(true)
                     }}
                   >
-                    {web ? t(cleared ? 'prefs.browserCleared' : 'prefs.clearBrowser') : cleared ? t('prefs.recentCleared') : t('prefs.clearRecent')}
+                    {t(cleared ? 'prefs.browserCleared' : 'prefs.clearBrowser')}
                   </button>
                 </div>
                 <h4>{t('prefs.artwork')}</h4>

@@ -2,9 +2,8 @@ import type { ExportRange, Preferences, Project, ProjectFile, RecentProject, Sea
 import type { ParsedEntry } from '@shared/tracklist'
 
 /**
- * Names a file the platform can read: an absolute path on the desktop. A web build would hand out
- * its own ids for the files and handles the user picked. The UI never looks inside one; it only
- * passes them back to the platform (and shows `fileName` of one).
+ * Names a file the platform can read: the browser's own id for a file or handle the user picked.
+ * The UI never looks inside one; it only passes it back to the platform (and shows `fileName` of one).
  */
 export type FileRef = string
 
@@ -16,28 +15,13 @@ export const needsFile = (e: unknown): e is NeedsFile => e instanceof Error && t
 
 export type Takeover = { start: number; audibleAt: number; tailEnd: number } | null
 
-/** What this platform can do, so the UI hides what it can't (e.g. Reveal in Folder on the web). */
-export interface PlatformFeatures {
-  /** Show a file in the OS file manager. */
-  reveal: boolean
-  /** A projects folder on disk that new projects are created in. */
-  projectsFolder: boolean
-  /** Quit, full screen and developer tools from the app's own menus. */
-  windowControls: boolean
-  /** The bundled shortcuts tutorial clip. */
-  tutorial: boolean
-}
-
 /**
  * Everything the editor needs from the shell it runs in: files, dialogs, audio analysis, saving
- * projects, artwork search and writing the exported video. The desktop app implements it over
- * Electron IPC (electron.ts); a web build implements the same interface with browser APIs.
+ * projects, artwork search and writing the exported video, implemented with browser APIs (web.ts).
  */
 export interface Platform {
-  kind: 'desktop' | 'web'
   /** The OS, for shortcut labels ('darwin' shows ⌘). */
   os: 'darwin' | 'win32' | 'linux' | 'other'
-  features: PlatformFeatures
 
   /** URL the UI can load a file from (audio element, <img>, fetch). */
   mediaUrl(ref: FileRef): string
@@ -53,7 +37,6 @@ export interface Platform {
   pickImage(): Promise<FileRef | null>
   /** Where the exported video goes. */
   chooseVideoPath(defaultName: string): Promise<FileRef | null>
-  chooseFolder(current?: string): Promise<string | null>
 
   analyseAudio(ref: FileRef): Promise<{ duration: number; waveform: Waveform; name: string }>
   onAudioProgress(cb: (p: number) => void): () => void
@@ -62,7 +45,7 @@ export interface Platform {
   cancelAnalysis(): Promise<void>
   readCue(ref: FileRef): Promise<{ entries: ParsedEntry[]; text: string; name: string }>
 
-  /** Saves a new project (in the projects folder on the desktop) and returns where. */
+  /** Saves a new project and returns where. */
   createProject(p: ProjectFile): Promise<Saved>
   saveProject(p: ProjectFile, ref: FileRef): Promise<Saved>
   saveProjectAs(p: ProjectFile, current: FileRef | null): Promise<Saved | null>
@@ -90,18 +73,9 @@ export interface Platform {
   exportFinish(): Promise<FileRef>
   exportAbort(): Promise<void>
 
-  /** A file the OS asked the app to open (double-click, dock icon). */
-  onOpenPath(cb: (ref: FileRef) => void): () => void
-  /** Commands from a native menu (macOS). */
-  onMenuCommand(cb: (id: string) => void): () => void
-  /** Whether the project has changes not yet saved (the web warns before leaving the page). */
+  /** Whether the project has changes not yet saved (the page warns before it's left). */
   setUnsaved?(unsaved: boolean): void
-  /** The window is about to close: save, then call closeOk(). */
+  /** The page is being left or hidden: save what isn't saved yet. */
   onBeforeClose(cb: () => void): () => void
-  closeOk(): void
-  quit(): void
-  toggleDevTools(): void
-  toggleFullScreen(): void
-  reveal(ref: FileRef): void
   openExternal(url: string): void
 }

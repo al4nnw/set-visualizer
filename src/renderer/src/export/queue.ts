@@ -4,7 +4,7 @@ import { runExport } from './runExport'
 
 /**
  * The exports the user started, run one at a time in the background (encoding is what takes the
- * time, and two at once would each take twice as long; the desktop also muxes one at a time), so
+ * time, and two at once would each take twice as long), so
  * the app stays usable meanwhile. Each job keeps the project as it was when it was added. Jobs still
  * waiting can be moved up or down the list.
  */
