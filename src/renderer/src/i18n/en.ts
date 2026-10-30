@@ -342,6 +342,18 @@ export const en = {
     render: 'Render video…'
   },
   jobs: {
+    titleBusy_one: 'Exporting {{count}} video',
+    titleBusy_other: 'Exporting {{count}} videos',
+    titleDone_one: '{{count}} video exported',
+    titleDone_other: '{{count}} videos exported',
+    titleFailed_one: '{{count}} export failed',
+    titleFailed_other: '{{count}} exports failed',
+    starting: 'Starting exports…',
+    cancelAll: 'Cancel all',
+    collapse: 'Minimise',
+    expand: 'Show the exports',
+    close: 'Close',
+    closeConfirm: 'Stop the exports still running and close the list?',
     waiting: 'Waiting · {{n}} in line',
     cancelled: 'Cancelled',
     failed: 'Export failed',

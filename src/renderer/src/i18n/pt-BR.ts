@@ -337,6 +337,18 @@ export const ptBR: Messages = {
     render: 'Renderizar vídeo…'
   },
   jobs: {
+    titleBusy_one: 'Exportando {{count}} vídeo',
+    titleBusy_other: 'Exportando {{count}} vídeos',
+    titleDone_one: '{{count}} vídeo exportado',
+    titleDone_other: '{{count}} vídeos exportados',
+    titleFailed_one: '{{count}} exportação falhou',
+    titleFailed_other: '{{count}} exportações falharam',
+    starting: 'Iniciando exportações…',
+    cancelAll: 'Cancelar todas',
+    collapse: 'Minimizar',
+    expand: 'Mostrar as exportações',
+    close: 'Fechar',
+    closeConfirm: 'Parar as exportações em andamento e fechar a lista?',
     waiting: 'Na fila · {{n}}º',
     cancelled: 'Cancelado',
     failed: 'A exportação falhou',

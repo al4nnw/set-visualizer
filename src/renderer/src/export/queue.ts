@@ -27,6 +27,8 @@ let jobs: ExportJob[] = []
 let nextId = 1
 let running: { id: number; abort: AbortController } | null = null
 const listeners = new Set<() => void>()
+/** Jobs stopped by clear(), dropped from the list once they have stopped. */
+const cleared = new Set<number>()
 
 const emit = () => listeners.forEach((l) => l())
 const patch = (id: number, p: Partial<ExportJob>) => {
@@ -47,6 +49,10 @@ async function pump() {
   } catch (e) {
     patch(job.id, abort.signal.aborted ? { status: 'cancelled' } : { status: 'error', error: (e as Error).message })
   } finally {
+    if (abort.signal.aborted && cleared.delete(job.id)) {
+      jobs = jobs.filter((j) => j.id !== job.id)
+      emit()
+    }
     running = null
     void pump()
   }
@@ -66,6 +72,14 @@ export const exportQueue = {
   /** Clears a finished job from the list. */
   dismiss(id: number) {
     jobs = jobs.filter((j) => j.id !== id || j.status === 'queued' || j.status === 'running')
+    emit()
+  },
+  /** Stops every job and empties the list (closing the job panel). */
+  clear() {
+    running?.abort.abort()
+    const id = running?.id
+    if (id !== undefined) cleared.add(id)
+    jobs = jobs.filter((j) => j.id === id)
     emit()
   },
   /** Moves a waiting job earlier (-1) or later (+1) among the waiting ones. */

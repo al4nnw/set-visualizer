@@ -337,6 +337,18 @@ export const es: Messages = {
     render: 'Renderizar vídeo…'
   },
   jobs: {
+    titleBusy_one: 'Exportando {{count}} vídeo',
+    titleBusy_other: 'Exportando {{count}} vídeos',
+    titleDone_one: '{{count}} vídeo exportado',
+    titleDone_other: '{{count}} vídeos exportados',
+    titleFailed_one: '{{count}} exportación falló',
+    titleFailed_other: '{{count}} exportaciones fallaron',
+    starting: 'Iniciando exportaciones…',
+    cancelAll: 'Cancelar todas',
+    collapse: 'Minimizar',
+    expand: 'Mostrar las exportaciones',
+    close: 'Cerrar',
+    closeConfirm: '¿Detener las exportaciones en curso y cerrar la lista?',
     waiting: 'En cola · {{n}}.º',
     cancelled: 'Cancelado',
     failed: 'La exportación falló',
