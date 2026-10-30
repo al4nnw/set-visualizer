@@ -10,6 +10,7 @@ import { webCodecsAvailable } from '../export/runExport'
 import { exportQueue, useExportJobs } from '../export/queue'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 import { Icon } from './icons'
+import { beforeExport, claimExport, settleExport } from '../account/account'
 
 export type ClipFormat = 'portrait' | 'landscape'
 
@@ -184,13 +185,16 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
   )
 }
 
-/** Asks where to save a clip's video, then adds it to the exports. */
+/** Asks where to save a clip's video, then adds it to the exports (once the account allows it). */
 export async function exportClipVideo(project: Project, c: ClipSuggestion, format: ClipFormat) {
   const hours = project.duration >= 3600
   const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
   const name = base.replace(/[\\/:*?"<>|]+/g, '-')
+  if (!(await beforeExport())) return
   const out = await platform.chooseVideoPath(name + '.mp4')
-  if (out) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to } })
+  if (!out) return
+  const claim = await claimExport('clip')
+  if (claim) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to }, onEnd: (ok) => settleExport(claim, ok) })
 }
 
 /**
