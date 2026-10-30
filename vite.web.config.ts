@@ -2,9 +2,9 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// The web version: the desktop app's renderer on the browser platform (src/renderer/src/platform/web.ts).
-//   npm run dev:web     serves it at http://localhost:5174
-//   npm run build:web   builds a static site into out/web
+// The app (src/renderer) on the browser platform (src/renderer/src/platform/web.ts).
+//   npm run dev     serves it at http://localhost:5174
+//   npm run build   builds a static site into out/web
 export default defineConfig({
   root: resolve(__dirname, 'src/web'),
   base: './',

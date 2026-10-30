@@ -169,10 +169,6 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                     <button className="btn small" onClick={() => exportQueue.cancel(job!.id)}>
                       {t('common.cancel')}
                     </button>
-                  ) : st === 'done' && job?.progress?.outputPath && platform.features.reveal ? (
-                    <button className="btn small" onClick={() => platform.reveal(job.progress!.outputPath!)}>
-                      {t('clips.showFile')}
-                    </button>
                   ) : (
                     <button className="btn small" onClick={() => exportClip(c)} disabled={!webCodecsAvailable()}>
                       <Icon name="export" size={12} /> {t('common.export')}

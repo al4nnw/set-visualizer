@@ -1,7 +1,7 @@
 /**
  * The set analysis math (waveform envelopes and spectral frames), with no Node or DOM dependencies,
- * so the desktop app (ffmpeg decode in a worker thread) and the browser (its own decode, see
- * src/renderer/src/analysis) run the same code.
+ * so the browser (its own decode, see src/renderer/src/analysis) and the ffmpeg reference it's
+ * checked against (scripts/ffmpeg/audio.ts) run the same code.
  *
  * The caller decodes the set into the mono streams `ANALYSIS_STREAMS` describes and pushes the
  * samples as they arrive; nothing holds the whole set in memory. A set can also be analysed in

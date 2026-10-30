@@ -1,6 +1,6 @@
 /**
  * The browser side of the set analysis: decoded audio in, the analysis of whole seconds of it out.
- * Runs the same graph the desktop app gives ffmpeg (src/main/audio.ts) with the same arithmetic
+ * Runs the same graph the ffmpeg reference does (scripts/ffmpeg/audio.ts) with the same arithmetic
  * (src/shared/dsp.ts), so both give the same waveform, spectrum and takeovers for a recording.
  */
 import { ANALYSIS_STREAMS, createSegmentAnalyser, MAIN_RATE, SEGMENT_TAIL, type SegmentAnalysis, type SegmentRange } from './analysis'
@@ -53,7 +53,7 @@ export interface PipelineOptions {
 
 /**
  * One segment's analysis, fed the set's mono samples from `start` on (see segmentInput) in order.
- * The same graph as the desktop app's ffmpeg: resampled to the main rate, then each band's filters
+ * The same graph as the ffmpeg reference's: resampled to the main rate, then each band's filters
  * at that rate and a resampler to the band's rate. `finish(atEnd)` gives the result; atEnd says
  * the file ended there, so the resamplers finish its last samples as at the end of a full pass.
  */

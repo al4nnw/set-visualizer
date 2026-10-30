@@ -1,7 +1,7 @@
 /**
  * Gapless MP3: the encoder's delay and padding from the LAME/Info header of the first frame, read
  * the way ffmpeg reads it (libavformat/mp3dec.c), so the browser trims a decoded MP3 exactly as the
- * desktop app's ffmpeg does and the waveform lines up with what the audio element plays.
+ * ffmpeg does and the waveform lines up with what the audio element plays.
  */
 
 const BITRATES_V1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]

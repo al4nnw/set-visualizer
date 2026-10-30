@@ -1,6 +1,6 @@
 /**
- * The set analysis in the browser: the waveform and spectral frames the desktop app gets from ffmpeg
- * (src/main/audio.ts), computed on the computer's own cores, so the recording never leaves it.
+ * The set analysis in the browser: the same waveform and spectral frames ffmpeg gives for the graph
+ * (scripts/ffmpeg/audio.ts), computed on the computer's own cores, so the recording never leaves it.
  * WAV and AIFF recordings are read straight from the file by every worker, each taking the next
  * segment of the set. For compressed ones a decoder worker reads the file in order and hands each
  * segment to whichever worker is free: as packets that worker decodes itself (MP3, FLAC), or as
@@ -54,7 +54,7 @@ export const analysisThreads = () => Math.max(1, Math.min(8, navigator.hardwareC
 
 const failed = (e: ErrorEvent | MessageEvent) => new AnalysisError('failed', (e as ErrorEvent).message || 'An analysis thread stopped')
 
-/** Waveform and spectral frames for a recording, with the duration the desktop app would report. */
+/** Waveform and spectral frames for a recording, with the duration ffprobe would report. */
 export async function analyseFile(file: Blob, opts: AnalyseOptions = {}): Promise<AnalysisResult> {
   const threads = opts.threads ?? analysisThreads()
   const workers: Worker[] = []

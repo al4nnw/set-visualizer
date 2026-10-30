@@ -117,12 +117,10 @@ export type ProjectFile = Omit<Project, 'waveform'> & { waveform?: Waveform }
 /** The project without its waveform, for saving: cloning the waveform costs more than the rest. */
 export const forDisk = ({ waveform: _, ...rest }: Project | ProjectFile): ProjectFile => rest
 
-/** App-wide preferences, stored in the user data folder (not in projects). */
+/** App-wide preferences, stored in the browser (not in projects). */
 export interface Preferences {
   /** Save the project on every change. */
   autosave: boolean
-  /** Where new projects are created when a set recording is opened. */
-  projectsDir: string
   /** Look up YouTube thumbnails for imported tracks. */
   autoArtwork: boolean
   /** Video settings that new projects start with. */

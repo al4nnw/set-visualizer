@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { exportQueue, useExportJobs, type ExportJob } from '../export/queue'
 import { lang } from '../i18n'
-import { platform } from '../platform'
 import { Icon } from './icons'
 
 const active = (j: ExportJob) => j.status === 'queued' || j.status === 'running'
@@ -92,11 +91,6 @@ export function ExportJobs() {
                           </span>
                         </button>
                       </>
-                    )}
-                    {j.status === 'done' && j.progress?.outputPath && platform.features.reveal && (
-                      <button className="icon-btn small" title={t('export.showInFolder')} onClick={() => platform.reveal(j.progress!.outputPath!)}>
-                        <Icon name="folder" size={12} />
-                      </button>
                     )}
                     {active(j) ? (
                       <button className="export-job-status cancel" title={t('common.cancel')} onClick={() => exportQueue.cancel(j.id)}>
