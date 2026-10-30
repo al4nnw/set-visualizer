@@ -175,18 +175,13 @@ export function Viewer(p: Props) {
         ) : (
           <Preview project={shown!} audio={p.audio} time={time} />
         )}
+        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} />}
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
         {loop && (
           <div className="loop-chip" title={clipTitle(loop)}>
             <span>{t('viewer.looping', { from: formatTime(loop.from, hours), to: formatTime(loop.to, hours), title: clipTitle(loop) })}</span>
-            <button className="btn tiny ghost" title={t('viewer.startHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'from', time - loop.from, project?.duration ?? 0))}>
-              {t('viewer.startHere')}
-            </button>
-            <button className="btn tiny ghost" title={t('viewer.endHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'to', time - loop.to, project?.duration ?? 0))}>
-              {t('viewer.endHere')}
-            </button>
             <button className="icon-btn small" title={t('viewer.stopLoop')} onClick={p.onStopLoop}>
               <Icon name="close" size={12} />
             </button>
@@ -214,5 +209,43 @@ export function Viewer(p: Props) {
         <div className="timecode total">{formatTimecode(project?.duration ?? 0, fps)}</div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Floats at the right of the looping clip: moves its start or end to the playhead, or a second
+ * either way (5 s with Shift).
+ */
+function LoopEdit({ clip, time, duration, hours, onTrim }: { clip: ClipSuggestion; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number }) => void }) {
+  const { t } = useTranslation()
+  const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const edge = (side: 'from' | 'to') => (
+    <div className="loop-edit-edge">
+      <div className="loop-edit-label">
+        {t(side === 'from' ? 'viewer.clipStart' : 'viewer.clipEnd')} <span className="mono">{formatTime(clip[side], hours)}</span>
+      </div>
+      <div className="loop-edit-row">
+        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startEarlier' : 'clips.endEarlier')} onClick={(e) => onTrim(nudgeClip(clip, side, -step(e), duration))}>
+          ‹
+        </button>
+        <button
+          className="loop-edit-btn here"
+          title={t(side === 'from' ? 'viewer.startHereTitle' : 'viewer.endHereTitle')}
+          onClick={() => onTrim(nudgeClip(clip, side, time - clip[side], duration))}
+        >
+          {t(side === 'from' ? 'viewer.startHere' : 'viewer.endHere')}
+        </button>
+        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startLater' : 'clips.endLater')} onClick={(e) => onTrim(nudgeClip(clip, side, step(e), duration))}>
+          ›
+        </button>
+      </div>
+    </div>
+  )
+  return (
+    <div className="loop-edit" role="group" aria-label={t('viewer.clipEdges')}>
+      {edge('from')}
+      <div className="loop-edit-len mono">{t('common.seconds', { n: Math.round(clip.to - clip.from) })}</div>
+      {edge('to')}
+    </div>
   )
 }
