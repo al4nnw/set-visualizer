@@ -4,7 +4,9 @@ import type { Project, RecentProject } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, lang } from '../i18n'
 import { Icon } from './icons'
-import { ClipsPanel, clipProject, clipTitle, type ClipFormat } from './Clips'
+import { ClipsPanel, clipProject, clipTitle, exportClipVideo, type ClipFormat } from './Clips'
+import { useExportJobs } from '../export/queue'
+import { webCodecsAvailable } from '../export/runExport'
 import { Preview } from './Preview'
 import { shortcutLabel } from './MenuBar'
 
@@ -175,7 +177,7 @@ export function Viewer(p: Props) {
         ) : (
           <Preview project={shown!} audio={p.audio} time={time} />
         )}
-        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} />}
+        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} />}
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
@@ -214,10 +216,13 @@ export function Viewer(p: Props) {
 
 /**
  * Floats at the right of the looping clip: moves its start or end to the playhead, or a second
- * either way (5 s with Shift).
+ * either way (5 s with Shift), and exports it.
  */
-function LoopEdit({ clip, time, duration, hours, onTrim }: { clip: ClipSuggestion; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number }) => void }) {
+function LoopEdit(p: { clip: ClipSuggestion; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number }) => void; onExport: () => void }) {
+  const { clip, time, duration, hours, onTrim } = p
   const { t } = useTranslation()
+  const job = useExportJobs().find((j) => j.clipId === clip.id && (j.status === 'queued' || j.status === 'running'))
+  const pct = job?.progress ? Math.round(Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100)) : 0
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
   const edge = (side: 'from' | 'to') => (
     <div className="loop-edit-edge">
@@ -246,6 +251,9 @@ function LoopEdit({ clip, time, duration, hours, onTrim }: { clip: ClipSuggestio
       {edge('from')}
       <div className="loop-edit-len mono">{t('common.seconds', { n: Math.round(clip.to - clip.from) })}</div>
       {edge('to')}
+      <button className="btn small primary loop-edit-export" onClick={p.onExport} disabled={!!job || !webCodecsAvailable()}>
+        <Icon name="export" size={12} /> {job?.status === 'running' ? t('viewer.exportingClip', { pct }) : job ? t('viewer.clipQueued') : t('viewer.exportClip')}
+      </button>
     </div>
   )
 }

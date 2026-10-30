@@ -1791,6 +1791,10 @@ kbd {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.loop-edit-export {
+  margin-top: 6px;
+  justify-content: center;
+}
 .loop-edit-len {
   align-self: center;
   font-size: 11px;

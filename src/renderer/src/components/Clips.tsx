@@ -94,12 +94,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
   const best = clips[0]?.id
   const hours = project.duration >= 3600
 
-  const exportClip = async (c: ClipSuggestion) => {
-    const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
-    const name = base.replace(/[\\/:*?"<>|]+/g, '-')
-    const out = await platform.chooseVideoPath(name + '.mp4')
-    if (out) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to } })
-  }
+  const exportClip = (c: ClipSuggestion) => exportClipVideo(project, c, format)
 
   if (!project.tracks.length)
     return (
@@ -191,6 +186,15 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
       </div>
     </div>
   )
+}
+
+/** Asks where to save a clip's video, then adds it to the exports. */
+export async function exportClipVideo(project: Project, c: ClipSuggestion, format: ClipFormat) {
+  const hours = project.duration >= 3600
+  const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
+  const name = base.replace(/[\\/:*?"<>|]+/g, '-')
+  const out = await platform.chooseVideoPath(name + '.mp4')
+  if (out) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to } })
 }
 
 /**
