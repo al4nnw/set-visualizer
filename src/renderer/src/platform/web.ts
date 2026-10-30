@@ -6,7 +6,7 @@ import { i18n } from '../i18n'
 import type { FileRef, Platform } from './types'
 import * as store from './webStore'
 import { startExport, type VideoTarget } from './webExport'
-import { downloadArtwork, searchYoutube } from './webArt'
+import { downloadArtwork, searchDeezer, searchItunes, searchYoutube } from './webArt'
 
 /**
  * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved like on
@@ -16,8 +16,8 @@ import { downloadArtwork, searchYoutube } from './webArt'
  * analysis. A recording is never copied: where the browser can (Chrome, Edge) its handle on disk
  * is kept so a project can open it again on a later visit, and otherwise the user picks it again.
  * Audio is decoded and analysed on the computer's own cores (../analysis); nothing is uploaded.
- * Artwork comes from YouTube, fetched by the browser itself (webArt.ts); the other artwork
- * sources aren't in the web version yet and say so.
+ * Artwork is searched on Apple Music and Deezer by the browser itself, and on YouTube through the
+ * site's Firebase function (webArt.ts); SoundCloud isn't in the web version and says so.
  */
 
 /** The parts of the File System Access API used here (Chrome, Edge), which TypeScript lacks. */
@@ -440,7 +440,8 @@ export function webPlatform(): Platform {
       return next
     },
 
-    search: (provider, q) => (provider === 'youtube' ? searchYoutube(q) : notYet('search')),
+    search: (provider, q) =>
+      provider === 'youtube' ? searchYoutube(q) : provider === 'itunes' ? searchItunes(q) : provider === 'deezer' ? searchDeezer(q) : notYet('search'),
     downloadArt: async (url) => register(await downloadArtwork(url)),
     // Looking every track up by itself would spend the shared YouTube quota; search runs on request.
     autoArtwork: async () => null,

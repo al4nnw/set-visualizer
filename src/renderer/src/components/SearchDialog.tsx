@@ -12,6 +12,12 @@ const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
   { id: 'deezer', label: 'Deezer' }
 ]
 
+// The web version has no SoundCloud, and its YouTube search spends a quota everyone shares (and
+// needs a sign-in), so it starts on Apple Music and searches YouTube only when asked.
+const WEB = platform.kind === 'web'
+const SHOWN = WEB ? PROVIDERS.filter((p) => p.id !== 'soundcloud').sort((a, b) => +(a.id === 'youtube') - +(b.id === 'youtube')) : PROVIDERS
+const askFirst = (p: SearchResult['provider']) => WEB && p === 'youtube'
+
 const PROVIDER_NAME: Record<SearchResult['provider'], string> = { youtube: 'YouTube', soundcloud: 'SoundCloud', itunes: 'Apple Music', deezer: 'Deezer' }
 
 interface Props {
@@ -22,7 +28,7 @@ interface Props {
 
 export function SearchDialog({ track, onClose, onApply }: Props) {
   const { t } = useTranslation()
-  const [provider, setProvider] = useState<SearchResult['provider']>('youtube')
+  const [provider, setProvider] = useState<SearchResult['provider']>(SHOWN[0].id)
   const [query, setQuery] = useState([track.artist, track.title].filter(Boolean).join(' - '))
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -31,10 +37,12 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
   const [useMeta, setUseMeta] = useState(!track.title)
   const [url, setUrl] = useState('')
   const reqId = useRef(0)
+  const [ranFor, setRanFor] = useState<SearchResult['provider'] | null>(null)
 
   const run = async (prov = provider, q = query) => {
     if (!q.trim()) return
     const id = ++reqId.current
+    setRanFor(prov)
     setLoading(true)
     setError(null)
     try {
@@ -51,7 +59,11 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
   }
 
   useEffect(() => {
-    run()
+    if (!askFirst(provider)) return void run()
+    reqId.current++
+    setResults([])
+    setError(null)
+    setLoading(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider])
 
@@ -105,7 +117,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
           </button>
         </div>
         <div className="seg wide">
-          {PROVIDERS.map((p) => (
+          {SHOWN.map((p) => (
             <button key={p.id} className={provider === p.id ? 'on' : ''} onClick={() => setProvider(p.id)}>
               {p.label}
             </button>
@@ -129,7 +141,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
         </label>
         {error && <div className="error">{error}</div>}
         <div className={`results ${loading ? 'loading' : ''}`}>
-          {!loading && results.length === 0 && !error && <div className="empty">{t('search.noResults')}</div>}
+          {!loading && results.length === 0 && !error && <div className="empty">{askFirst(provider) && ranFor !== provider ? t('web.youtubeHint') : t('search.noResults')}</div>}
           {results.map((r) => (
             <button key={r.provider + r.id} className="result" onClick={() => pick(r)} disabled={!!applying}>
               <div className={`result-img ${r.provider === 'youtube' ? 'wide' : ''}`}>
