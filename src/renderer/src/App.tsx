@@ -20,6 +20,8 @@ import { Splitter, useStoredNumber } from './components/Splitter'
 import { EmptyTimeline, Timeline, type TimelineHandle } from './components/Timeline'
 import { Viewer } from './components/Viewer'
 import { useHistory } from './useHistory'
+import { ExportJobs } from './components/ExportJobs'
+import { exportQueue, useExportJobs } from './export/queue'
 import { setUiLocale, uiLocale } from './i18n'
 import type { en } from './i18n/en'
 
@@ -99,12 +101,30 @@ export function App() {
     setSaveState((s) => (s.status === 'saving' ? s : { status: 'edited' }))
   }, [])
 
+  // While a video exports the project can't be edited (the clips can still be trimmed and
+  // exported, and the export settings changed for the next export).
+  const exportJobs = useExportJobs()
+  const exporting = exportJobs.some((j) => j.status === 'queued' || j.status === 'running')
+  const locked = useRef(false)
+  locked.current = exporting
+  const lockedNote = useRef(-Infinity)
+  const blocked = useCallback(() => {
+    if (!locked.current) return false
+    if (performance.now() - lockedNote.current > 4000) {
+      lockedNote.current = performance.now()
+      showToast(t('jobs.locked'))
+    }
+    return true
+  }, [showToast, t])
+
+  /** An edit. `allowWhileExporting`: one the export lock lets through (see above). */
   const update = useCallback(
-    (fn: (p: Project) => Project, mergeKey?: string, skipHistory = false) => {
+    (fn: (p: Project) => Project, mergeKey?: string, skipHistory = false, allowWhileExporting = false) => {
+      if (!skipHistory && !allowWhileExporting && blocked()) return
       set((p) => (p ? fn(p) : p), { mergeKey, skipHistory })
       markDirty()
     },
-    [set, markDirty]
+    [set, markDirty, blocked]
   )
 
   /** Writes the current project to its file. Runs one save at a time and re-saves if edits came in meanwhile. */
@@ -168,14 +188,16 @@ export function App() {
     if (await saveNow()) showToast(t('app.projectSaved'))
   }, [project, projectPath, saveAs, saveNow, showToast, t])
 
-  useEffect(() => platform.setUnsaved?.(dirty && !tutorial), [dirty, tutorial])
+  // The web asks before leaving while there's something to lose: unsaved edits, or a running export.
+  useEffect(() => platform.setUnsaved?.((dirty && !tutorial) || exporting), [dirty, tutorial, exporting])
 
   useEffect(
     () =>
       platform.onBeforeClose(async () => {
+        if (exportQueue.busy() && !confirm(t('jobs.quit'))) return
         if (await settle()) platform.closeOk()
       }),
-    [settle]
+    [settle, t]
   )
 
   // ---- tracks ------------------------------------------------------------------------------
@@ -442,7 +464,7 @@ export function App() {
       if (range) edits[id] = range
       else delete edits[id]
       return { ...p, clipEdits: Object.keys(edits).length ? edits : undefined }
-    }, `clip-${id}`)
+    }, `clip-${id}`, false, true)
 
   const seek = useCallback(
     (t: number) => {
@@ -611,8 +633,8 @@ export function App() {
     {
       label: t('menu.edit'),
       items: [
-        { ...cmd('undo'), shortcut: 'Mod+Z', run: undo, disabled: !has },
-        { ...cmd('redo'), shortcut: 'Mod+Shift+Z', alsoKeys: ['Mod+Y'], run: redo, disabled: !has },
+        { ...cmd('undo'), shortcut: 'Mod+Z', run: () => blocked() || undo(), disabled: !has },
+        { ...cmd('redo'), shortcut: 'Mod+Shift+Z', alsoKeys: ['Mod+Y'], run: () => blocked() || redo(), disabled: !has },
         'sep',
         { ...cmd('addTrack'), shortcut: 'M', run: addTrack, disabled: !has },
         { ...cmd('deleteTrack'), shortcut: 'Delete', alsoKeys: ['Backspace'], run: () => selectedId && deleteTrack(selectedId), disabled: !selectedId },
@@ -749,7 +771,11 @@ export function App() {
   const searchTrack = dialog?.kind === 'search' && project ? project.tracks.find((t) => t.id === dialog.trackId) : undefined
 
   const status =
-    !project ? null : tutorial ? (
+    !project ? null : exporting ? (
+      <span className="save-state edited">
+        <Icon name="lock" size={12} /> {t('jobs.lockedStatus')}
+      </span>
+    ) : tutorial ? (
       <span className="save-state">{t('app.status.tutorial')}</span>
     ) : saveState.status === 'saving' ? (
       <span className="save-state">{t('app.status.saving')}</span>
@@ -901,7 +927,13 @@ export function App() {
       )}
 
       {searchTrack && <SearchDialog track={searchTrack} onClose={() => setDialog(null)} onApply={(patch) => changeTrack(searchTrack.id, patch)} />}
-      {dialog?.kind === 'export' && project && <ExportDialog project={project} onClose={() => setDialog(null)} onChangeSettings={changeSettings} />}
+      {dialog?.kind === 'export' && project && (
+        <ExportDialog
+          project={project}
+          onClose={() => setDialog(null)}
+          onChangeSettings={(patch, mergeKey) => update((p) => ({ ...p, settings: { ...p.settings, ...patch } }), mergeKey, false, true)}
+        />
+      )}
       {dialog?.kind === 'prefs' && prefs && <PreferencesDialog prefs={prefs} onChange={changePrefs} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'shortcuts' && <ShortcutsDialog menus={menus} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'noTutorial' && (
@@ -926,6 +958,7 @@ export function App() {
         </SimpleDialog>
       )}
       {toast && <div className="toast">{toast}</div>}
+      <ExportJobs />
     </div>
   )
 }

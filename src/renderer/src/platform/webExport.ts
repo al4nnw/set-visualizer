@@ -37,12 +37,13 @@ const SCRATCH = 'export-'
 
 /**
  * A file in the page's private storage (OPFS) for a video to download, or null where there's none.
- * Earlier ones are deleted first: they're kept until then so their downloads can finish.
+ * Ones from more than an hour ago are deleted first (kept until then so their downloads can finish).
  */
 async function scratchFile() {
   try {
     const dir = await navigator.storage.getDirectory()
-    for await (const name of (dir as unknown as { keys(): AsyncIterable<string> }).keys()) if (name.startsWith(SCRATCH)) await dir.removeEntry(name).catch(() => {})
+    for await (const name of (dir as unknown as { keys(): AsyncIterable<string> }).keys())
+      if (name.startsWith(SCRATCH) && Date.now() - Number(name.slice(SCRATCH.length, -4)) > 3_600_000) await dir.removeEntry(name).catch(() => {})
     return (await dir.getFileHandle(`${SCRATCH}${Date.now()}.mp4`, { create: true })) as FileSystemFileHandle & { createWritable(): Promise<WritableStream<StreamTargetChunk>> }
   } catch {
     return null

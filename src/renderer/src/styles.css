@@ -1742,3 +1742,72 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- export jobs (bottom-right, over everything but dialogs) ------------------------------ */
+.export-jobs {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 300px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.export-job {
+  background: #2a2a2f;
+  border: 1px solid var(--line-3);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.export-job.queued {
+  border-left-color: var(--line-3);
+}
+.export-job.error {
+  border-left-color: #e05555;
+}
+.export-job.cancelled {
+  opacity: 0.7;
+}
+.export-job-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.export-job-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.export-job-line {
+  color: var(--text-2, #aaa);
+}
+.export-job-line.error {
+  color: #ff8a8a;
+}
+.export-job .bar {
+  height: 4px;
+}
+.export-job > .btn {
+  align-self: flex-start;
+}
+.rot {
+  display: inline-flex;
+}
+.rot.up {
+  transform: rotate(-90deg);
+}
+.rot.down {
+  transform: rotate(90deg);
+}

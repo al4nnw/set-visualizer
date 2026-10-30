@@ -335,6 +335,18 @@ export const en = {
     showInFolder: 'Show in folder',
     render: 'Render video…'
   },
+  jobs: {
+    waiting: 'Waiting · {{n}} in line',
+    cancelled: 'Cancelled',
+    failed: 'Export failed',
+    moveUp: 'Export sooner',
+    moveDown: 'Export later',
+    dismiss: 'Clear from the list',
+    locked: 'The timeline can\'t be edited while a video exports. You can still look around and add clip exports.',
+    lockedStatus: 'Exporting · editing locked',
+    quit: 'A video is still exporting. Quit anyway and stop it?',
+    added: 'Added to the exports: {{name}}'
+  },
   search: {
     title: 'Find artwork & track info',
     placeholder: 'Artist - Title',

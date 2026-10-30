@@ -330,6 +330,18 @@ export const es: Messages = {
     showInFolder: 'Mostrar en la carpeta',
     render: 'Renderizar vídeo…'
   },
+  jobs: {
+    waiting: 'En cola · {{n}}.º',
+    cancelled: 'Cancelado',
+    failed: 'La exportación falló',
+    moveUp: 'Exportar antes',
+    moveDown: 'Exportar después',
+    dismiss: 'Quitar de la lista',
+    locked: 'La línea de tiempo no se puede editar mientras se exporta un vídeo. Aún puedes navegar y añadir exportaciones de clips.',
+    lockedStatus: 'Exportando · edición bloqueada',
+    quit: 'Todavía se está exportando un vídeo. ¿Salir de todos modos y detenerlo?',
+    added: 'Añadido a las exportaciones: {{name}}'
+  },
   search: {
     title: 'Buscar portada y datos del tema',
     placeholder: 'Artista - Título',

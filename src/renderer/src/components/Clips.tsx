@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { nudgeClip, resizeClip, type ClipKind, type ClipSuggestion } from '@shared/clips'
 import { formatTime } from '@shared/layout'
 import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
-import type { ExportProgress, Project } from '@shared/types'
+import type { Project } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, tMsg } from '../i18n'
 import { platform } from '../platform'
-import { runExport, webCodecsAvailable } from '../export/runExport'
+import { webCodecsAvailable } from '../export/runExport'
+import { exportQueue, useExportJobs } from '../export/queue'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 import { Icon } from './icons'
 
@@ -57,8 +58,9 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
   const [order, setOrder] = useState<'best' | 'time'>('best')
   const [art, setArt] = useState<Map<string, ArtAsset>>(new Map())
   const [fontsReady, setFontsReady] = useState(false)
-  const [jobs, setJobs] = useState<Record<string, { progress?: ExportProgress; error?: string }>>({})
-  const abort = useRef<AbortController | null>(null)
+  // The latest export of each clip (they run in the background, see ExportJobs).
+  const allJobs = useExportJobs()
+  const jobs = useMemo(() => Object.fromEntries(allJobs.filter((j) => j.clipId).map((j) => [j.clipId!, j])), [allJobs])
 
   useEffect(() => {
     document.fonts.ready.then(() => setFontsReady(true))
@@ -90,20 +92,13 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
     return order === 'time' ? [...list].sort((a, b) => a.from - b.from) : list
   }, [clips, kind, order])
   const best = clips[0]?.id
-  const running = Object.values(jobs).some((j) => j.progress && ['preparing', 'rendering', 'finishing'].includes(j.progress.stage))
   const hours = project.duration >= 3600
 
   const exportClip = async (c: ClipSuggestion) => {
     const base = (project.settings.setTitle || project.audioName.replace(/\.[^.]+$/, '')) + ` - ${clipTitle(c)} ${formatTime(c.from, hours).replace(/:/g, '.')}`
-    const set = (v: { progress?: ExportProgress; error?: string }) => setJobs((j) => ({ ...j, [c.id]: v }))
-    try {
-      const out = await platform.chooseVideoPath(base.replace(/[\\/:*?"<>|]+/g, '-') + '.mp4')
-      if (!out) return
-      abort.current = new AbortController()
-      await runExport(clipProject(project, format), out, (progress) => set({ progress }), abort.current.signal, { from: c.from, to: c.to })
-    } catch (e) {
-      set({ error: (e as Error).message })
-    }
+    const name = base.replace(/[\\/:*?"<>|]+/g, '-')
+    const out = await platform.chooseVideoPath(name + '.mp4')
+    if (out) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to } })
   }
 
   if (!project.tracks.length)
@@ -134,10 +129,10 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
         </div>
         <div className="grow" />
         <div className="seg" title={t('clips.formatTitle')}>
-          <button className={format === 'portrait' ? 'on' : ''} onClick={() => onFormat('portrait')} disabled={running}>
+          <button className={format === 'portrait' ? 'on' : ''} onClick={() => onFormat('portrait')}>
             9:16
           </button>
-          <button className={format === 'landscape' ? 'on' : ''} onClick={() => onFormat('landscape')} disabled={running}>
+          <button className={format === 'landscape' ? 'on' : ''} onClick={() => onFormat('landscape')}>
             16:9
           </button>
         </div>
@@ -145,8 +140,8 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
       <div className={`clips-grid ${format}`}>
         {shown.map((c) => {
           const job = jobs[c.id]
-          const st = job?.progress?.stage
-          const busy = st === 'preparing' || st === 'rendering' || st === 'finishing'
+          const busy = job?.status === 'running' || job?.status === 'queued'
+          const st = job?.status === 'done' ? 'done' : job?.progress?.stage
           const pct = job?.progress ? Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100) : 0
           return (
             <div key={c.id} className={`clips-card ${playingId === c.id ? 'on' : ''}`}>
@@ -165,7 +160,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                 </div>
                 <Trim clip={c} duration={project.duration} hours={hours} disabled={busy} onTrim={(r) => onTrim(c.id, r)} />
                 <div className="clips-reason">{tMsg('clipReason', c.reason)}</div>
-                {busy || st === 'done' ? (
+                {job?.status === 'running' || job?.status === 'done' ? (
                   <div className="bar">
                     <div style={{ width: `${st === 'done' ? 100 : pct}%` }} />
                   </div>
@@ -176,7 +171,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                     <Icon name="play" size={12} /> {playingId === c.id ? t('clips.looping') : t('common.play')}
                   </button>
                   {busy ? (
-                    <button className="btn small" onClick={() => abort.current?.abort()}>
+                    <button className="btn small" onClick={() => exportQueue.cancel(job!.id)}>
                       {t('common.cancel')}
                     </button>
                   ) : st === 'done' && job?.progress?.outputPath && platform.features.reveal ? (
@@ -184,7 +179,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
                       {t('clips.showFile')}
                     </button>
                   ) : (
-                    <button className="btn small" onClick={() => exportClip(c)} disabled={running || !webCodecsAvailable()}>
+                    <button className="btn small" onClick={() => exportClip(c)} disabled={!webCodecsAvailable()}>
                       <Icon name="export" size={12} /> {t('common.export')}
                     </button>
                   )}

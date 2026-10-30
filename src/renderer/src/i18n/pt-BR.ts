@@ -330,6 +330,18 @@ export const ptBR: Messages = {
     showInFolder: 'Mostrar na pasta',
     render: 'Renderizar vídeo…'
   },
+  jobs: {
+    waiting: 'Na fila · {{n}}º',
+    cancelled: 'Cancelado',
+    failed: 'A exportação falhou',
+    moveUp: 'Exportar antes',
+    moveDown: 'Exportar depois',
+    dismiss: 'Tirar da lista',
+    locked: 'A linha do tempo não pode ser editada enquanto um vídeo é exportado. Você ainda pode navegar e adicionar exportações de clipes.',
+    lockedStatus: 'Exportando · edição bloqueada',
+    quit: 'Um vídeo ainda está sendo exportado. Sair mesmo assim e interromper?',
+    added: 'Adicionado às exportações: {{name}}'
+  },
   search: {
     title: 'Buscar capa e dados da faixa',
     placeholder: 'Artista - Título',
