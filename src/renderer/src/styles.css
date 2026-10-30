@@ -2056,11 +2056,6 @@ kbd {
 .account-modal {
   width: min(460px, 92vw);
 }
-.sign-in-methods {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 .sign-in-btn {
   height: 34px;
   font-size: 13px;

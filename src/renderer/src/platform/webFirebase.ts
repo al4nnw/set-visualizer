@@ -1,9 +1,9 @@
 import { initializeApp } from 'firebase/app'
-import { GoogleAuthProvider, OAuthProvider, connectAuthEmulator, getAuth, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut as authSignOut, type AuthProvider } from 'firebase/auth'
+import { GoogleAuthProvider, connectAuthEmulator, getAuth, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut as authSignOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
 
 /**
- * The web version's Firebase project: sign-in (Google, Apple, Microsoft), and the functions that
+ * The web version's Firebase project: Google sign-in, and the functions that
  * need it (YouTube search, and the account calls: functions/src). Loaded only when something needs
  * it, so the editor itself never waits for it. This config is public by design; what it can reach
  * is guarded by sign-in. `VITE_FIREBASE_EMULATORS=1 npm run dev` talks to `npm run emulators` instead.
@@ -29,21 +29,9 @@ if (import.meta.env.VITE_FIREBASE_EMULATORS === '1') {
   })
 }
 
-export type SignInMethod = 'google' | 'apple' | 'microsoft'
-
-const providerFor = (m: SignInMethod): AuthProvider => {
-  if (m === 'google') return new GoogleAuthProvider()
-  const p = new OAuthProvider(m === 'apple' ? 'apple.com' : 'microsoft.com')
-  p.addScope('email')
-  if (m === 'apple') p.addScope('name')
-  // Any Microsoft account, personal or work.
-  else p.setCustomParameters({ prompt: 'select_account' })
-  return p
-}
-
-/** Signs in (a popup, so call it from a click). Creates the account the first time. */
-export async function signIn(method: SignInMethod): Promise<void> {
-  await signInWithPopup(auth, providerFor(method))
+/** Signs in with Google (a popup, so call it from a click). Creates the account the first time. */
+export async function signIn(): Promise<void> {
+  await signInWithPopup(auth, new GoogleAuthProvider())
 }
 
 export const signOut = () => authSignOut(auth)
@@ -69,11 +57,11 @@ export function onUser(cb: (u: User | null) => void): () => void {
 let prompt: (() => Promise<boolean>) | null = null
 export const setSignInPrompt = (p: () => Promise<boolean>) => void (prompt = p)
 
-/** Signs in if not signed in yet (asking how, when the app can; else Google). Throws if they don't. */
+/** Signs in if not signed in yet (through the app's sign-in dialog when it has one). Throws if they don't. */
 export async function signedIn(): Promise<void> {
   await auth.authStateReady()
   if (auth.currentUser) return
-  if (!prompt) return void (await signIn('google'))
+  if (!prompt) return void (await signIn())
   if (!(await prompt())) throw Object.assign(new Error('Not signed in'), { code: 'auth/popup-closed-by-user' })
 }
 

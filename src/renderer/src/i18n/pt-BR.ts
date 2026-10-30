@@ -394,11 +394,7 @@ export const ptBR: Messages = {
       search: 'Entre para buscar no YouTube. Colar um link do YouTube funciona sem entrar.',
       menu: 'Crie uma conta grátis ou entre. Suas primeiras {{count}} exportações são grátis.'
     },
-    continueWith: {
-      google: 'Continuar com Google',
-      apple: 'Continuar com Apple',
-      microsoft: 'Continuar com Microsoft'
-    },
+    continueWithGoogle: 'Continuar com Google',
     signingIn: 'Entrando…',
     privacy: 'Sua conta guarda só seu nome, e-mail, plano e quantos vídeos você exportou. Seus sets e projetos nunca saem do seu computador.',
     title: 'Conta',
@@ -437,8 +433,6 @@ export const ptBR: Messages = {
     errorTitle: 'Não foi possível exportar',
     errors: {
       popupBlocked: 'O navegador bloqueou a janela de login. Permita pop-ups para este site e tente de novo.',
-      otherMethod: 'Este e-mail já tem uma conta que entra de outro jeito. Use essa opção.',
-      methodOff: 'Esta opção de login ainda não está disponível. Tente outra.',
       offline: 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.',
       server: 'Algo deu errado do nosso lado. Tente de novo em instantes.',
       claim: 'A exportação não pôde começar: {{error}}'

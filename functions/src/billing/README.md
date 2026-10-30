@@ -1,6 +1,6 @@
 # Accounts, free exports and plans
 
-Exports need an account. Everyone gets **3 free exports** (sets or clips, once, not per month).
+Exports need an account (Google sign-in). Everyone gets **3 free exports** (sets or clips, once, not per month).
 After that a plan is needed: **Monthly** (US$10, unlimited while it runs) or **Lifetime** (US$45,
 paid once). The prices and the free count live in `plans.ts`.
 
@@ -52,14 +52,4 @@ in the browser console signs in without Google's popup.
 
 - **Firestore**: Console → Build → Firestore Database → Create database, location
   `southamerica-east1`, production mode. Needed before this is deployed, or exports can't start.
-- **Microsoft sign-in**: in the Azure portal, Microsoft Entra ID → App registrations → New
-  registration, for "Accounts in any organizational directory and personal Microsoft accounts",
-  redirect URI (Web) `https://set-visualizer-app.firebaseapp.com/__/auth/handler`. Then
-  Certificates & secrets → New client secret. In Firebase: Authentication → Sign-in method → Add
-  new provider → Microsoft, with the Application (client) ID and the secret's value.
-- **Apple sign-in** (needs the Apple Developer Program): developer.apple.com → Identifiers: an App
-  ID with Sign in with Apple, then a Services ID with Sign in with Apple configured for domain
-  `set-visualizer-app.firebaseapp.com` and return URL
-  `https://set-visualizer-app.firebaseapp.com/__/auth/handler`. Keys → a key with Sign in with
-  Apple (download the .p8). In Firebase: Authentication → Sign-in method → Apple, with the Services
-  ID, Team ID, Key ID and the .p8's contents.
+- **Sign-in**: Google only (already on in Authentication → Sign-in method).

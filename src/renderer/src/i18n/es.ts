@@ -394,11 +394,7 @@ export const es: Messages = {
       search: 'Inicia sesión para buscar en YouTube. Pegar un enlace de YouTube funciona sin iniciar sesión.',
       menu: 'Crea una cuenta gratis o inicia sesión. Tus primeras {{count}} exportaciones son gratis.'
     },
-    continueWith: {
-      google: 'Continuar con Google',
-      apple: 'Continuar con Apple',
-      microsoft: 'Continuar con Microsoft'
-    },
+    continueWithGoogle: 'Continuar con Google',
     signingIn: 'Iniciando sesión…',
     privacy: 'Tu cuenta solo guarda tu nombre, correo, plan y cuántos videos exportaste. Tus sets y proyectos nunca salen de tu computadora.',
     title: 'Cuenta',
@@ -437,8 +433,6 @@ export const es: Messages = {
     errorTitle: 'No se pudo exportar',
     errors: {
       popupBlocked: 'El navegador bloqueó la ventana de inicio de sesión. Permite las ventanas emergentes para este sitio y vuelve a intentarlo.',
-      otherMethod: 'Este correo ya tiene una cuenta que inicia sesión de otra forma. Usa esa opción.',
-      methodOff: 'Esta opción de inicio de sesión aún no está disponible. Prueba otra.',
       offline: 'No se pudo conectar con el servidor. Revisa tu conexión y vuelve a intentarlo.',
       server: 'Algo salió mal de nuestro lado. Vuelve a intentarlo en un momento.',
       claim: 'La exportación no pudo empezar: {{error}}'

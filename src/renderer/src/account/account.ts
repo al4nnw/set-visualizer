@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { i18n } from '../i18n'
-import type { SignInMethod, User } from '../platform/webFirebase'
+import type { User } from '../platform/webFirebase'
 
 /**
  * Who is signed in and what they may export. Exports need an account: the first few are free,
@@ -39,7 +39,7 @@ export interface AccountState {
   entitlement: Entitlement | null
   dialog: AccountDialog | null
   /** A sign-in or checkout under way (its button shows it). */
-  pending: SignInMethod | PlanId | 'portal' | null
+  pending: 'signIn' | PlanId | 'portal' | null
   /** What went wrong in the open dialog. */
   error: string | null
 }
@@ -119,8 +119,6 @@ function errorText(e: unknown): string {
   const key = (
     {
       'auth/popup-blocked': 'account.errors.popupBlocked',
-      'auth/account-exists-with-different-credential': 'account.errors.otherMethod',
-      'auth/operation-not-allowed': 'account.errors.methodOff',
       'auth/network-request-failed': 'account.errors.offline',
       'functions/unavailable': 'account.errors.offline',
       'functions/internal': 'account.errors.server',
@@ -138,10 +136,10 @@ export function askSignIn(reason: 'export' | 'search' | 'menu'): Promise<boolean
   return new Promise((resolve) => (waiting = resolve))
 }
 
-export async function signInWith(method: SignInMethod) {
-  setState({ pending: method, error: null })
+export async function signInWithGoogle() {
+  setState({ pending: 'signIn', error: null })
   try {
-    await (await fb()).signIn(method)
+    await (await fb()).signIn()
   } catch (e) {
     const code = (e as { code?: string })?.code
     const closed = code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request'

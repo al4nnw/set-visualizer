@@ -1,10 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Icon } from '../components/icons'
 import { lang } from '../i18n'
-import type { SignInMethod } from '../platform/webFirebase'
-import { buyPlan, closeDialog, managePlan, openDialog, signInWith, signOut, useAccount, type Entitlement, type PlanId } from './account'
-
-const METHODS: SignInMethod[] = ['google', 'apple', 'microsoft']
+import { buyPlan, closeDialog, managePlan, openDialog, signInWithGoogle, signOut, useAccount, type Entitlement, type PlanId } from './account'
 
 function Modal({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -48,13 +45,9 @@ export function AccountDialogs() {
     return (
       <Modal title={t(dialog.reason === 'export' ? 'account.signInToExport' : 'account.signIn')}>
         <p className="muted">{t(`account.signInWhy.${dialog.reason}`, { count: 3 })}</p>
-        <div className="sign-in-methods">
-          {METHODS.map((m) => (
-            <button key={m} className="btn sign-in-btn" disabled={!!pending} onClick={() => void signInWith(m)}>
-              {pending === m ? t('account.signingIn') : t(`account.continueWith.${m}`)}
-            </button>
-          ))}
-        </div>
+        <button className="btn sign-in-btn" disabled={!!pending} onClick={() => void signInWithGoogle()}>
+          {pending === 'signIn' ? t('account.signingIn') : t('account.continueWithGoogle')}
+        </button>
         {err}
         <p className="muted small">{t('account.privacy')}</p>
       </Modal>

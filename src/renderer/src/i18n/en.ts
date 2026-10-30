@@ -400,11 +400,7 @@ export const en = {
       search: 'Sign in to search YouTube. Pasting a YouTube link works without signing in.',
       menu: 'Create a free account or sign in. Your first {{count}} exports are free.'
     },
-    continueWith: {
-      google: 'Continue with Google',
-      apple: 'Continue with Apple',
-      microsoft: 'Continue with Microsoft'
-    },
+    continueWithGoogle: 'Continue with Google',
     signingIn: 'Signing in…',
     privacy: 'Your account only keeps your name, email, plan and how many videos you exported. Your sets and projects never leave your computer.',
     title: 'Account',
@@ -443,8 +439,6 @@ export const en = {
     errorTitle: "Couldn't export",
     errors: {
       popupBlocked: 'The browser blocked the sign-in window. Allow pop-ups for this site and try again.',
-      otherMethod: 'This email already has an account that signs in another way. Use that option instead.',
-      methodOff: "This sign-in option isn't available yet. Try another one.",
       offline: "Can't reach the server. Check your connection and try again.",
       server: 'Something went wrong on our side. Try again in a moment.',
       claim: "The export couldn't start: {{error}}"
