@@ -43,12 +43,17 @@ async function callYoutube(data: { q: string } | { ids: string[] }): Promise<Vid
   }
 }
 
+/** Whether YouTube can be searched without asking anyone to sign in. */
+export async function youtubeReady(): Promise<boolean> {
+  const { isSignedIn } = await import('./webFirebase')
+  return isSignedIn()
+}
+
 export async function searchYoutube(q: string): Promise<SearchResult[]> {
   const linked = youtubeId(q)
   if (linked) {
     // A link needs no search. When signed in, one cheap lookup (1 unit) fills in the title too.
-    const { isSignedIn } = await import('./webFirebase')
-    const info = (await isSignedIn()) ? await callYoutube({ ids: [linked] }).catch(() => undefined) : undefined
+    const info = (await youtubeReady()) ? await callYoutube({ ids: [linked] }).catch(() => undefined) : undefined
     return [result(linked, info?.[0])]
   }
   // 101 units: the search, then the found videos' details.

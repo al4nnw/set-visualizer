@@ -1,12 +1,13 @@
 import type { PackedSpectrum } from '@shared/analysis'
-import { decodeText, parseTracklist, sameSong } from '@shared/tracklist'
+import { AUTO_ART_ORDER, PROVIDER_NAME, findArtwork } from '@shared/artwork'
+import { decodeText, parseTracklist } from '@shared/tracklist'
 import type { Preferences, Project, ProjectFile, RecentProject } from '@shared/types'
 import { AnalysisError, analyseFile, detectTakeoversOffThread } from '../analysis'
 import { i18n } from '../i18n'
 import type { FileRef, Platform } from './types'
 import * as store from './webStore'
 import { startExport, type VideoTarget } from './webExport'
-import { downloadArtwork, searchDeezer, searchItunes, searchYoutube } from './webArt'
+import { downloadArtwork, searchDeezer, searchItunes, searchYoutube, youtubeReady } from './webArt'
 
 /**
  * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved like on
@@ -171,6 +172,9 @@ function readPrefs(): Preferences {
 }
 
 const notYet = (what: 'search') => Promise.reject(new Error(i18n.t(`web.${what}NotYet`)))
+
+const webSearch: Platform['search'] = (provider, q) =>
+  provider === 'youtube' ? searchYoutube(q) : provider === 'itunes' ? searchItunes(q) : provider === 'deezer' ? searchDeezer(q) : notYet('search')
 
 function os(): Platform['os'] {
   const p = ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform ?? '').toLowerCase()
@@ -442,15 +446,15 @@ export function webPlatform(): Platform {
       return next
     },
 
-    search: (provider, q) =>
-      provider === 'youtube' ? searchYoutube(q) : provider === 'itunes' ? searchItunes(q) : provider === 'deezer' ? searchDeezer(q) : notYet('search'),
+    search: webSearch,
     downloadArt: async (url) => register(await downloadArtwork(url)),
-    // Deezer's first match, like the desktop. Not YouTube: that would spend the quota everyone shares.
+    // Like the desktop, except YouTube only for someone already signed in: a lookup can't open the
+    // sign-in window by itself, and each one spends the quota everyone shares.
     autoArtwork: async (artist, title) => {
-      const results = await searchDeezer([artist, title].filter(Boolean).join(' '))
-      const best = results.find((r) => sameSong(r, { artist, title })) ?? results[0]
-      if (!best?.image) return null
-      return { artwork: register(await downloadArtwork(best.image)), url: best.url }
+      const order = (await youtubeReady()) ? AUTO_ART_ORDER : AUTO_ART_ORDER.filter((p) => p !== 'youtube')
+      const best = await findArtwork(webSearch, artist, title, order)
+      if (!best) return null
+      return { artwork: register(await downloadArtwork(best.image)), url: best.url, source: PROVIDER_NAME[best.provider] }
     },
 
     exportBegin: async (p, out, range) => {

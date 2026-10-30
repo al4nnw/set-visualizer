@@ -45,7 +45,7 @@ const api = {
   search: (provider: SearchResult['provider'], q: string): Promise<SearchResult[]> => ipcRenderer.invoke('search', provider, q),
   downloadArt: (url: string): Promise<string> => ipcRenderer.invoke('art:download', url),
   /** YouTube thumbnail for a song, from the local cache when it's been looked up before. */
-  autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
+  autoArtwork: (artist: string, title: string): Promise<{ artwork: string; url: string; source: string } | null> => ipcRenderer.invoke('art:auto', artist, title),
 
   exportBegin: (p: ProjectFile, outPath: string, range?: ExportRange): Promise<void> => ipcRenderer.invoke('export:begin', p, outPath, range),
   exportChunk: (data: Uint8Array) => ipcRenderer.send('export:chunk', data),

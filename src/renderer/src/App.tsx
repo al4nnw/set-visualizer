@@ -213,8 +213,8 @@ export function App() {
   )
 
   /**
-   * Looks each track without artwork up on Deezer and uses the best match's cover (the first result
-   * unless another is the same song). Runs in the background, two at a time; any image can still be replaced from the
+   * Looks each track without artwork up (Deezer, else Apple Music, else YouTube) and uses the best
+   * match's image (the first result unless another is the same song). Runs in the background, two at a time; any image can still be replaced from the
    * inspector.
    */
   const autoArtwork = useCallback(
@@ -225,12 +225,12 @@ export function App() {
           try {
             const found = await platform.autoArtwork(t.artist, t.title)
             if (!found) continue
-            const { artwork, url } = found
+            const { artwork, url, source } = found
             const id = t.id
             update(
               (p) => ({
                 ...p,
-                tracks: p.tracks.map((x) => (x.id === id && !x.artwork ? { ...x, artwork, sourceUrl: x.sourceUrl ?? url, source: x.source ?? 'Deezer' } : x))
+                tracks: p.tracks.map((x) => (x.id === id && !x.artwork ? { ...x, artwork, sourceUrl: x.sourceUrl ?? url, source: x.source ?? source } : x))
               }),
               undefined,
               true

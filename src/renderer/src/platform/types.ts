@@ -81,7 +81,7 @@ export interface Platform {
   /** Saves an image from the web for the project and returns it. */
   downloadArt(url: string): Promise<FileRef>
   /** Artwork for a song, from the local cache when it's been looked up before. */
-  autoArtwork(artist: string, title: string): Promise<{ artwork: FileRef; url: string } | null>
+  autoArtwork(artist: string, title: string): Promise<{ artwork: FileRef; url: string; source: string } | null>
 
   /** The export writes the encoded H.264 stream through these; the platform adds the audio. */
   exportBegin(p: ProjectFile, out: FileRef, range?: ExportRange): Promise<void>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PROVIDER_NAME } from '@shared/artwork'
 import { formatTime } from '@shared/layout'
 import type { SearchResult, Track } from '@shared/types'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +19,6 @@ const WEB = platform.kind === 'web'
 const SHOWN = WEB ? PROVIDERS.filter((p) => p.id !== 'soundcloud') : PROVIDERS
 const askFirst = (p: SearchResult['provider']) => WEB && p === 'youtube'
 
-const PROVIDER_NAME: Record<SearchResult['provider'], string> = { youtube: 'YouTube', soundcloud: 'SoundCloud', itunes: 'Apple Music', deezer: 'Deezer' }
 
 interface Props {
   track: Track
