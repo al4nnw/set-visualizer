@@ -65,6 +65,9 @@ export function App() {
   useEffect(() => setLoopId(null), [project?.audioPath])
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
   const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
+  // Preview loudness only; exports always carry the set's own audio.
+  const [volume, setVolume] = useStoredNumber('preview.volume', 1)
+  const [muted, setMuted] = useStoredNumber('preview.muted', 0)
   const timelineRef = useRef<TimelineHandle>(null)
   const [tutorial, setTutorial] = useState<{ step: number; done: boolean } | null>(null)
   const tutorialRef = useRef(tutorial)
@@ -445,6 +448,12 @@ export function App() {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [audioEl, playing])
+
+  useEffect(() => {
+    if (!audioEl) return
+    audioEl.volume = Math.min(1, Math.max(0, volume))
+    audioEl.muted = !!muted
+  }, [audioEl, volume, muted])
 
   // Clips are found again whenever the tracklist or the audio changes; it's a few ms, nothing is rendered.
   const suggested = useMemo(
@@ -870,6 +879,15 @@ export function App() {
           onDismissClipsHint={() => void changePrefs({ clipsHintSeen: true })}
           clipFormat={clipFormat}
           onClipFormat={setClipFormat}
+          volume={volume}
+          muted={!!muted}
+          onVolume={(v) => {
+            setVolume(v)
+            if (v > 0 && muted) setMuted(0)
+          }}
+          onMuted={(m) => setMuted(m ? 1 : 0)}
+          volumeHint={!!prefs && !prefs.volumeHintSeen}
+          onDismissVolumeHint={() => void changePrefs({ volumeHintSeen: true })}
         />
         <Splitter dir="col" value={inspectorW} min={280} max={640} sign={-1} onChange={setInspectorW} onReset={() => setInspectorW(INSPECTOR_W)} />
         <Inspector

@@ -179,7 +179,12 @@ export const es: Messages = {
     previousTrack: 'Tema anterior (↑)',
     playPause: 'Reproducir / pausar (Espacio)',
     nextTrack: 'Tema siguiente (↓)',
-    goToEnd: 'Ir al final (Fin)'
+    goToEnd: 'Ir al final (Fin)',
+    volume: 'Volumen de la vista previa',
+    mute: 'Silenciar la vista previa',
+    unmute: 'Activar el sonido de la vista previa',
+    volumeHintTitle: 'Solo para escuchar aquí',
+    volumeHintText: 'Esto cambia el volumen de la vista previa mientras editas. Los videos exportados siempre conservan el audio original del set.'
   },
   clips: {
     kind: { transition: 'Transición', drop: 'Drop', peak: 'Pico' },

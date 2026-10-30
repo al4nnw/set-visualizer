@@ -13,6 +13,8 @@ const paths: Record<string, string> = {
   fit: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
   gear: 'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4',
   speaker: 'M2.5 6v4h2.5L9 13V3L5 6zM11.5 5.5a3.5 3.5 0 0 1 0 5',
+  speakerLow: 'M2.5 6v4h2.5L9 13V3L5 6z',
+  speakerOff: 'M2.5 6v4h2.5L9 13V3L5 6zM11 6.5l3 3M14 6.5l-3 3',
   deck: 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM8 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2z',
   lock: 'M4.5 7.5h7v6h-7zM6 7.5V5.5a2 2 0 0 1 4 0v2',
   file: 'M4 1.5h5l3 3v10H4zM9 1.5v3h3',

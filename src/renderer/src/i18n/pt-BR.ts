@@ -179,7 +179,12 @@ export const ptBR: Messages = {
     previousTrack: 'Faixa anterior (↑)',
     playPause: 'Tocar / pausar (Espaço)',
     nextTrack: 'Próxima faixa (↓)',
-    goToEnd: 'Ir para o fim (End)'
+    goToEnd: 'Ir para o fim (End)',
+    volume: 'Volume da prévia',
+    mute: 'Silenciar a prévia',
+    unmute: 'Ativar o som da prévia',
+    volumeHintTitle: 'Só para ouvir aqui',
+    volumeHintText: 'Isto muda o volume da prévia enquanto você edita. Os vídeos exportados sempre mantêm o áudio original do set.'
   },
   clips: {
     kind: { transition: 'Transição', drop: 'Drop', peak: 'Pico' },
