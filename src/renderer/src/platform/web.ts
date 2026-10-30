@@ -1,4 +1,5 @@
 import type { PackedSpectrum } from '@shared/analysis'
+import { AUTO_ART_ORDER, PROVIDER_NAME, findArtwork } from '@shared/artwork'
 import { decodeText, parseTracklist } from '@shared/tracklist'
 import type { Preferences, Project, ProjectFile, RecentProject } from '@shared/types'
 import { AnalysisError, analyseFile, detectTakeoversOffThread } from '../analysis'
@@ -6,7 +7,7 @@ import { i18n } from '../i18n'
 import type { FileRef, Platform } from './types'
 import * as store from './webStore'
 import { startExport, type VideoTarget } from './webExport'
-import { downloadArtwork, searchYoutube } from './webArt'
+import { downloadArtwork, searchDeezer, searchItunes, searchYoutube, youtubeReady } from './webArt'
 
 /**
  * The browser. Projects are saved in this browser's own storage (webStore.ts), autosaved like on
@@ -16,8 +17,8 @@ import { downloadArtwork, searchYoutube } from './webArt'
  * analysis. A recording is never copied: where the browser can (Chrome, Edge) its handle on disk
  * is kept so a project can open it again on a later visit, and otherwise the user picks it again.
  * Audio is decoded and analysed on the computer's own cores (../analysis); nothing is uploaded.
- * Artwork comes from YouTube, fetched by the browser itself (webArt.ts); the other artwork
- * sources aren't in the web version yet and say so.
+ * Artwork is searched on Apple Music and Deezer by the browser itself, and on YouTube through the
+ * site's Firebase function (webArt.ts); SoundCloud isn't in the web version and says so.
  */
 
 /** The parts of the File System Access API used here (Chrome, Edge), which TypeScript lacks. */
@@ -153,8 +154,7 @@ const PREFS_KEY = 'setvis.prefs'
 const defaultPrefs = (): Preferences => ({
   autosave: true,
   projectsDir: '',
-  // No automatic lookup in the browser (see autoArtwork below).
-  autoArtwork: false,
+  autoArtwork: true,
   defaultWidth: 1920,
   defaultHeight: 1080,
   defaultFps: 30
@@ -162,13 +162,19 @@ const defaultPrefs = (): Preferences => ({
 
 function readPrefs(): Preferences {
   try {
-    return { ...defaultPrefs(), ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') }
+    const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
+    // Before version 2 the web version couldn't look artwork up, and saved autoArtwork: false for everyone.
+    if (stored.version !== 2) delete stored.autoArtwork
+    return { ...defaultPrefs(), ...stored }
   } catch {
     return defaultPrefs()
   }
 }
 
 const notYet = (what: 'search') => Promise.reject(new Error(i18n.t(`web.${what}NotYet`)))
+
+const webSearch: Platform['search'] = (provider, q) =>
+  provider === 'youtube' ? searchYoutube(q) : provider === 'itunes' ? searchItunes(q) : provider === 'deezer' ? searchDeezer(q) : notYet('search')
 
 function os(): Platform['os'] {
   const p = ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform ?? '').toLowerCase()
@@ -433,17 +439,23 @@ export function webPlatform(): Platform {
     setPrefs: async (patch) => {
       const next = { ...readPrefs(), ...patch }
       try {
-        localStorage.setItem(PREFS_KEY, JSON.stringify(next))
+        localStorage.setItem(PREFS_KEY, JSON.stringify({ ...next, version: 2 }))
       } catch {
         // Storage blocked: the change lasts for this visit only.
       }
       return next
     },
 
-    search: (provider, q) => (provider === 'youtube' ? searchYoutube(q) : notYet('search')),
+    search: webSearch,
     downloadArt: async (url) => register(await downloadArtwork(url)),
-    // Looking every track up by itself would spend the shared YouTube quota; search runs on request.
-    autoArtwork: async () => null,
+    // Like the desktop, except YouTube only for someone already signed in: a lookup can't open the
+    // sign-in window by itself, and each one spends the quota everyone shares.
+    autoArtwork: async (artist, title) => {
+      const order = (await youtubeReady()) ? AUTO_ART_ORDER : AUTO_ART_ORDER.filter((p) => p !== 'youtube')
+      const best = await findArtwork(webSearch, artist, title, order)
+      if (!best) return null
+      return { artwork: register(await downloadArtwork(best.image)), url: best.url, source: PROVIDER_NAME[best.provider] }
+    },
 
     exportBegin: async (p, out, range) => {
       await exporting?.abort()

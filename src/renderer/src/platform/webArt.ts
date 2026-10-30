@@ -3,30 +3,12 @@ import { isoDuration, smallerThumbnail, splitYoutubeTitle, youtubeId, youtubePre
 import { i18n } from '../i18n'
 
 /**
- * Artwork in the browser, all of it from the user's own machine: YouTube thumbnails come straight
- * from i.ytimg.com, and searching uses the YouTube Data API with a browser key (set
- * VITE_YOUTUBE_API_KEY at build time, referrer-restricted). The key's daily quota is shared by
- * everyone, so searches only run when the user asks for one; a pasted link costs nothing.
+ * Artwork in the browser. Apple Music and Deezer are searched by the browser itself, and their
+ * covers and YouTube's thumbnails are fetched straight from their CDNs. Searching YouTube goes
+ * through the site's Firebase function (webFirebase.ts), which keeps the Data API key and needs a
+ * Google sign-in. Its daily quota is shared by everyone, so it only runs when the user asks for a
+ * search; a pasted link costs next to nothing.
  */
-
-const API = 'https://www.googleapis.com/youtube/v3'
-const apiKey = (): string | undefined => import.meta.env.VITE_YOUTUBE_API_KEY || undefined
-
-interface ApiVideo {
-  id: string | { videoId?: string }
-  snippet?: { title: string; channelTitle: string }
-  contentDetails?: { duration?: string }
-}
-
-async function api<T>(path: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${API}/${path}?${new URLSearchParams({ ...params, key: apiKey()! })}`)
-  if (!res.ok) {
-    const reason = ((await res.json().catch(() => null)) as { error?: { errors?: { reason?: string }[] } } | null)?.error?.errors?.[0]?.reason
-    if (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded') throw new Error(i18n.t('web.youtubeQuota'))
-    throw new Error(`YouTube HTTP ${res.status}${reason ? ` (${reason})` : ''}`)
-  }
-  return (await res.json()) as T
-}
 
 /** The API's titles are HTML-escaped ("Don&#39;t"). */
 function unescape(s: string): string {
@@ -35,31 +17,113 @@ function unescape(s: string): string {
   return el.value
 }
 
-const result = (id: string, v?: ApiVideo): SearchResult => {
-  const { artist, title } = v?.snippet ? splitYoutubeTitle(unescape(v.snippet.title), unescape(v.snippet.channelTitle)) : { artist: '', title: '' }
-  return { provider: 'youtube', id, title, artist, url: youtubeUrl(id), image: youtubeThumbnail(id), thumbnail: youtubePreview(id), durationSec: isoDuration(v?.contentDetails?.duration) }
+interface Video {
+  id: string
+  title: string
+  channel: string
+  duration?: string
 }
 
-/** Title, channel and length of these videos: 1 quota unit for up to 50. */
-async function videos(ids: string[]): Promise<Map<string, ApiVideo>> {
-  const r = await api<{ items: ApiVideo[] }>('videos', { part: 'snippet,contentDetails', id: ids.join(',') })
-  return new Map(r.items.map((v) => [v.id as string, v]))
+const result = (id: string, v?: Video): SearchResult => {
+  const { artist, title } = v?.title ? splitYoutubeTitle(unescape(v.title), unescape(v.channel)) : { artist: '', title: '' }
+  return { provider: 'youtube', id, title, artist, url: youtubeUrl(id), image: youtubeThumbnail(id), thumbnail: youtubePreview(id), durationSec: isoDuration(v?.duration) }
+}
+
+/** The function's call, loading Firebase (sign-in included) the first time. */
+async function callYoutube(data: { q: string } | { ids: string[] }): Promise<Video[]> {
+  const { youtubeSearch } = await import('./webFirebase')
+  try {
+    return await youtubeSearch(data)
+  } catch (e) {
+    const code = (e as { code?: string }).code ?? ''
+    if (code === 'functions/resource-exhausted') throw new Error(i18n.t('web.youtubeQuota'))
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') throw new Error(i18n.t('web.youtubeSignIn'))
+    if (code === 'auth/popup-blocked') throw new Error(i18n.t('web.youtubePopup'))
+    throw e
+  }
+}
+
+/** Whether YouTube can be searched without asking anyone to sign in. */
+export async function youtubeReady(): Promise<boolean> {
+  const { isSignedIn } = await import('./webFirebase')
+  return isSignedIn()
 }
 
 export async function searchYoutube(q: string): Promise<SearchResult[]> {
   const linked = youtubeId(q)
   if (linked) {
-    // A link needs no search. With a key, one cheap lookup fills in the title too.
-    const info = apiKey() ? await videos([linked]).catch(() => undefined) : undefined
-    return [result(linked, info?.get(linked))]
+    // A link needs no search. When signed in, one cheap lookup (1 unit) fills in the title too.
+    const info = (await youtubeReady()) ? await callYoutube({ ids: [linked] }).catch(() => undefined) : undefined
+    return [result(linked, info?.[0])]
   }
-  if (!apiKey()) throw new Error(i18n.t('web.youtubeNoKey'))
-  // search.list costs 100 units; the details lookup 1.
-  const r = await api<{ items: ApiVideo[] }>('search', { part: 'id', type: 'video', maxResults: '15', q })
-  const ids = r.items.map((v) => (typeof v.id === 'string' ? v.id : v.id.videoId)).filter((id): id is string => !!id)
-  if (!ids.length) return []
-  const info = await videos(ids).catch(() => new Map<string, ApiVideo>())
-  return ids.map((id) => result(id, info.get(id)))
+  // 101 units: the search, then the found videos' details.
+  return (await callYoutube({ q })).map((v) => result(v.id, v))
+}
+
+export async function searchItunes(q: string): Promise<SearchResult[]> {
+  const res = await fetch(`https://itunes.apple.com/search?${new URLSearchParams({ term: q, entity: 'song', limit: '15' })}`)
+  if (!res.ok) throw new Error(`Apple Music HTTP ${res.status}`)
+  const json = (await res.json()) as {
+    results: { trackId: number; trackName: string; artistName: string; artworkUrl100: string; trackViewUrl: string; trackTimeMillis?: number }[]
+  }
+  return json.results.map((r) => ({
+    provider: 'itunes',
+    id: String(r.trackId),
+    title: r.trackName,
+    artist: r.artistName,
+    url: r.trackViewUrl,
+    image: r.artworkUrl100.replace(/\/\d+x\d+bb\./, '/1000x1000bb.'),
+    thumbnail: r.artworkUrl100,
+    durationSec: r.trackTimeMillis ? Math.round(r.trackTimeMillis / 1000) : undefined
+  }))
+}
+
+let jsonpSeq = 0
+
+/** Deezer's API doesn't allow pages on other sites to read it, except as JSONP. */
+function jsonp<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const name = `__deezer${++jsonpSeq}`
+    const script = document.createElement('script')
+    const w = window as unknown as Record<string, unknown>
+    const done = () => {
+      delete w[name]
+      script.remove()
+      clearTimeout(timer)
+    }
+    const timer = setTimeout(() => {
+      done()
+      reject(new Error('Deezer took too long to answer'))
+    }, 15_000)
+    w[name] = (data: T) => {
+      done()
+      resolve(data)
+    }
+    script.onerror = () => {
+      done()
+      reject(new Error("Couldn't reach Deezer"))
+    }
+    script.src = `${url}&output=jsonp&callback=${name}`
+    document.head.append(script)
+  })
+}
+
+export async function searchDeezer(q: string): Promise<SearchResult[]> {
+  const json = await jsonp<{
+    data?: { id: number; title: string; link: string; duration: number; artist: { name: string }; album: { cover_xl: string; cover_medium: string } }[]
+    error?: { message?: string }
+  }>(`https://api.deezer.com/search?${new URLSearchParams({ q, limit: '15' })}`)
+  if (json.error) throw new Error(`Deezer: ${json.error.message ?? 'error'}`)
+  return (json.data ?? []).map((r) => ({
+    provider: 'deezer',
+    id: String(r.id),
+    title: r.title,
+    artist: r.artist.name,
+    url: r.link,
+    image: r.album.cover_xl,
+    thumbnail: r.album.cover_medium,
+    durationSec: r.duration
+  }))
 }
 
 async function fetchImage(url: string): Promise<Blob> {

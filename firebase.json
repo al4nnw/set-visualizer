@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "public": "out/web",
+    "predeploy": ["npm run build:web"],
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      { "source": "assets/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "predeploy": ["npm --prefix functions run build"]
+  }
+}

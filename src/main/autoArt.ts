@@ -1,13 +1,15 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { sameSong } from '@shared/tracklist'
+import { PROVIDER_NAME, findArtwork } from '@shared/artwork'
 import { downloadArt } from './art'
 import { search } from './search'
 
 export interface AutoArt {
   artwork: string
   url: string
+  /** Where it came from, like "Deezer". */
+  source: string
 }
 
 /** Lowercased "artist - title" without bracketed bits, so small spelling differences share an entry. */
@@ -19,11 +21,11 @@ const keyOf = (artist: string, title: string) =>
     .trim()
 
 /**
- * Finds a track's YouTube thumbnail, remembering every song it has looked up in `youtube-index.json` inside
- * `dir` (next to the downloaded images), so a song that's been seen before never hits YouTube again.
+ * Finds a track's artwork on Deezer, else Apple Music, else YouTube, remembering every song it has looked up in `deezer-index.json` inside
+ * `dir` (next to the downloaded images), so a song that's been seen before is never looked up again.
  */
 export function createAutoArt(dir: string) {
-  const indexPath = join(dir, 'youtube-index.json')
+  const indexPath = join(dir, 'deezer-index.json')
   let index: Record<string, AutoArt> | null = null
   let saving = Promise.resolve()
 
@@ -50,10 +52,9 @@ export function createAutoArt(dir: string) {
     const key = keyOf(artist, title)
     const hit = idx[key]
     if (hit && existsSync(hit.artwork)) return hit
-    const results = await search('youtube', [artist, title].filter(Boolean).join(' '))
-    const best = results.find((r) => sameSong(r, { artist, title })) ?? results[0]
-    if (!best?.image) return null
-    const found = { artwork: await downloadArt(best.image, dir), url: best.url }
+    const best = await findArtwork(search, artist, title)
+    if (!best) return null
+    const found = { artwork: await downloadArt(best.image, dir), url: best.url, source: PROVIDER_NAME[best.provider] }
     idx[key] = found
     await save()
     return found
