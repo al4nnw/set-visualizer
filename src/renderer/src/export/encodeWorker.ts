@@ -51,19 +51,22 @@ async function run(msg: StartMsg) {
   const ctx = canvas.getContext('2d', { alpha: false }) as unknown as Ctx
   const config = await pickConfig(W, H, fps, QUALITY_BPP[project.settings.quality] ?? 0.13)
 
+  const frameDur = 1e6 / fps
   let encodeError: Error | null = null
   const encoder = new VideoEncoder({
-    output: (chunk) => {
+    output: (chunk, meta) => {
       const buf = new Uint8Array(chunk.byteLength)
       chunk.copyTo(buf)
-      postMessage({ type: 'chunk', data: buf }, [buf.buffer])
+      // Timing and the decoder config, for platforms that put the MP4 together themselves (the web).
+      const c = meta?.decoderConfig
+      const decoderConfig = c && { codec: c.codec, codedWidth: c.codedWidth, codedHeight: c.codedHeight }
+      postMessage({ type: 'chunk', data: buf, timestamp: chunk.timestamp, duration: chunk.duration ?? Math.round(frameDur), key: chunk.type === 'key', decoderConfig }, [buf.buffer])
     },
     error: (e) => (encodeError = e as Error)
   })
   encoder.configure(config)
   postMessage({ type: 'info', codec: config.codec, hardware: config.hardwareAcceleration })
 
-  const frameDur = 1e6 / fps
   let pending = 0
   for (let f = msg.firstFrame; f < msg.endFrame; f++) {
     const n = f - msg.firstFrame

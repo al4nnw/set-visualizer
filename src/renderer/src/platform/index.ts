@@ -2,7 +2,7 @@ import { electronPlatform } from './electron'
 import type { Platform } from './types'
 import { webPlatform } from './web'
 
-export type { FileRef, Platform, PlatformFeatures } from './types'
+export { needsFile, type FileRef, type NeedsFile, type Platform, type PlatformFeatures } from './types'
 
 /** The shell this UI runs in: the desktop app (its preload bridge), or else a browser. */
 export const platform: Platform = window.api ? electronPlatform(window.api) : webPlatform()

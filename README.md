@@ -73,7 +73,9 @@ UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and
 
 ## Toward a web version
 
-The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`) and the web version with browser APIs (`web.ts`). `npm run dev:web` runs the same editor in the browser: open a recording and its .cue, and it shows the waveform, places the tracks and finds the takeovers. Saving projects, artwork search and video export aren't in the web version yet and say so.
+The editor talks to its shell through the `Platform` interface (`src/renderer/src/platform/`), not to Electron: the desktop app implements it over IPC (`electron.ts`) and the web version with browser APIs (`web.ts`). `npm run dev:web` runs the same editor in the browser: open a recording and its .cue, and it shows the waveform, places the tracks and finds the takeovers. Artwork search isn't in the web version yet and says so. Video export works as on the desktop, except that the MP4 is put together in the browser (`src/renderer/src/platform/webExport.ts`, Mediabunny) with the set's audio encoded as AAC, or Opus where the browser has no AAC encoder (Chrome on Linux). Chrome and Edge write it straight to the file you pick; other browsers download it.
+
+**Projects in the browser** are kept in its own storage (IndexedDB, `src/renderer/src/platform/webStore.ts`), on that computer only: opening a recording creates its project, autosave works as on the desktop, and the recent list is where they're kept (Preferences can delete them). The recording itself is never copied: in Chrome and Edge the browser's handle to the file is kept, so a project reopens on a later visit (the browser may ask to allow reading it), and other browsers ask the user to pick the recording again. Each recording's analysis is kept too, so reopening doesn't analyse again. File ▸ Save As writes a .djvis to disk (with its images inside), which File ▸ Open brings back into any browser.
 
 **Set analysis in the browser** (`src/renderer/src/analysis/`) runs on the computer's own cores in Web Workers; the recording is never uploaded. WAV, RF64 and AIFF are read straight from the file (`src/shared/pcm.ts`), each worker taking the next piece of the set. MP3, FLAC, M4A/AAC, Ogg (Vorbis, Opus) and WebM are decoded by the browser (WebCodecs, with Mediabunny reading the container). MP3 and FLAC decode the same from mid-file, so every worker decodes its own piece (with a few packets before it to warm its decoder up) and the result is identical to decoding in one piece; the other codecs are decoded on one worker that hands each piece to whichever worker is free. Those need a browser with WebCodecs audio (Chrome, Edge); a codec the browser can't decode gets a message suggesting WAV.
 
@@ -85,7 +87,7 @@ npm run test:browser -- set.wav --cue set.cue     # your own recordings (on Linu
 npm run compare-analysis -- set.wav --cue set.cue # the same math in Node against ffmpeg, without a browser
 ```
 
-A 2-hour set takes about 7 s as WAV, 11 s as FLAC and 17 s as MP3 on 4 cores (the desktop's ffmpeg: 32, 12 and 36 s). Still to do for the web: muxing the MP4 in the browser and browser storage for projects (see the web study).
+A 2-hour set takes about 7 s as WAV, 11 s as FLAC and 17 s as MP3 on 4 cores (the desktop's ffmpeg: 32, 12 and 36 s). 
 
 ## Notes and limits
 

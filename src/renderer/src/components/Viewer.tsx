@@ -4,7 +4,9 @@ import type { Project, RecentProject } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, lang } from '../i18n'
 import { Icon } from './icons'
-import { ClipsPanel, clipProject, clipTitle, type ClipFormat } from './Clips'
+import { ClipsPanel, clipProject, clipTitle, exportClipVideo, type ClipFormat } from './Clips'
+import { useExportJobs } from '../export/queue'
+import { webCodecsAvailable } from '../export/runExport'
 import { Preview } from './Preview'
 import { shortcutLabel } from './MenuBar'
 
@@ -22,6 +24,8 @@ interface Props {
   /** Opens one picker for a set recording (with or without its .cue) or a project. */
   onOpenAny: () => void
   onOpenProject: (path: string) => void
+  /** With the error: the recording to pick again before the project can open (the web version). */
+  locate?: { fileName: string; run: () => void } | null
   /** Stops the analysis shown in the busy panel. */
   onCancelBusy: () => void
   /** Files are being dragged over the window. */
@@ -54,7 +58,7 @@ function ago(iso?: string) {
 }
 
 /** Start panel shown in the viewer before a set is loaded. */
-function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
+function StartPanel({ busy, error, locate, recent, onOpenAny, onOpenProject, onCancelBusy }: Pick<Props, 'busy' | 'error' | 'locate' | 'recent' | 'onOpenAny' | 'onOpenProject' | 'onCancelBusy'>) {
   const { t } = useTranslation()
   if (busy)
     return (
@@ -81,6 +85,11 @@ function StartPanel({ busy, error, recent, onOpenAny, onOpenProject, onCancelBus
         {t('viewer.importOrOpen')}
       </button>
       {error && <div className="error">{error}</div>}
+      {error && locate && (
+        <button className="btn" onClick={locate.run}>
+          {t('web.locate', { name: locate.fileName })}
+        </button>
+      )}
       {recent.length > 0 && (
         <div className="start-recent">
           <div className="start-recent-head">{t('viewer.recent')}</div>
@@ -168,18 +177,13 @@ export function Viewer(p: Props) {
         ) : (
           <Preview project={shown!} audio={p.audio} time={time} />
         )}
+        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} />}
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
         {loop && (
           <div className="loop-chip" title={clipTitle(loop)}>
             <span>{t('viewer.looping', { from: formatTime(loop.from, hours), to: formatTime(loop.to, hours), title: clipTitle(loop) })}</span>
-            <button className="btn tiny ghost" title={t('viewer.startHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'from', time - loop.from, project?.duration ?? 0))}>
-              {t('viewer.startHere')}
-            </button>
-            <button className="btn tiny ghost" title={t('viewer.endHereTitle')} onClick={() => p.onTrimClip(loop.id, nudgeClip(loop, 'to', time - loop.to, project?.duration ?? 0))}>
-              {t('viewer.endHere')}
-            </button>
             <button className="icon-btn small" title={t('viewer.stopLoop')} onClick={p.onStopLoop}>
               <Icon name="close" size={12} />
             </button>
@@ -207,5 +211,49 @@ export function Viewer(p: Props) {
         <div className="timecode total">{formatTimecode(project?.duration ?? 0, fps)}</div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Floats at the right of the looping clip: moves its start or end to the playhead, or a second
+ * either way (5 s with Shift), and exports it.
+ */
+function LoopEdit(p: { clip: ClipSuggestion; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number }) => void; onExport: () => void }) {
+  const { clip, time, duration, hours, onTrim } = p
+  const { t } = useTranslation()
+  const job = useExportJobs().find((j) => j.clipId === clip.id && (j.status === 'queued' || j.status === 'running'))
+  const pct = job?.progress ? Math.round(Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100)) : 0
+  const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const edge = (side: 'from' | 'to') => (
+    <div className="loop-edit-edge">
+      <div className="loop-edit-label">
+        {t(side === 'from' ? 'viewer.clipStart' : 'viewer.clipEnd')} <span className="mono">{formatTime(clip[side], hours)}</span>
+      </div>
+      <div className="loop-edit-row">
+        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startEarlier' : 'clips.endEarlier')} onClick={(e) => onTrim(nudgeClip(clip, side, -step(e), duration))}>
+          ‹
+        </button>
+        <button
+          className="loop-edit-btn here"
+          title={t(side === 'from' ? 'viewer.startHereTitle' : 'viewer.endHereTitle')}
+          onClick={() => onTrim(nudgeClip(clip, side, time - clip[side], duration))}
+        >
+          {t(side === 'from' ? 'viewer.startHere' : 'viewer.endHere')}
+        </button>
+        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startLater' : 'clips.endLater')} onClick={(e) => onTrim(nudgeClip(clip, side, step(e), duration))}>
+          ›
+        </button>
+      </div>
+    </div>
+  )
+  return (
+    <div className="loop-edit" role="group" aria-label={t('viewer.clipEdges')}>
+      {edge('from')}
+      <div className="loop-edit-len mono">{t('common.seconds', { n: Math.round(clip.to - clip.from) })}</div>
+      {edge('to')}
+      <button className="btn small primary loop-edit-export" onClick={p.onExport} disabled={!!job || !webCodecsAvailable()}>
+        <Icon name="export" size={12} /> {job?.status === 'running' ? t('viewer.exportingClip', { pct }) : job ? t('viewer.clipQueued') : t('viewer.exportClip')}
+      </button>
+    </div>
   )
 }
