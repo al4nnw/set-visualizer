@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
 import type { Project, RecentProject } from '@shared/types'
@@ -44,6 +45,14 @@ interface Props {
   onDismissClipsHint: () => void
   clipFormat: ClipFormat
   onClipFormat: (f: ClipFormat) => void
+  /** Preview loudness, 0 to 1. */
+  volume: number
+  muted: boolean
+  onVolume: (v: number) => void
+  onMuted: (m: boolean) => void
+  /** The one-time note that the volume does not change exports is still to be shown. */
+  volumeHint: boolean
+  onDismissVolumeHint: () => void
 }
 
 export type ViewerTab = 'program' | 'clips'
@@ -208,9 +217,63 @@ export function Viewer(p: Props) {
           </button>
         </div>
         <div className="grow" />
+        <VolumeControl {...p} disabled={!project} />
         <div className="timecode total">{formatTimecode(project?.duration ?? 0, fps)}</div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Mute button and slider for the preview. The first time it is touched, a note says that it only
+ * changes what is heard here, not the exported videos.
+ */
+function VolumeControl(p: Pick<Props, 'volume' | 'muted' | 'onVolume' | 'onMuted' | 'volumeHint' | 'onDismissVolumeHint'> & { disabled: boolean }) {
+  const { t } = useTranslation()
+  const [hintOpen, setHintOpen] = useState(false)
+  const touched = () => {
+    if (p.volumeHint && !p.disabled) setHintOpen(true)
+  }
+  const level = p.muted ? 0 : p.volume
+  return (
+    <div className="volume" onPointerDown={touched} onKeyDown={touched}>
+      <button className="tbtn" title={p.muted ? t('viewer.unmute') : t('viewer.mute')} aria-pressed={p.muted} disabled={p.disabled} onClick={() => p.onMuted(!p.muted)}>
+        <Icon name={level === 0 ? 'speakerOff' : level < 0.5 ? 'speakerLow' : 'speaker'} />
+      </button>
+      <input
+        type="range"
+        className="volume-slider"
+        min={0}
+        max={1}
+        step={0.01}
+        value={level}
+        disabled={p.disabled}
+        title={`${t('viewer.volume')} · ${Math.round(level * 100)}%`}
+        aria-label={t('viewer.volume')}
+        style={{ '--fill': `${level * 100}%` } as React.CSSProperties}
+        onChange={(e) => p.onVolume(+e.currentTarget.value)}
+        // Hand the keys back to the editor (Space, timing keys) after a drag.
+        onPointerUp={(e) => e.currentTarget.blur()}
+      />
+      {hintOpen && p.volumeHint && (
+        <div className="volume-hint" role="status">
+          <div className="clips-hint-title">{t('viewer.volumeHintTitle')}</div>
+          <div className="clips-hint-text">{t('viewer.volumeHintText')}</div>
+          <div className="row">
+            <div className="grow" />
+            <button
+              className="btn tiny primary"
+              onClick={() => {
+                setHintOpen(false)
+                p.onDismissVolumeHint()
+              }}
+            >
+              {t('viewer.gotIt')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -182,7 +182,12 @@ export const en = {
     previousTrack: 'Previous track (↑)',
     playPause: 'Play / pause (Space)',
     nextTrack: 'Next track (↓)',
-    goToEnd: 'Go to end (End)'
+    goToEnd: 'Go to end (End)',
+    volume: 'Preview volume',
+    mute: 'Mute preview',
+    unmute: 'Unmute preview',
+    volumeHintTitle: 'Only for listening here',
+    volumeHintText: 'This changes how loud the preview plays while you edit. Exported videos always keep the original audio of the set.'
   },
   clips: {
     kind: { transition: 'Transition', drop: 'Drop', peak: 'Peak' },

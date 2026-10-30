@@ -131,6 +131,8 @@ export interface Preferences {
   defaultFps: number
   /** The one-time note about the Clips tab was shown. */
   clipsHintSeen?: boolean
+  /** The one-time note that the preview volume does not change exports was shown. */
+  volumeHintSeen?: boolean
   /** UI language; missing or 'system' follows the OS. */
   language?: Locale | 'system'
 }
