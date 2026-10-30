@@ -4,7 +4,7 @@
  */
 
 /** Public halves (SPKI, P-256) of the EXPORT_TICKET_KEY secret (from npm run ticket-key), and of the emulators' key. */
-const PROD_KEY = '' // set by npm run ticket-key
+const PROD_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVbFuSgAJ/JJwglvZPGHLGp/cUc/FANrxlYGXUh6wYBJPT1MEgdozfPhFN6F+8ahOL/2EPRsR57k0OdYTrz680Q==' // set by npm run ticket-key
 const DEV_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAErmZ78UltaZm1YmDA79I0zr2zcNoDXAa0hm459INnGSonn6kPAcGdjPATBrj/1seFmZh/dxByPscK+LbDfc7Vzw=='
 
 export interface Ticket {
