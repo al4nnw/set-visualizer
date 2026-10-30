@@ -6,16 +6,16 @@ import { youtubeId, youtubeThumbnail, youtubeUrl } from '@shared/youtube'
 import { errMsg, platform } from '../platform'
 
 const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'soundcloud', label: 'SoundCloud' },
+  { id: 'deezer', label: 'Deezer' },
   { id: 'itunes', label: 'Apple Music' },
-  { id: 'deezer', label: 'Deezer' }
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'soundcloud', label: 'SoundCloud' }
 ]
 
 // The web version has no SoundCloud, and its YouTube search spends a quota everyone shares (and
-// needs a sign-in), so it starts on Apple Music and searches YouTube only when asked.
+// needs a sign-in), so it searches YouTube only when asked. Deezer's covers are the sharpest: it comes first.
 const WEB = platform.kind === 'web'
-const SHOWN = WEB ? PROVIDERS.filter((p) => p.id !== 'soundcloud').sort((a, b) => +(a.id === 'youtube') - +(b.id === 'youtube')) : PROVIDERS
+const SHOWN = WEB ? PROVIDERS.filter((p) => p.id !== 'soundcloud') : PROVIDERS
 const askFirst = (p: SearchResult['provider']) => WEB && p === 'youtube'
 
 const PROVIDER_NAME: Record<SearchResult['provider'], string> = { youtube: 'YouTube', soundcloud: 'SoundCloud', itunes: 'Apple Music', deezer: 'Deezer' }

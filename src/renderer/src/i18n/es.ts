@@ -388,7 +388,7 @@ export const es: Messages = {
     browserCleared: 'Proyectos borrados',
     clearRecent: 'Borrar proyectos recientes',
     artwork: 'Portadas',
-    autoArtwork: 'Buscar miniaturas de YouTube para los temas importados de un .cue',
+    autoArtwork: 'Buscar portadas en Deezer para los temas importados de un .cue',
     videoDefaults: 'Ajustes de vídeo para proyectos nuevos',
     videoDefaultsNote: 'Cada proyecto guarda sus propios ajustes; cámbialos en el proyecto abierto en Archivo ▸ Exportar vídeo.'
   },

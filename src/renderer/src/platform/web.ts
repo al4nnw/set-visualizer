@@ -1,5 +1,5 @@
 import type { PackedSpectrum } from '@shared/analysis'
-import { decodeText, parseTracklist } from '@shared/tracklist'
+import { decodeText, parseTracklist, sameSong } from '@shared/tracklist'
 import type { Preferences, Project, ProjectFile, RecentProject } from '@shared/types'
 import { AnalysisError, analyseFile, detectTakeoversOffThread } from '../analysis'
 import { i18n } from '../i18n'
@@ -153,8 +153,7 @@ const PREFS_KEY = 'setvis.prefs'
 const defaultPrefs = (): Preferences => ({
   autosave: true,
   projectsDir: '',
-  // No automatic lookup in the browser (see autoArtwork below).
-  autoArtwork: false,
+  autoArtwork: true,
   defaultWidth: 1920,
   defaultHeight: 1080,
   defaultFps: 30
@@ -162,7 +161,10 @@ const defaultPrefs = (): Preferences => ({
 
 function readPrefs(): Preferences {
   try {
-    return { ...defaultPrefs(), ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') }
+    const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
+    // Before version 2 the web version couldn't look artwork up, and saved autoArtwork: false for everyone.
+    if (stored.version !== 2) delete stored.autoArtwork
+    return { ...defaultPrefs(), ...stored }
   } catch {
     return defaultPrefs()
   }
@@ -433,7 +435,7 @@ export function webPlatform(): Platform {
     setPrefs: async (patch) => {
       const next = { ...readPrefs(), ...patch }
       try {
-        localStorage.setItem(PREFS_KEY, JSON.stringify(next))
+        localStorage.setItem(PREFS_KEY, JSON.stringify({ ...next, version: 2 }))
       } catch {
         // Storage blocked: the change lasts for this visit only.
       }
@@ -443,8 +445,13 @@ export function webPlatform(): Platform {
     search: (provider, q) =>
       provider === 'youtube' ? searchYoutube(q) : provider === 'itunes' ? searchItunes(q) : provider === 'deezer' ? searchDeezer(q) : notYet('search'),
     downloadArt: async (url) => register(await downloadArtwork(url)),
-    // Looking every track up by itself would spend the shared YouTube quota; search runs on request.
-    autoArtwork: async () => null,
+    // Deezer's first match, like the desktop. Not YouTube: that would spend the quota everyone shares.
+    autoArtwork: async (artist, title) => {
+      const results = await searchDeezer([artist, title].filter(Boolean).join(' '))
+      const best = results.find((r) => sameSong(r, { artist, title })) ?? results[0]
+      if (!best?.image) return null
+      return { artwork: register(await downloadArtwork(best.image)), url: best.url }
+    },
 
     exportBegin: async (p, out, range) => {
       await exporting?.abort()

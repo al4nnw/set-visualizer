@@ -388,7 +388,7 @@ export const ptBR: Messages = {
     browserCleared: 'Projetos apagados',
     clearRecent: 'Limpar projetos recentes',
     artwork: 'Capas',
-    autoArtwork: 'Buscar miniaturas do YouTube para faixas importadas de um .cue',
+    autoArtwork: 'Buscar capas no Deezer para faixas importadas de um .cue',
     videoDefaults: 'Configurações de vídeo para novos projetos',
     videoDefaultsNote: 'Cada projeto guarda as próprias configurações; mude-as no projeto aberto em Arquivo ▸ Exportar vídeo.'
   },

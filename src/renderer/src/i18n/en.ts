@@ -393,7 +393,7 @@ export const en = {
     browserCleared: 'Projects deleted',
     clearRecent: 'Clear recent projects',
     artwork: 'Artwork',
-    autoArtwork: 'Look up YouTube thumbnails for tracks imported from a .cue',
+    autoArtwork: 'Look up Deezer covers for tracks imported from a .cue',
     videoDefaults: 'Video settings for new projects',
     videoDefaultsNote: 'Each project keeps its own settings; change them for the open project in File ▸ Export Video.'
   },
