@@ -224,7 +224,8 @@ export const en = {
     quickCut: 'quick cut ({{blend}} s blend)',
     longBlend: 'long blend ({{blend}} s in, {{tail}} s tail)',
     noBass: 'no bass at the takeover',
-    normal: 'normal blend ({{blend}} s)'
+    normal: 'normal blend ({{blend}} s)',
+    noMixIn: 'no mix-in set'
   },
   inspector: {
     tabs: { tracks: 'Tracks', style: 'Style', project: 'Project' },
@@ -253,7 +254,7 @@ export const en = {
     playhead: 'Playhead',
     playheadTitle: 'Set to the playhead ({{key}})',
     mixInTitle: "When it starts being heard. It appears on the right as 'now playing' from here.",
-    mixInAuto: 'auto (−{{lead}}s)',
+    mixInNone: 'none (enters with the swap)',
     playsUntilTitle: 'When it stops being heard, if it keeps playing under the next track after the swap.',
     playsUntilNone: 'leaves at the swap',
     format: 'Format',
@@ -282,8 +283,6 @@ export const en = {
     colors: 'Colors',
     background: 'Background',
     transitions: 'Transitions',
-    lead: 'Up next lead',
-    leadTitle: 'How long before it takes over a track without a mix-in time appears on the right',
     curve: 'Swap curve',
     curveTitle: 'How the cards move during the swap. It always ends on the takeover point.',
     curves: { auto: 'Energy-matched (auto)', smooth: 'Smooth', snappy: 'Snappy', anticipate: 'Anticipate', spring: 'Spring' },
@@ -371,7 +370,7 @@ export const en = {
     search: 'Search',
     useMeta: "Also use the result's title and artist",
     noResults: 'No results.',
-    urlPlaceholder: '…or paste an image URL',
+    urlPlaceholder: '…or paste an image URL or YouTube link',
     useUrl: 'Use URL',
     downloadFailed: "Couldn't download that image: {{error}}"
   },
@@ -409,7 +408,9 @@ export const en = {
     notProject: '{{name}} isn\'t a Set Visualizer project.',
     projectGone: '{{name}} is no longer saved in this browser.',
     noAudioEncoder: 'This browser can\'t encode audio for the video. Try Chrome or Edge.',
-    searchNotYet: 'Artwork search comes to the web version in a later update. For now, choose an image from your computer.',
+    searchNotYet: 'This source comes to the web version in a later update. Use YouTube, or choose an image from your computer.',
+    youtubeNoKey: "Searching YouTube isn't set up in this web version yet. Paste a YouTube link in the search box instead.",
+    youtubeQuota: 'YouTube searches are used up for today. Paste a YouTube link in the search box instead; links always work.',
     fileGone: '{{name}} is no longer open in this tab. Open it again.',
     codec: "This browser can't decode {{codec}} audio. Try Chrome or Edge, or convert the recording to WAV.",
     format: "{{name}} isn't an audio file this browser can read.",

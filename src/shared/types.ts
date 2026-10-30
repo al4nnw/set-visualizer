@@ -56,8 +56,6 @@ export interface RenderSettings {
   width: number
   height: number
   fps: number
-  /** Seconds before `start` that the next track appears on the right, when the track has no mixIn. */
-  defaultLead: number
   /** Seconds the A/B swap animation takes; it ends on the takeover point. */
   swapDuration: number
   /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
@@ -185,7 +183,6 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   width: 1920,
   height: 1080,
   fps: 30,
-  defaultLead: 45,
   swapDuration: 1.4,
   swapCurve: 'auto',
   showTimestamps: true,

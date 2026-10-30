@@ -188,7 +188,7 @@ function TracksTab(p: Props & { project: Project }) {
               </button>
             </Prop>
             <Prop label={t('timing.mixIn')} title={t('inspector.mixInTitle')}>
-              <TimeInput value={sel.mixIn} placeholder={t('inspector.mixInAuto', { lead: project.settings.defaultLead })} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
+              <TimeInput value={sel.mixIn} placeholder={t('inspector.mixInNone')} onChange={(v) => p.onChangeTrack(sel.id, { mixIn: v })} />
               <button className="btn tiny ghost" title={t('inspector.playheadTitle', { key: 'A' })} onClick={() => p.onChangeTrack(sel.id, { mixIn: Math.min(time, sel.start) })}>
                 {t('inspector.playhead')} <kbd>A</kbd>
               </button>
@@ -286,10 +286,6 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
         </Prop>
       </Section>
       <Section title={t('inspector.transitions')}>
-        <Prop label={t('inspector.lead')} title={t('inspector.leadTitle')}>
-          <input type="range" min={0} max={120} step={5} value={s.defaultLead} onChange={(e) => onChangeSettings({ defaultLead: +e.target.value }, 'lead')} />
-          <span className="mono val">{s.defaultLead}s</span>
-        </Prop>
         <Prop label={t('inspector.curve')} title={t('inspector.curveTitle')}>
           <select value={s.swapCurve ?? 'auto'} onChange={(e) => onChangeSettings({ swapCurve: e.target.value as SwapCurve }, 'curve')}>
             {(['auto', 'smooth', 'snappy', 'anticipate', 'spring'] as const).map((c) => (

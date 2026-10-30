@@ -3,7 +3,7 @@
  * canvas) and in the exporter (Skia canvas in Node), so what you see is what gets rendered.
  */
 import type { Project, Track, Waveform } from './types'
-import { cardStates, currentIndex, formatTime, lerp, mainTracks, type CardState } from './layout'
+import { cardStates, currentIndex, formatTime, lerp, mainTracks, stageShare, type CardState } from './layout'
 import { buildMotion, motionAt, type Motion } from './motion'
 import { planSwaps, type SwapPlan } from './swapPlan'
 import { videoText } from './i18n'
@@ -192,7 +192,7 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   const s = Math.min(W, H) / 1080
   const sorted = mainTracks(project.tracks)
   const motion = buildMotion(project.waveform)
-  const base = { project, sorted, art, motion, swaps: planSwaps(sorted, project.settings, motion), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
+  const base = { project, sorted, art, motion, swaps: planSwaps(sorted, motion), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
   const x = 60 * s
   const w = W - 120 * s
   const h = 110 * s
@@ -307,19 +307,29 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
 /** Bounce strength of a card that's playing on the right, relative to the main card. */
 const LAYERED_BOUNCE = 0.5
 
-function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: number; glow: number }) {
+/** Where a card at `slot` sits along the axis the cards share (x in 16:9, y in 9:16). */
+function slotPos(slot: number, share: number, alone: number, main: number, next: number) {
+  // A track on its own takes the centre; the main spot moves over while another card is on stage.
+  const first = lerp(alone, main, share)
+  return slot >= 0 ? lerp(first, next, slot) : first + slot * (next - main)
+}
+
+function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: number; glow: number; soft: number }, share: number) {
   const settings = prep.project.settings
   const W = settings.width
   const s = prep.scale
   const f = prep.font
   // 16:9: main card on the left, next on the right. 9:16: main card on top, next below it.
   const portrait = isPortrait(settings)
-  const cx = portrait ? W / 2 : lerp(W * 0.3, W * 0.71, c.slot)
-  const cy = portrait ? lerp(540 * s, 1270 * s, c.slot) : 395 * s
+  const cx = portrait ? W / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
+  const cy = portrait ? slotPos(c.slot, share, 905 * s, 540 * s, 1270 * s) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
   const pulse = 1 + 0.05 * mo.beat * energy
-  const size = lerp(CARD_NEXT * s, cardMain(settings) * s, c.mainness) * pulse
+  const baseSize = lerp(CARD_NEXT * s, cardMain(settings) * s, c.mainness)
+  const size = baseSize * pulse
+  // The text follows a smoothed bounce, so it floats under the artwork instead of jolting with it.
+  const textSize = baseSize * (1 + 0.05 * mo.soft * energy)
   const x = cx - size / 2
   const y = cy - size / 2
   const color = deckColor(prep.project, c.track)
@@ -373,7 +383,7 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   // Text
   const ts = prep.textScale
   const tx = cx
-  let ty = y + size + (portrait ? 46 : 52) * ts
+  let ty = cy + textSize / 2 + (portrait ? 46 : 52) * ts
   const maxW = portrait ? W - 120 * s : lerp(520 * s, 620 * s, c.mainness)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
@@ -403,14 +413,15 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   ctx.restore()
 }
 
-function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number) {
+function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const { project, sorted, scale: s } = prep
   const { width: W, theme } = project.settings
   const wf = project.waveform
   const x0 = 60 * s
   const w = W - 120 * s
   const h = 64 * s
-  const y0 = prep.wave.y - h - 26 * s
+  // Above the set waveform, or down in its place when that one is hidden.
+  const y0 = project.settings.showSetWave !== false ? prep.wave.y - h - 26 * s : prep.wave.y + prep.wave.h + 10 * s - h
   const mid = y0 + h / 2
   const windowSec = 10
   const pxPerSec = w / (windowSec * 2)
@@ -445,8 +456,10 @@ function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number) {
     ctx.fillStyle = hexToRgba(deckColor(project, tr), 0.9)
     ctx.fillRect(cx + dx - 1 * s, y0 - 6 * s, 2 * s, h + 12 * s)
   }
+  // Playhead, stretching a little with the beat
+  const ph = (h + 16 * s) * (1 + 0.22 * beat)
   ctx.fillStyle = theme.text
-  ctx.fillRect(cx - 1.5 * s, y0 - 8 * s, 3 * s, h + 16 * s)
+  ctx.fillRect(cx - 1.5 * s, mid - ph / 2, 3 * s, ph)
 }
 
 function drawWaveform(ctx: Ctx, prep: PreparedScene, t: number) {
@@ -507,9 +520,10 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   drawHeader(ctx, prep, t)
   // Leaving card first, then incoming, then main on top.
   const order = [...cards].sort((a, b) => a.mainness - b.mainness)
-  for (const c of order) drawCard(ctx, prep, c, mo)
+  const share = stageShare(cards)
+  for (const c of order) drawCard(ctx, prep, c, mo, share)
   // `!== false` so projects saved before these settings existed keep both.
-  if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t)
+  if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t, mo.beat)
   if (settings.showSetWave !== false) drawWaveform(ctx, prep, t)
   ctx.restore()
 }
