@@ -174,7 +174,7 @@ function contentBox(img: ImageBitmap): { x: number; y: number; w: number; h: num
   return box.w > 16 && box.h > 16 ? box : { x: 0, y: 0, w: img.width, h: img.height }
 }
 
-/** Any image as a JPEG of at most 1200 px with its black bars trimmed, as the desktop app saves it. */
+/** Any image as a JPEG of at most 1200 px with its black bars trimmed. */
 async function normalise(blob: Blob): Promise<Blob> {
   const img = await createImageBitmap(blob)
   try {

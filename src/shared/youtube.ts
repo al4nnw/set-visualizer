@@ -1,4 +1,4 @@
-/** YouTube links and thumbnails, shared by the desktop search and the browser's. */
+/** YouTube links and thumbnails. */
 
 /**
  * The video id in a YouTube link (watch, youtu.be, shorts, embed, live, music.youtube.com), or null

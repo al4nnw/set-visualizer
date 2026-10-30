@@ -315,11 +315,6 @@ function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Pr
           <span className="path" title={projectPath ?? ''}>
             {projectPath ? projectPath.split(/[\\/]/).pop() : t('inspector.notSavedYet')}
           </span>
-          {projectPath && platform.features.reveal && (
-            <button className="btn tiny ghost" onClick={() => platform.reveal(projectPath)}>
-              {t('common.show')}
-            </button>
-          )}
         </Prop>
         <Prop label={t('inspector.location')}>
           <span className="path" title={projectPath ?? ''}>
@@ -335,11 +330,6 @@ function ProjectTab({ project, projectPath, onImportCue }: Props & { project: Pr
           <span className="path" title={project.audioPath}>
             {project.audioName}
           </span>
-          {platform.features.reveal && (
-            <button className="btn tiny ghost" onClick={() => platform.reveal(project.audioPath)}>
-              {t('common.show')}
-            </button>
-          )}
         </Prop>
         <Prop label={t('inspector.length')}>
           <span className="mono">{formatTime(project.duration, true)}</span>

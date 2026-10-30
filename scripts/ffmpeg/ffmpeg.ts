@@ -2,11 +2,9 @@ import { spawn } from 'node:child_process'
 import ffmpegStatic from 'ffmpeg-static'
 import ffprobeStatic from 'ffprobe-static'
 
-// Inside a packaged app the binaries live next to the asar archive, not in it.
-const unpacked = (p: string) => p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')
-
-export const ffmpegPath = unpacked(process.env.SETVIS_FFMPEG || (ffmpegStatic as unknown as string) || 'ffmpeg')
-export const ffprobePath = unpacked(process.env.SETVIS_FFPROBE || ffprobeStatic.path || 'ffprobe')
+// The reference analysis the browser's is checked against (and the tutorial cutter) run ffmpeg.
+export const ffmpegPath = process.env.SETVIS_FFMPEG || (ffmpegStatic as unknown as string) || 'ffmpeg'
+export const ffprobePath = process.env.SETVIS_FFPROBE || ffprobeStatic.path || 'ffprobe'
 
 /** Runs ffmpeg and collects stdout into a Buffer. */
 export function runFfmpeg(args: string[], signal?: AbortSignal): Promise<Buffer> {

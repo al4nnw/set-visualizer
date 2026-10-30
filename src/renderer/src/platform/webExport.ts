@@ -6,7 +6,7 @@ import { i18n } from '../i18n'
 /**
  * The MP4 of a web export, put together in the browser: the H.264 the export worker encodes (see
  * ../export/runExport.ts), and the set's own audio for the same stretch, decoded and encoded again
- * as AAC (Opus where the browser has no AAC encoder), as the desktop app does with ffmpeg. It's
+ * as AAC (Opus where the browser has no AAC encoder). It's
  * written as it goes to a file the user picked (Chrome, Edge). Other browsers download it: written
  * first to the page's private storage on disk (a long set's video doesn't fit in memory), or into
  * memory where there's none.
@@ -55,7 +55,7 @@ const AHEAD = 4
 
 export async function startExport(audio: File, p: ProjectFile, target: VideoTarget, range?: ExportRange) {
   const { fps } = p.settings
-  // The video starts on a frame boundary, so the audio does too (as on the desktop).
+  // The video starts on a frame boundary, so the audio does too.
   const firstFrame = Math.floor(Math.max(0, range?.from ?? 0) * fps)
   const endFrame = Math.max(firstFrame + 1, Math.ceil(Math.min(p.duration, range?.to ?? p.duration) * fps))
   const from = firstFrame / fps

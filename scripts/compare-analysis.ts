@@ -1,6 +1,6 @@
 /**
- * Checks the browser analysis (src/shared/analyseSource.ts, run here in Node) against the desktop
- * app's ffmpeg analysis of the same recording, and times both:
+ * Checks the browser analysis (src/shared/analyseSource.ts, run here in Node) against ffmpeg's
+ * analysis of the same recording (scripts/ffmpeg/audio.ts), and times both:
  *   npm run compare-analysis -- <audio> [--cue set.cue] [--segments 8]
  * WAV and AIFF are read directly, as the browser reads them. Other formats are decoded to a float
  * WAV by ffmpeg first, so for those this checks the analysis but not the browser's decoders (the
@@ -10,8 +10,8 @@ import { openAsBlob } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { analyseAudio } from '../src/main/audio'
-import { runFfmpeg } from '../src/main/ffmpeg'
+import { analyseAudio } from './ffmpeg/audio'
+import { runFfmpeg } from './ffmpeg/ffmpeg'
 import { mergeSegments, type SegmentAnalysis } from '../src/shared/analysis'
 import { analyseSegment, planSegments } from '../src/shared/analyseSource'
 import { pcmSource, probePcm } from '../src/shared/pcm'
@@ -29,9 +29,9 @@ async function main() {
   const segments = Number(arg('segments') ?? 8)
 
   let t = performance.now()
-  const desktop = await analyseAudio(file, undefined, { spectrum: true })
-  const desktopMs = performance.now() - t
-  console.log(`ffmpeg analysis: ${desktop.duration.toFixed(2)} s of audio in ${(desktopMs / 1000).toFixed(2)} s`)
+  const reference = await analyseAudio(file, undefined, { spectrum: true })
+  const ffmpegMs = performance.now() - t
+  console.log(`ffmpeg analysis: ${reference.duration.toFixed(2)} s of audio in ${(ffmpegMs / 1000).toFixed(2)} s`)
 
   let blob = await openAsBlob(file)
   let layout = await probePcm(blob)
@@ -66,7 +66,7 @@ async function main() {
   const cue = arg('cue')
   const cues = cue ? cuesFrom(dropRepeatedLoads(parseTracklist(await readFile(cue)))) : undefined
   const browser = { duration: source.duration, waveform: merged.waveform, spectrum: merged.spectrum! }
-  console.log(formatDiff(diffAnalyses({ ...desktop, spectrum: desktop.spectrum! }, browser, cues)))
+  console.log(formatDiff(diffAnalyses({ ...reference, spectrum: reference.spectrum! }, browser, cues)))
 }
 
 main().catch((e) => {

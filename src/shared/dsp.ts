@@ -1,6 +1,6 @@
 /**
  * The filters and resampler the set analysis runs on decoded audio in the browser, built to give
- * what ffmpeg gives the desktop app for the same graph (src/main/audio.ts): its `lowpass` /
+ * what ffmpeg gives for the same graph (scripts/ffmpeg/audio.ts): its `lowpass` /
  * `highpass` biquads (RBJ cookbook, Q 0.707) and libswresample's default resampler (Kaiser-windowed
  * sinc, filter size 32, cutoff 0.97, beta 9, exact rational phases). No Node or DOM dependencies.
  */

@@ -194,14 +194,7 @@ export function App() {
   // The web asks before leaving while there's something to lose: unsaved edits, or a running export.
   useEffect(() => platform.setUnsaved?.((dirty && !tutorial) || exporting), [dirty, tutorial, exporting])
 
-  useEffect(
-    () =>
-      platform.onBeforeClose(async () => {
-        if (exportQueue.busy() && !confirm(t('jobs.quit'))) return
-        if (await settle()) platform.closeOk()
-      }),
-    [settle, t]
-  )
+  useEffect(() => platform.onBeforeClose(() => void settle()), [settle])
 
   // ---- tracks ------------------------------------------------------------------------------
   const changeTrack = useCallback(
@@ -426,10 +419,6 @@ export function App() {
     showToast(t('app.dropHint'))
   }
 
-  const openPathRef = useRef<(path: string) => void>(() => {})
-  openPathRef.current = (path: string) => openPaths([path])
-  useEffect(() => platform.onOpenPath((p) => openPathRef.current(p)), [])
-
   // ---- playback ----------------------------------------------------------------------------
   useEffect(() => {
     if (!audioEl || !playing) return
@@ -631,12 +620,8 @@ export function App() {
         'sep',
         { ...cmd('save'), shortcut: 'Mod+S', global: true, run: save, disabled: !has },
         { ...cmd('saveAs'), shortcut: 'Mod+Shift+S', global: true, run: saveAs, disabled: !has },
-        ...(platform.features.reveal ? [{ ...cmd('revealProject'), run: () => projectPath && platform.reveal(projectPath), disabled: !projectPath }] : []),
         'sep',
-        { ...cmd('exportVideo'), shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has },
-        ...(platform.features.windowControls
-          ? (['sep', { ...cmd(platform.os === 'darwin' ? 'closeWindow' : 'exit'), shortcut: 'Mod+Q', global: true, run: () => platform.quit() }] as const)
-          : [])
+        { ...cmd('exportVideo'), shortcut: 'Mod+E', global: true, run: () => setDialog({ kind: 'export' }), disabled: !has }
       ]
     },
     {
@@ -686,13 +671,7 @@ export function App() {
             setInspectorW(INSPECTOR_W)
             setTimelineH(TIMELINE_H)
           }
-        },
-        ...(platform.features.windowControls
-          ? [
-              { ...cmd('fullScreen'), shortcut: 'F11', global: true, run: () => platform.toggleFullScreen() },
-              { ...cmd('devTools'), shortcut: 'F12', global: true, run: () => platform.toggleDevTools() }
-            ]
-          : [])
+        }
       ]
     },
     {
@@ -752,25 +731,6 @@ export function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [dialog])
-
-  // Commands from the native macOS menu.
-  useEffect(
-    () =>
-      platform.onMenuCommand((id) => {
-        const by: Record<string, () => void> = {
-          new: newProject,
-          open: openAny,
-          importCue: () => importCue(),
-          save,
-          saveAs,
-          export: () => setDialog({ kind: 'export' }),
-          preferences: () => setDialog({ kind: 'prefs' })
-        }
-        by[id]?.()
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project, projectPath, save, saveAs]
-  )
 
   useEffect(() => {
     const name = project ? fileName ?? project.audioName : null

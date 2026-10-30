@@ -1,5 +1,5 @@
 /**
- * How two analyses of one recording differ (the desktop app's ffmpeg analysis and the browser's),
+ * How two analyses of one recording differ (ffmpeg's reference analysis and the browser's),
  * for scripts/compare-analysis.ts and the browser check in test/browser.
  */
 import { detectTakeovers, type SpectralFrames } from '../src/shared/takeover'

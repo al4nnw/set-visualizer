@@ -2,7 +2,7 @@
  * Compressed recordings (MP3, FLAC, AAC/M4A, Ogg/Opus/Vorbis, WebM...) decoded in the browser:
  * Mediabunny reads the container and the browser's WebCodecs AudioDecoder decodes it. The audio
  * comes out downmixed to mono at exact frame positions from 0, trimmed at both ends the way ffmpeg
- * trims it for the desktop app (encoder delay and padding), so both analyse the same samples.
+ * trims it (encoder delay and padding), so the browser and the ffmpeg reference analyse the same samples.
  */
 import { ALL_FORMATS, AudioSampleSink, BlobSource, EncodedPacketSink, Input, OggInputFormat, UnsupportedInputFormatError } from 'mediabunny'
 import { mp3Gapless } from '@shared/mp3'
@@ -11,7 +11,7 @@ export interface CompressedInfo {
   codec: string
   sampleRate: number
   channels: number
-  /** From the file's metadata (what ffprobe reports for the desktop app); null when it has none. */
+  /** From the file's metadata (what ffprobe reports); null when it has none. */
   duration: number | null
   /** Whether it can be decoded in pieces on several threads (see MIDSTREAM). */
   parallel: boolean

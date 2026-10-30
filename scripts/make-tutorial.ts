@@ -9,7 +9,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseTime } from '../src/shared/layout'
 import { dropRepeatedLoads, parseTracklist } from '../src/shared/tracklist'
-import { ffmpegPath } from '../src/main/ffmpeg'
+import { ffmpegPath } from './ffmpeg/ffmpeg'
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`)

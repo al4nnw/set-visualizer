@@ -9,15 +9,12 @@ import { errMsg, platform } from '../platform'
 const PROVIDERS: Array<{ id: SearchResult['provider']; label: string }> = [
   { id: 'deezer', label: 'Deezer' },
   { id: 'itunes', label: 'Apple Music' },
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'soundcloud', label: 'SoundCloud' }
+  { id: 'youtube', label: 'YouTube' }
 ]
 
-// The web version has no SoundCloud, and its YouTube search spends a quota everyone shares (and
-// needs a sign-in), so it searches YouTube only when asked. Deezer's covers are the sharpest: it comes first.
-const WEB = platform.kind === 'web'
-const SHOWN = WEB ? PROVIDERS.filter((p) => p.id !== 'soundcloud') : PROVIDERS
-const askFirst = (p: SearchResult['provider']) => WEB && p === 'youtube'
+// YouTube search spends a quota everyone shares (and needs a sign-in), so it searches YouTube only
+// when asked. Deezer's covers are the sharpest: it comes first.
+const askFirst = (p: SearchResult['provider']) => p === 'youtube'
 
 
 interface Props {
@@ -28,7 +25,7 @@ interface Props {
 
 export function SearchDialog({ track, onClose, onApply }: Props) {
   const { t } = useTranslation()
-  const [provider, setProvider] = useState<SearchResult['provider']>(SHOWN[0].id)
+  const [provider, setProvider] = useState<SearchResult['provider']>(PROVIDERS[0].id)
   const [query, setQuery] = useState([track.artist, track.title].filter(Boolean).join(' - '))
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -117,7 +114,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
           </button>
         </div>
         <div className="seg wide">
-          {SHOWN.map((p) => (
+          {PROVIDERS.map((p) => (
             <button key={p.id} className={provider === p.id ? 'on' : ''} onClick={() => setProvider(p.id)}>
               {p.label}
             </button>
