@@ -55,7 +55,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
       const claim = await claimExport('set')
       if (!claim) return
       // It runs in the background (see ExportJobs), with the project as it is now.
-      exportQueue.add({ label: name.replace(/\.mp4$/, ''), project, out, onEnd: (ok) => settleExport(claim, ok) })
+      exportQueue.add({ label: name.replace(/\.mp4$/, ''), project, out, ticket: claim.ticket, onEnd: (ok) => settleExport(claim.id, ok) })
       onClose()
     } catch (e) {
       setError((e as Error).message)

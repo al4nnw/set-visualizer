@@ -5,7 +5,7 @@ import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from
 import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
-import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
+import { BRAND, DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { errMsg, needsFile, platform, type NeedsFile } from './platform'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
@@ -344,7 +344,7 @@ export function App() {
       const r = await platform.openProject(path)
       if (!r) return
       await cancelLoad()
-      reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
+      reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings, djName: BRAND } })
       setTutorial(null)
       // Projects from before the vocal band was analysed: add it in the background so the cards
       // can follow the vocals where there's no bass.

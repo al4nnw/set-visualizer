@@ -256,8 +256,6 @@ export const es: Messages = {
     landscape: '16:9 YouTube',
     portrait: '9:16 Móvil',
     text: 'Texto',
-    djName: 'Nombre del DJ',
-    djNamePlaceholder: 'arriba a la izquierda',
     setTitle: 'Título del set',
     setTitlePlaceholder: 'En directo desde el estudio',
     videoLanguage: 'Idioma del vídeo',

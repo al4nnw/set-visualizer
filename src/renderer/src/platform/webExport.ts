@@ -52,7 +52,7 @@ async function scratchFile() {
 /** Seconds of audio the muxer is let run ahead of the video, so neither waits in memory for long. */
 const AHEAD = 4
 
-export async function startExport(audio: File, p: ProjectFile, target: VideoTarget, range?: ExportRange) {
+export async function startExport(audio: File, p: ProjectFile, target: VideoTarget, range?: ExportRange, ticketId?: string) {
   const { fps } = p.settings
   // The video starts on a frame boundary, so the audio does too.
   const firstFrame = Math.floor(Math.max(0, range?.from ?? 0) * fps)
@@ -78,6 +78,7 @@ export async function startExport(audio: File, p: ProjectFile, target: VideoTarg
   const sound = new AudioSampleSource({ codec: enc.codec, bitrate: enc.bitrate, transform: { sampleRate: enc.sampleRate, numberOfChannels: channels } })
   output.addVideoTrack(video, { frameRate: fps })
   output.addAudioTrack(sound)
+  output.setMetadataTags({ comment: ticketId ? `REKCUT export ${ticketId}` : 'REKCUT' })
   await output.start()
 
   // How far the video has got, for the audio to keep pace with.

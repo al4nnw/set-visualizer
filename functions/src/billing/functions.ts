@@ -3,6 +3,7 @@ import { entitlementOf } from './entitlements.js'
 import { isPlanId } from './plans.js'
 import { paymentProvider } from './providers/index.js'
 import { claim, getAccount, recordEvent, settle, type ExportKind } from './store.js'
+import { EXPORT_TICKET_KEY, signTicket } from './ticket.js'
 import type { Account, Entitlement } from './types.js'
 
 /**
@@ -33,13 +34,16 @@ function appUrl(v: unknown): string {
 
 export const accountStatus = onCall(opts, async (req) => view(await getAccount(uidOf(req))))
 
-/** `{ kind }` → `{ ok: true, id }`, or `{ ok: false }` when a free account has no exports left. */
-export const claimExport = onCall(opts, async (req) => {
+/**
+ * `{ kind }` → `{ ok: true, id, ticket }` (the signed ticket the app needs to render, see
+ * ticket.ts), or `{ ok: false }` when a free account has no exports left.
+ */
+export const claimExport = onCall({ ...opts, secrets: [EXPORT_TICKET_KEY] }, async (req) => {
   const uid = uidOf(req)
   const kind = (req.data as { kind?: unknown })?.kind
   if (kind !== 'set' && kind !== 'clip') throw new HttpsError('invalid-argument', 'kind is set or clip')
   const r = await claim(uid, kind as ExportKind)
-  return r ? { ok: true, id: r.id, entitlement: view(r.account) } : { ok: false, entitlement: view(await getAccount(uid)) }
+  return r ? { ok: true, id: r.id, ticket: signTicket({ id: r.id, uid, kind: kind as ExportKind }), entitlement: view(r.account) } : { ok: false, entitlement: view(await getAccount(uid)) }
 })
 
 /** `{ id, ok }`: the export finished, or failed / was cancelled (giving a free one back). */

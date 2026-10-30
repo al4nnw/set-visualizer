@@ -256,8 +256,6 @@ export const ptBR: Messages = {
     landscape: '16:9 YouTube',
     portrait: '9:16 Celular',
     text: 'Texto',
-    djName: 'Nome do DJ',
-    djNamePlaceholder: 'aparece no canto superior esquerdo',
     setTitle: 'Título do set',
     setTitlePlaceholder: 'Ao vivo do estúdio',
     videoLanguage: 'Idioma do vídeo',

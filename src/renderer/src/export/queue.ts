@@ -23,6 +23,8 @@ export interface ExportJob {
   error?: string
   /** Called once when the job ends: true when its video was written (the account counts it). */
   onEnd?: (ok: boolean) => void
+  /** The server's signed permission to render it. */
+  ticket?: string
 }
 
 let jobs: ExportJob[] = []
@@ -47,7 +49,7 @@ async function pump() {
   running = { id: job.id, abort }
   patch(job.id, { status: 'running' })
   try {
-    await runExport(job.project, job.out, (progress) => patch(job.id, { progress }), abort.signal, job.range)
+    await runExport(job.project, job.out, (progress) => patch(job.id, { progress }), abort.signal, job.range, job.ticket)
     patch(job.id, { status: 'done' })
     ended(job, true)
   } catch (e) {
@@ -64,7 +66,7 @@ async function pump() {
 }
 
 export const exportQueue = {
-  add(job: Pick<ExportJob, 'label' | 'clipId' | 'project' | 'out' | 'range' | 'onEnd'>) {
+  add(job: Pick<ExportJob, 'label' | 'clipId' | 'project' | 'out' | 'range' | 'onEnd' | 'ticket'>) {
     jobs = [...jobs, { ...job, id: nextId++, status: 'queued' }]
     emit()
     void pump()

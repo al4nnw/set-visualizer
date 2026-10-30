@@ -194,7 +194,7 @@ export async function exportClipVideo(project: Project, c: ClipSuggestion, forma
   const out = await platform.chooseVideoPath(name + '.mp4')
   if (!out) return
   const claim = await claimExport('clip')
-  if (claim) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to }, onEnd: (ok) => settleExport(claim, ok) })
+  if (claim) exportQueue.add({ label: name, clipId: c.id, project: clipProject(project, format), out, range: { from: c.from, to: c.to }, ticket: claim.ticket, onEnd: (ok) => settleExport(claim.id, ok) })
 }
 
 /**

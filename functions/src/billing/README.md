@@ -23,6 +23,11 @@ set, its file name, tracks or artwork.
 An export: the app asks `claimExport` before it starts (a free account spends one, or gets the
 plans), and `settleExport` when it ends. A failed or cancelled export gives its free one back.
 
+`claimExport` also returns a **ticket** signed with the EXPORT_TICKET_KEY secret (`ticket.ts`). The
+app checks it with the public key it ships with (`src/renderer/src/account/ticket.ts`) and won't
+render without a valid one; the ticket id goes into the MP4's comment tag. This can't make the
+browser tamper-proof, but skipping the payment check means rewriting the app's code.
+
 ## Adding a payment provider (Paddle, Stripe, ...)
 
 1. Write `providers/<name>.ts` implementing `PaymentProvider`:
@@ -52,4 +57,7 @@ in the browser console signs in without Google's popup.
 
 - **Firestore**: Console → Build → Firestore Database → Create database, location
   `southamerica-east1`, production mode. Needed before this is deployed, or exports can't start.
+- **Export ticket key**: `npm run ticket-key`, signed in to the Firebase CLI. It sets the
+  EXPORT_TICKET_KEY secret and writes the matching public key into the app; commit that change.
+  Needed before deploying, or the deploy fails.
 - **Sign-in**: Google only (already on in Authentication → Sign-in method).

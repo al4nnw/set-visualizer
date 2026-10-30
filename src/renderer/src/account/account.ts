@@ -101,6 +101,9 @@ export function loadAccount() {
 
 const call = async <Res>(name: Parameters<Fb['callAccount']>[0], data?: unknown) => (await fb()).callAccount<unknown, Res>(name, data)
 
+/** Who is signed in now, for checking an export ticket is theirs. */
+export const currentUid = () => state.user?.uid
+
 /** Reloads what the signed-in user may do. */
 export async function refresh(): Promise<Entitlement | null> {
   if (!state.user) return null
@@ -178,14 +181,14 @@ export async function beforeExport(): Promise<boolean> {
 }
 
 /**
- * Spends an export on the server (free ones are counted there); its id, to settle once the export
- * ends, or null when it can't start (the plans or an error show).
+ * Spends an export on the server (free ones are counted there); its id (to settle once the export
+ * ends) and signed ticket, or null when it can't start (the plans or an error show).
  */
-export async function claimExport(kind: 'set' | 'clip'): Promise<string | null> {
+export async function claimExport(kind: 'set' | 'clip'): Promise<{ id: string; ticket: string } | null> {
   try {
-    const r = await call<{ ok: boolean; id?: string; entitlement: Entitlement }>('claimExport', { kind })
+    const r = await call<{ ok: boolean; id?: string; ticket?: string; entitlement: Entitlement }>('claimExport', { kind })
     setState({ entitlement: r.entitlement })
-    if (r.ok && r.id) return r.id
+    if (r.ok && r.id && r.ticket) return { id: r.id, ticket: r.ticket }
     openDialog({ kind: 'plans', reason: 'limit' })
   } catch (e) {
     openDialog({ kind: 'error', message: i18n.t('account.errors.claim', { error: errorText(e) }) })

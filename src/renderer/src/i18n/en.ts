@@ -261,8 +261,6 @@ export const en = {
     landscape: '16:9 YouTube',
     portrait: '9:16 Phone',
     text: 'Text',
-    djName: 'DJ name',
-    djNamePlaceholder: 'shown top-left',
     setTitle: 'Set title',
     setTitlePlaceholder: 'Live from the studio',
     videoLanguage: 'Video language',

@@ -446,11 +446,11 @@ export function webPlatform(): Platform {
       return { artwork: register(await downloadArtwork(best.image)), url: best.url, source: PROVIDER_NAME[best.provider] }
     },
 
-    exportBegin: async (p, out, range) => {
+    exportBegin: async (p, out, range, ticketId) => {
       await exporting?.abort()
       const target = videoTargets.get(out)
       if (!target) throw new Error(i18n.t('web.fileGone', { name: nameOf(out) }))
-      exporting = await startExport(fileFor(p.audioPath), p, target, range)
+      exporting = await startExport(fileFor(p.audioPath), p, target, range, ticketId)
     },
     exportChunk: (data, info) => info && exporting?.chunk(data, info),
     exportFinish: async () => {
