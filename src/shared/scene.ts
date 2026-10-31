@@ -320,7 +320,8 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const portrait = isPortrait(settings)
   const social = isSocial(settings)
   const { left, right } = sideMargins(settings, s)
-  const cx = portrait ? (left + right) / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
+  // Centred on the video; in social the text narrows so it stays clear of the apps' buttons.
+  const cx = portrait ? W / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
   const cy = social ? slotPos(c.slot, share, 840 * s, 624 * s, 1125 * s) : portrait ? slotPos(c.slot, share, 880 * s, 520 * s, 1240 * s) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
@@ -383,7 +384,7 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const ts = prep.textScale
   const tx = cx
   let ty = cy + textSize / 2 + (portrait ? 46 : 52) * ts
-  const maxW = portrait ? right - left : lerp(520 * s, 620 * s, c.mainness)
+  const maxW = portrait ? 2 * Math.min(cx - left, right - cx) : lerp(520 * s, 620 * s, c.mainness)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
   const num = String(c.index + 1).padStart(2, '0')
