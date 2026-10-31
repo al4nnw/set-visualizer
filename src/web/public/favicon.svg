@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="REKCUT">
+  <defs>
+    <linearGradient id="a" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff3d7f"/>
+      <stop offset="1" stop-color="#ffb45c"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff3d7f"/>
+      <stop offset="1" stop-color="#3dd6ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0b0b12"/>
+  <g fill="url(#a)">
+    <rect x="13" y="34" width="5" height="16" rx="2.5"/>
+    <rect x="22" y="24" width="5" height="26" rx="2.5"/>
+    <rect x="40" y="28" width="5" height="22" rx="2.5"/>
+    <rect x="49" y="38" width="5" height="12" rx="2.5"/>
+  </g>
+  <rect x="31" y="15" width="5" height="35" rx="2.5" fill="url(#b)"/>
+</svg>
