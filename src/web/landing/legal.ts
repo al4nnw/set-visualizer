@@ -9,7 +9,7 @@ export const OPTIONAL_LEGAL = ['taxId', 'address']
 
 export const LEGAL = {
   /** The seller's legal name: the company, or the sole proprietor's full name. */
-  name: '',
+  name: 'Alan Cesar Sousa',
   /**
    * Optional: a CNPJ, if the business has one. Paddle doesn't ask for it (it is the Merchant of
    * Record), so leave it empty rather than publish a personal CPF.
@@ -18,7 +18,7 @@ export const LEGAL = {
   /** Optional: a postal address for legal notices. Paddle doesn't ask for it either. */
   address: '',
   /** Where customers write for support, refunds and privacy requests. */
-  email: '',
+  email: 'alancsousa11@gmail.com',
   /** Days after a payment within which it is refunded on request, no questions asked. */
   refundDays: '14',
   /** When the terms, refund and privacy pages last changed (YYYY-MM-DD). */
