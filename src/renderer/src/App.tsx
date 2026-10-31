@@ -19,6 +19,7 @@ import { SearchDialog } from './components/SearchDialog'
 import { Splitter, useStoredNumber } from './components/Splitter'
 import { EmptyTimeline, Timeline, type TimelineHandle } from './components/Timeline'
 import { Viewer } from './components/Viewer'
+import { useFullscreen } from './useFullscreen'
 import { useHistory } from './useHistory'
 import { ExportJobs } from './components/ExportJobs'
 import { exportQueue, useExportJobs } from './export/queue'
@@ -460,6 +461,12 @@ export function App() {
   const clips = useMemo(() => applyClipEdits(suggested, project?.clipEdits), [suggested, project?.clipEdits])
   const loop = clips.find((c) => c.id === loopId) ?? null
   const [viewerTab, setViewerTab] = useState<ViewerTab>('program')
+  const fullscreen = useFullscreen<HTMLElement>()
+  const toggleFullscreen = () => {
+    // Full screen is for watching the video, so it always shows Program.
+    if (!fullscreen.on) setViewerTab('program')
+    fullscreen.toggle()
+  }
   const clipsHint = !!prefs && !prefs.clipsHintSeen && clips.length > 0 && !tutorial && !busy
   loopRef.current = loop
 
@@ -668,6 +675,7 @@ export function App() {
         { ...cmd('zoomIn'), shortcut: '=', run: () => timelineRef.current?.zoomIn(), disabled: !has },
         { ...cmd('zoomOut'), shortcut: '-', run: () => timelineRef.current?.zoomOut(), disabled: !has },
         { ...cmd('fit'), shortcut: '\\', run: () => timelineRef.current?.fit(), disabled: !has },
+        { ...cmd('fullscreen'), shortcut: 'F', checked: fullscreen.on, run: toggleFullscreen, disabled: !has || !fullscreen.available },
         'sep',
         { ...cmd('tabTracks'), checked: tab === 'tracks', run: () => setTab('tracks') },
         { ...cmd('tabStyle'), checked: tab === 'style', run: () => setTab('style') },
@@ -722,6 +730,12 @@ export function App() {
   const hooked = menus.map((m) => ({ ...m, items: withHooks(m.items) }))
   const menusRef = useRef(hooked)
   menusRef.current = hooked
+
+  // Dialogs open outside the viewer, where full screen would hide them.
+  const exitFullscreen = fullscreen.exit
+  useEffect(() => {
+    if (dialog) exitFullscreen()
+  }, [dialog, exitFullscreen])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -848,6 +862,9 @@ export function App() {
           onDismissClipsHint={() => void changePrefs({ clipsHintSeen: true })}
           clipFormat={clipFormat}
           onClipFormat={setClipFormat}
+          sectionRef={fullscreen.ref}
+          fullscreen={fullscreen.on}
+          onToggleFullscreen={toggleFullscreen}
           volume={volume}
           muted={!!muted}
           onVolume={(v) => {

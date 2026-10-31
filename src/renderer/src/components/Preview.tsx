@@ -12,13 +12,15 @@ interface Props {
   time: number
   /** The clip looping in Program, so the completion line fills over it as it will in the export. */
   range?: { from: number; to: number }
+  /** Render size on the short side, in pixels; PREVIEW_SHORT unless given (full screen asks for more). */
+  short?: number
 }
 
 /** The preview renders with 720 px on the short side and is scaled to fit the viewer. */
 const PREVIEW_SHORT = 720
 
 /** Live preview drawn with the exact same scene code as the exported video. */
-export function Preview({ project, audio, time, range }: Props) {
+export function Preview({ project, audio, time, range, short = PREVIEW_SHORT }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [art, setArt] = useState<Map<string, ArtAsset>>(new Map())
   const [fontsReady, setFontsReady] = useState(false)
@@ -38,7 +40,7 @@ export function Preview({ project, audio, time, range }: Props) {
   }, [artKey])
 
   const { width, height } = project.settings
-  const k = PREVIEW_SHORT / Math.min(width, height)
+  const k = short / Math.min(width, height)
   const pw = Math.round(width * k)
   const ph = Math.round(height * k)
   // Paid plans export without the watermark (the export ticket decides), so the preview matches.

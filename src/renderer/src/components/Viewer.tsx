@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
 import type { Project, RecentProject } from '@shared/types'
@@ -53,6 +53,11 @@ interface Props {
   /** The one-time note that the volume does not change exports is still to be shown. */
   volumeHint: boolean
   onDismissVolumeHint: () => void
+  /** The viewer element that goes full screen. */
+  sectionRef: Ref<HTMLElement>
+  /** Program is in browser full screen. */
+  fullscreen: boolean
+  onToggleFullscreen: () => void
 }
 
 export type ViewerTab = 'program' | 'clips'
@@ -129,8 +134,11 @@ export function Viewer(p: Props) {
   const fps = project?.settings.fps ?? 30
   const shown = project && loop ? clipProject(project, p.clipFormat) : project
   const hours = (project?.duration ?? 0) >= 3600
+  const idle = useIdle(p.fullscreen && p.playing)
+  // In full screen the preview renders closer to the screen's own resolution, so it stays sharp.
+  const short = p.fullscreen ? Math.min(1080, Math.round(Math.min(screen.width, screen.height) * devicePixelRatio)) : undefined
   return (
-    <section className="panel viewer">
+    <section ref={p.sectionRef} className={`panel viewer ${p.fullscreen ? 'fullscreen' : ''} ${idle ? 'idle' : ''}`}>
       <div className="panel-tabs">
         <button className={`panel-tab ${tab === 'program' ? 'on' : ''}`} onClick={() => setTab('program')}>
           {t('viewer.program')}
@@ -184,7 +192,7 @@ export function Viewer(p: Props) {
             onFormat={p.onClipFormat}
           />
         ) : (
-          <Preview project={shown!} audio={p.audio} time={time} range={loop ? { from: loop.from, to: loop.to } : undefined} />
+          <Preview project={shown!} audio={p.audio} time={time} range={loop ? { from: loop.from, to: loop.to } : undefined} short={short} />
         )}
         {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} />}
       </div>
@@ -218,10 +226,45 @@ export function Viewer(p: Props) {
         </div>
         <div className="grow" />
         <VolumeControl {...p} disabled={!project} />
+        <button
+          className="tbtn"
+          title={t(p.fullscreen ? 'viewer.exitFullscreen' : 'viewer.fullscreen', { key: shortcutLabel('F') })}
+          aria-pressed={p.fullscreen}
+          disabled={!project || !document.fullscreenEnabled}
+          onClick={p.onToggleFullscreen}
+        >
+          <Icon name={p.fullscreen ? 'fullscreenExit' : 'fullscreen'} />
+        </button>
         <div className="timecode total">{formatTimecode(project?.duration ?? 0, fps)}</div>
       </div>
     </section>
   )
+}
+
+/**
+ * True once the pointer has rested for a moment while `active` (full screen and playing), so the
+ * controls can fade out of the way of the video. Any pointer move or key brings them back.
+ */
+function useIdle(active: boolean) {
+  const [idle, setIdle] = useState(false)
+  useEffect(() => {
+    setIdle(false)
+    if (!active) return
+    let timer = 0
+    const wake = () => {
+      setIdle(false)
+      clearTimeout(timer)
+      timer = window.setTimeout(() => setIdle(true), 2500)
+    }
+    wake()
+    const events = ['pointermove', 'pointerdown', 'keydown'] as const
+    events.forEach((e) => window.addEventListener(e, wake))
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, wake))
+    }
+  }, [active])
+  return idle
 }
 
 /**
