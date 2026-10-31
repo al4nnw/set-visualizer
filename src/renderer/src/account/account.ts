@@ -23,12 +23,15 @@ export interface Entitlement {
   canManage: boolean
   plans: { id: PlanId; price: number; currency: string; interval: 'month' | null }[]
   checkout: boolean
+  /** May open the back office. Only shows the menu entry: the server checks every admin call. */
+  admin?: boolean
 }
 
 export type AccountDialog =
   | { kind: 'signIn'; reason: 'export' | 'search' | 'menu' }
   | { kind: 'plans'; reason: 'limit' | 'menu' }
   | { kind: 'account' }
+  | { kind: 'admin' }
   | { kind: 'paid' }
   | { kind: 'error'; message: string }
 
@@ -101,6 +104,9 @@ export function loadAccount() {
 
 const call = async <Res>(name: Parameters<Fb['callAccount']>[0], data?: unknown) => (await fb()).callAccount<unknown, Res>(name, data)
 
+/** One of the back office's calls (functions/src/billing/admin.ts). The server refuses non-admins. */
+export const callAdmin = <Res>(name: 'adminListUsers' | 'adminAddExports' | 'adminSetPlan', data?: unknown) => call<Res>(name, data)
+
 /** Who is signed in now, for checking an export ticket is theirs. */
 export const currentUid = () => state.user?.uid
 
@@ -117,7 +123,7 @@ export async function refresh(): Promise<Entitlement | null> {
   }
 }
 
-function errorText(e: unknown): string {
+export function errorText(e: unknown): string {
   const code = (e as { code?: string })?.code ?? ''
   const key = (
     {
@@ -125,7 +131,8 @@ function errorText(e: unknown): string {
       'auth/network-request-failed': 'account.errors.offline',
       'functions/unavailable': 'account.errors.offline',
       'functions/internal': 'account.errors.server',
-      'functions/not-found': 'account.errors.server'
+      'functions/not-found': 'account.errors.server',
+      'functions/permission-denied': 'admin.notAdmin'
     } as Record<string, string>
   )[code]
   return key ? i18n.t(key as 'account.errors.server') : String((e as Error)?.message ?? e)

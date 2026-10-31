@@ -9,17 +9,18 @@ import type { Account, BillingEvent } from './types.js'
  * - users/{uid}/exports/{id}: one per export started: when, whether it was free, and how it ended
  *   (so a failed export gives its free export back once). Nothing about what was exported.
  * - billingEvents/{provider}_{id}: provider events already applied, so a retried webhook counts once.
+ * - admins/{uid}: who may use the back office; adminLog: what they changed (see admin.ts).
  */
 
 let db: Firestore | undefined
-const firestore = () => {
+export const firestore = () => {
   // By name: firebase-functions creates an app of its own (to check sign-in) before this runs.
   if (!getApps().some((a) => a.name === '[DEFAULT]')) initializeApp()
   return (db ??= getFirestore())
 }
 
-const userRef = (uid: string) => firestore().collection('users').doc(uid)
-const asAccount = (data: FirebaseFirestore.DocumentData | undefined): Account => ({ ...emptyAccount(), ...(data as Partial<Account> | undefined) })
+export const userRef = (uid: string) => firestore().collection('users').doc(uid)
+export const asAccount = (data: FirebaseFirestore.DocumentData | undefined): Account => ({ ...emptyAccount(), ...(data as Partial<Account> | undefined) })
 
 export async function getAccount(uid: string): Promise<Account> {
   return asAccount((await userRef(uid).get()).data())

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Icon } from '../components/icons'
 import { lang } from '../i18n'
+import { BackOffice } from './BackOffice'
 import { buyPlan, closeDialog, managePlan, openDialog, signInWithGoogle, signOut, useAccount, type Entitlement, type PlanId } from './account'
 
 function Modal({ title, children }: { title: string; children: React.ReactNode }) {
@@ -108,6 +109,11 @@ export function AccountDialogs() {
           <button className="btn" onClick={() => void signOut()}>
             {t('account.signOut')}
           </button>
+          {ent?.admin && (
+            <button className="btn" onClick={() => openDialog({ kind: 'admin' })}>
+              {t('account.backOffice')}
+            </button>
+          )}
           <div className="grow" />
           {ent?.canManage && (
             <button className="btn" disabled={!!pending} onClick={() => void managePlan()}>
@@ -122,6 +128,8 @@ export function AccountDialogs() {
         </div>
       </Modal>
     )
+
+  if (dialog.kind === 'admin') return <BackOffice />
 
   if (dialog.kind === 'paid')
     return (

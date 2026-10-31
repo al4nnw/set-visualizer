@@ -13,6 +13,19 @@ export interface Account {
   lifetime?: Lifetime
   /** The customer id each provider gave this user, for its billing portal. */
   customers?: Record<string, string>
+  /** Extra free exports an admin gave this user, on top of FREE_EXPORTS. */
+  bonusExports?: number
+  /** A plan an admin gave this user without a payment (see admin.ts). */
+  granted?: Grant
+}
+
+/** A plan given by an admin: lifetime, or monthly until a date. It sits beside anything paid for. */
+export interface Grant {
+  plan: PlanId
+  /** Monthly: when it ends (ms). Lifetime has no end. */
+  until?: number
+  /** When it was given (ms). */
+  at: number
 }
 
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled'
@@ -62,4 +75,6 @@ export interface Entitlement {
   plans: Plan[]
   /** A payment provider is set up, so the plans can be bought. */
   checkout: boolean
+  /** This user may open the back office (only ever set by the server, see admin.ts). */
+  admin?: boolean
 }

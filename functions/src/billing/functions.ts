@@ -1,4 +1,5 @@
 import { HttpsError, onCall, onRequest, type CallableRequest } from 'firebase-functions/v2/https'
+import { isAdmin } from './admin.js'
 import { entitlementOf } from './entitlements.js'
 import { isPlanId } from './plans.js'
 import { paymentProvider } from './providers/index.js'
@@ -32,7 +33,11 @@ function appUrl(v: unknown): string {
   throw new HttpsError('invalid-argument', 'returnUrl must be a page of the app')
 }
 
-export const accountStatus = onCall(opts, async (req) => view(await getAccount(uidOf(req))))
+export const accountStatus = onCall(opts, async (req) => {
+  const uid = uidOf(req)
+  const [acc, admin] = await Promise.all([getAccount(uid), isAdmin(uid)])
+  return { ...view(acc), ...(admin ? { admin: true } : {}) }
+})
 
 /**
  * `{ kind }` → `{ ok: true, id, ticket }` (the signed ticket the app needs to render, see

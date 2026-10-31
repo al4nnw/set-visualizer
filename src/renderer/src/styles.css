@@ -2135,3 +2135,192 @@ kbd {
 .export-plan {
   margin-right: 4px;
 }
+
+/* ---------- back office ---------- */
+.admin-modal {
+  width: min(1040px, 96vw);
+  height: min(680px, 90vh);
+  overflow: hidden;
+}
+.admin-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-stats {
+  display: flex;
+  gap: 18px;
+  color: var(--muted);
+}
+.admin-stats b {
+  color: var(--text-hi);
+  font-size: 15px;
+  font-weight: 600;
+  margin-right: 2px;
+}
+input[type='text'].admin-search {
+  width: 220px;
+  height: 26px;
+}
+.admin-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 290px;
+  gap: 12px;
+}
+.admin-list {
+  overflow-y: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--field);
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.admin-col-date {
+  width: 140px;
+}
+.admin-col-plan {
+  width: 220px;
+}
+.admin-col-exports {
+  width: 150px;
+}
+.admin-table td.admin-date {
+  white-space: nowrap;
+}
+.admin-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-head);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-2);
+}
+.admin-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-2);
+  vertical-align: middle;
+}
+.admin-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.admin-table tbody tr {
+  cursor: pointer;
+}
+.admin-table tbody tr:hover {
+  background: var(--raised);
+}
+.admin-table tbody tr.on {
+  background: var(--accent-soft);
+}
+.admin-who {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.admin-who .avatar {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+.admin-name {
+  color: var(--text-hi);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-new {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.admin-plan.monthly,
+.admin-plan.lifetime {
+  color: var(--ok);
+}
+.admin-out {
+  color: var(--danger);
+}
+.admin-empty {
+  padding: 14px 10px;
+  margin: 0;
+}
+.admin-side {
+  overflow-y: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--raised);
+  padding: 12px;
+}
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin-panel .admin-who .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+}
+.admin-panel h4 {
+  margin-top: 8px;
+}
+.admin-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+.admin-facts dt {
+  color: var(--muted);
+}
+.admin-facts dd {
+  margin: 0;
+}
+.admin-stepper {
+  align-items: center;
+}
+.admin-stepper span {
+  min-width: 26px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-stepper button {
+  border-right: none;
+}
+.admin-plan-choices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.admin-done {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ok);
+}
+@media (max-width: 760px) {
+  .admin-body {
+    grid-template-columns: 1fr;
+  }
+  .admin-stats {
+    display: none;
+  }
+}

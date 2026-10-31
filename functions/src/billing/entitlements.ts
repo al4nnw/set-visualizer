@@ -1,4 +1,4 @@
-import { FREE_EXPORTS, GRACE_MS, PLANS } from './plans.js'
+import { FREE_EXPORTS, GRACE_MS, PLANS, type PlanId } from './plans.js'
 import type { Account, BillingEvent, Entitlement } from './types.js'
 
 /**
@@ -19,18 +19,35 @@ export function subscriptionActive(acc: Account, now: number): boolean {
 
 export const lifetimeActive = (acc: Account) => !!acc.lifetime && !acc.lifetime.refunded
 
+/** Whether an admin's gift of a plan still holds at `now`. */
+export const grantActive = (acc: Account, now: number) => !!acc.granted && (acc.granted.plan === 'lifetime' || (acc.granted.until ?? 0) > now)
+
+/** The plan that pays for exports at `now`, bought or given; null on the free exports. */
+export function paidPlan(acc: Account, now: number): 'monthly' | 'lifetime' | null {
+  const grant = grantActive(acc, now) ? acc.granted!.plan : null
+  if (lifetimeActive(acc) || grant === 'lifetime') return 'lifetime'
+  if (subscriptionActive(acc, now) || grant === 'monthly') return 'monthly'
+  return null
+}
+
+/** Free exports this account gets: everyone's FREE_EXPORTS plus whatever an admin added. */
+export const freeLimitOf = (acc: Account) => FREE_EXPORTS + Math.max(0, Math.floor(acc.bonusExports ?? 0))
+
 export function entitlementOf(acc: Account, now: number, opts: { checkout: boolean }): Entitlement {
-  const lifetime = lifetimeActive(acc)
-  const monthly = !lifetime && subscriptionActive(acc, now)
+  const plan = paidPlan(acc, now)
+  const monthly = plan === 'monthly'
+  // A monthly plan the user pays for renews; one given by an admin only ends.
+  const paying = monthly && subscriptionActive(acc, now)
   const freeUsed = Math.max(0, acc.freeExportsUsed)
+  const freeLimit = freeLimitOf(acc)
   return {
-    plan: lifetime ? 'lifetime' : monthly ? 'monthly' : 'free',
-    unlimited: lifetime || monthly,
-    freeLimit: FREE_EXPORTS,
-    freeUsed: Math.min(freeUsed, FREE_EXPORTS),
-    freeLeft: Math.max(0, FREE_EXPORTS - freeUsed),
-    periodEnd: monthly ? acc.subscription!.currentPeriodEnd : undefined,
-    cancelAtPeriodEnd: monthly ? !!acc.subscription!.cancelAtPeriodEnd : undefined,
+    plan: plan ?? 'free',
+    unlimited: !!plan,
+    freeLimit,
+    freeUsed: Math.min(freeUsed, freeLimit),
+    freeLeft: Math.max(0, freeLimit - freeUsed),
+    periodEnd: !monthly ? undefined : paying ? acc.subscription!.currentPeriodEnd : acc.granted!.until,
+    cancelAtPeriodEnd: !monthly ? undefined : paying ? !!acc.subscription!.cancelAtPeriodEnd : true,
     canManage: opts.checkout && !!(acc.subscription || acc.lifetime) && Object.keys(acc.customers ?? {}).length > 0,
     plans: PLANS,
     checkout: opts.checkout
@@ -42,8 +59,8 @@ export function entitlementOf(acc: Account, now: number, opts: { checkout: boole
  * or is refused (`null`) when none are left.
  */
 export function claimExport(acc: Account, now: number): { account: Account; free: boolean } | null {
-  const paid = lifetimeActive(acc) || subscriptionActive(acc, now)
-  if (!paid && acc.freeExportsUsed >= FREE_EXPORTS) return null
+  const paid = !!paidPlan(acc, now)
+  if (!paid && acc.freeExportsUsed >= freeLimitOf(acc)) return null
   return {
     free: !paid,
     account: { ...acc, exportsTotal: acc.exportsTotal + 1, freeExportsUsed: acc.freeExportsUsed + (paid ? 0 : 1) }
@@ -79,4 +96,31 @@ export function applyEvent(acc: Account, e: BillingEvent): Account {
     case 'lifetime.refunded':
       return acc.lifetime?.orderId === e.orderId ? { ...next, lifetime: { ...acc.lifetime, refunded: true } } : next
   }
+}
+
+/**
+ * Back office: gives `count` more free exports (a negative count takes them back, never below
+ * none given). Exports already used stay used.
+ */
+export const addBonusExports = (acc: Account, count: number): Account => ({ ...acc, bonusExports: Math.max(0, Math.floor(acc.bonusExports ?? 0) + Math.trunc(count)) })
+
+/** Longest monthly plan the back office gives in one go. */
+export const MAX_GRANT_MONTHS = 24
+
+/**
+ * Back office: gives a plan without a payment (monthly for `months` from `now`, or lifetime), or
+ * takes the given plan away (`free`). Anything the user bought through the provider is untouched:
+ * that can only be cancelled or refunded there.
+ */
+export function grantPlan(acc: Account, plan: 'free' | PlanId, now: number, months = 1): Account {
+  const next = { ...acc }
+  if (plan === 'free') delete next.granted
+  else if (plan === 'lifetime') next.granted = { plan, at: now }
+  else {
+    const m = Math.min(MAX_GRANT_MONTHS, Math.max(1, Math.floor(months)))
+    const until = new Date(now)
+    until.setUTCMonth(until.getUTCMonth() + m)
+    next.granted = { plan, until: until.getTime(), at: now }
+  }
+  return next
 }

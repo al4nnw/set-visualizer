@@ -32,6 +32,7 @@ npm run compare-analysis -- set.wav --cue set.cue   # same check in Node, withou
 npm run build:wasm     # regenerate src/shared/resampleWasm.ts from resample.wat
 npm run emulators      # Auth + Functions + Firestore emulators (fake payment provider)
 npm run dev:emulators  # the app talking to the emulators; emulatorSignIn(email) in the console signs in
+npm run make-admin -- you@example.com [--emulators]   # let a signed-up user open the back office
 npm --prefix functions run build   # compile the functions (tsc)
 ```
 
@@ -68,12 +69,12 @@ src/renderer/src/    the React app
     webFirebase.ts   Firebase app, Google sign-in, callable functions (lazy loaded)
   analysis/          analysis workers: segment workers + one decoder worker for compressed audio
   export/            encodeWorker.ts (OffscreenCanvas + WebCodecs H.264), runExport.ts, queue.ts
-  account/           account store and dialogs, export ticket check (ticket.ts)
+  account/           account store and dialogs, export ticket check (ticket.ts), back office (BackOffice.tsx)
   i18n/              UI catalogs: en.ts is the source, pt-BR.ts and es.ts must match it
 src/web/             entry HTML and bootstrap (vite.web.config.ts roots here)
 functions/src/       Cloud Functions (Node 22, region southamerica-east1)
   index.ts           youtubeSearch (signed-in only; the API key is a secret) + re-exports billing
-  billing/           accounts, free exports, plans, tickets, payment providers (has its own README)
+  billing/           accounts, free exports, plans, tickets, payment providers, back office (admin.ts); has its own README
 scripts/             ffmpeg/ (reference analysis), compare-analysis, build-wasm, make-tutorial,
                      ticket-key.mjs, deploy.ps1 (manual deploy, rarely needed)
 test/                vitest suites; browser/ is the Playwright harness for test:browser
@@ -94,7 +95,9 @@ The `@shared/*` import alias points at `src/shared/` (tsconfig + Vite).
 
 **Tracks and the cue sheet.** A `Track` has a `deck` ('A' or 'B'), a `start` (when it takes over as the main track), optional `mixIn` (when it starts being heard and appears on the right) and optional `tailEnd` (when it stops being heard after the swap). Importing a `.cue` sets each track's cue time as its mix-in and then finds the real takeover in the audio (`takeover.ts`). A track that never takes over is `layered`.
 
-**Backend.** `functions/src/index.ts` exports `youtubeSearch` and the billing callables (`accountStatus`, `claimExport`, `settleExport`, `startCheckout`, `billingPortal`) plus the `billingWebhook` HTTP function. Firestore rules deny all client access: only the functions read and write it.
+**Backend.** `functions/src/index.ts` exports `youtubeSearch` and the billing callables (`accountStatus`, `claimExport`, `settleExport`, `startCheckout`, `billingPortal`) plus the `billingWebhook` HTTP function, and the back office callables (`adminListUsers`, `adminAddExports`, `adminSetPlan`). Firestore rules deny all client access: only the functions read and write it.
+
+**Back office.** Account ▸ Back office lists the users (newest first) and lets an admin give free exports or a Monthly/Lifetime plan without a payment. A user is an admin when `admins/{uid}` exists in Firestore (`npm run make-admin`, or by hand in the console). Every admin call checks that on the server; `accountStatus` only tells the app so it can show the button. Never decide admin access in the app.
 
 ## Conventions
 

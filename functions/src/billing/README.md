@@ -18,6 +18,7 @@ set, its file name, tracks or artwork.
 | `store.ts` | Firestore transactions (`users/{uid}`, `users/{uid}/exports`, `billingEvents`) |
 | `functions.ts` | The callable functions the app uses, and the provider's webhook |
 | `provider.ts` | **The payment provider interface** |
+| `admin.ts` | The back office's callables: list users, give free exports, give or take away a plan |
 | `providers/` | Its implementations: `none` (default, plans "coming soon"), `fake` (emulators only) |
 
 An export: the app asks `claimExport` before it starts (a free account spends one, or gets the
@@ -28,6 +29,23 @@ app checks it with the public key it ships with (`src/renderer/src/account/ticke
 render without a valid one; the ticket id goes into the MP4's comment tag. Its `paid` flag (set on
 Monthly and Lifetime) makes the export render without the REKCUT watermark. This can't make the
 browser tamper-proof, but skipping the payment check means rewriting the app's code.
+
+## Back office
+
+Account ▸ Back office (admins only) lists everyone who signed up and can:
+
+- **Give free exports**: `bonusExports` on the account, added to the 3 everyone gets. Taking them
+  back never goes below the 3.
+- **Give a plan, no payment**: `granted` on the account, Monthly for 1 to 24 months (it ends, it
+  doesn't renew) or Lifetime. It counts like a bought plan, so those exports have no watermark.
+  It sits beside anything bought through the provider and never cancels it: a paid plan is
+  cancelled or refunded with the provider.
+
+An admin is a user with a document at `admins/{uid}`. Add one with
+`npm run make-admin -- you@example.com` (production needs `gcloud auth application-default login`;
+add `--emulators` for local runs, `--remove` to take it away), or in the Firebase console:
+Firestore → collection `admins` → document id = the user's UID from Authentication → Users. The
+user must have signed in once. Each change is noted in `adminLog` (who, which user, what, when).
 
 ## Adding a payment provider (Paddle, Stripe, ...)
 

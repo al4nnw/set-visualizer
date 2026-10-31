@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyEvent, claimExport, emptyAccount, entitlementOf, refundExport } from '../functions/src/billing/entitlements'
+import { addBonusExports, applyEvent, claimExport, emptyAccount, entitlementOf, grantPlan, refundExport } from '../functions/src/billing/entitlements'
 import { FREE_EXPORTS, GRACE_MS } from '../functions/src/billing/plans'
 import type { Account, BillingEvent } from '../functions/src/billing/types'
 
@@ -89,4 +89,43 @@ describe('lifetime plan', () => {
 it('offers no billing page without a provider', () => {
   const a = applyEvent(emptyAccount(), sub('active', NOW + DAY))
   expect(entitlementOf(a, NOW, { checkout: false })).toMatchObject({ canManage: false, checkout: false })
+})
+
+describe('back office', () => {
+  it('extra free exports raise the limit and can be taken back, never below none', () => {
+    let a = claimN(emptyAccount(), FREE_EXPORTS)
+    expect(claimExport(a, NOW)).toBeNull()
+    a = addBonusExports(a, 2)
+    expect(ent(a)).toMatchObject({ freeLimit: FREE_EXPORTS + 2, freeLeft: 2, freeUsed: FREE_EXPORTS })
+    a = claimN(a, 2)
+    expect(claimExport(a, NOW)).toBeNull()
+    expect(addBonusExports(a, -10).bonusExports).toBe(0)
+    expect(ent(addBonusExports(a, -10))).toMatchObject({ freeLimit: FREE_EXPORTS, freeLeft: 0 })
+  })
+
+  it('a given lifetime plan exports without counting, and can be taken away', () => {
+    let a = grantPlan(claimN(emptyAccount(), FREE_EXPORTS), 'lifetime', NOW)
+    expect(ent(a)).toMatchObject({ plan: 'lifetime', unlimited: true })
+    const r = claimExport(a, NOW)!
+    expect(r.free).toBe(false)
+    a = grantPlan(r.account, 'free', NOW)
+    expect(a.granted).toBeUndefined()
+    expect(ent(a).plan).toBe('free')
+  })
+
+  it('a given monthly plan ends after its months and does not say it renews', () => {
+    const a = grantPlan(emptyAccount(), 'monthly', NOW, 2)
+    const until = Date.UTC(2026, 11, 30)
+    expect(a.granted).toMatchObject({ plan: 'monthly', until })
+    expect(ent(a)).toMatchObject({ plan: 'monthly', unlimited: true, periodEnd: until, cancelAtPeriodEnd: true })
+    expect(ent(a, until + 1)).toMatchObject({ plan: 'free', unlimited: false })
+    expect(grantPlan(emptyAccount(), 'monthly', NOW, 99).granted!.until).toBe(Date.UTC(2028, 9, 30))
+  })
+
+  it('a bought subscription wins over a given monthly plan, and taking the gift away keeps it', () => {
+    let a = applyEvent(emptyAccount(), sub('active', NOW + 30 * DAY))
+    a = grantPlan(a, 'monthly', NOW, 1)
+    expect(ent(a)).toMatchObject({ plan: 'monthly', periodEnd: NOW + 30 * DAY, cancelAtPeriodEnd: false })
+    expect(ent(grantPlan(a, 'free', NOW)).plan).toBe('monthly')
+  })
 })

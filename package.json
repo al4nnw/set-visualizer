@@ -20,6 +20,7 @@
     "make-tutorial": "tsx scripts/make-tutorial.ts",
     "emulators": "npm --prefix functions run build && npx --yes firebase-tools@15 emulators:start --only auth,functions,firestore --project set-visualizer-app",
     "ticket-key": "node scripts/ticket-key.mjs",
+    "make-admin": "node scripts/make-admin.mjs",
     "dev:emulators": "VITE_FIREBASE_EMULATORS=1 vite --config vite.web.config.ts"
   },
   "dependencies": {

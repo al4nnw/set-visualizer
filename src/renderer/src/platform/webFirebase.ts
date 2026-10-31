@@ -84,7 +84,7 @@ export async function isSignedIn(): Promise<boolean> {
   return !!auth.currentUser
 }
 
-/** One of the account functions (functions/src/billing/functions.ts), as the signed-in user. */
-export async function callAccount<Req, Res>(name: 'accountStatus' | 'claimExport' | 'settleExport' | 'startCheckout' | 'billingPortal', data?: Req): Promise<Res> {
+/** One of the account functions (functions/src/billing/functions.ts and admin.ts), as the signed-in user. */
+export async function callAccount<Req, Res>(name: 'accountStatus' | 'claimExport' | 'settleExport' | 'startCheckout' | 'billingPortal' | 'adminListUsers' | 'adminAddExports' | 'adminSetPlan', data?: Req): Promise<Res> {
   return (await httpsCallable<Req | undefined, Res>(functions, name)(data)).data
 }
