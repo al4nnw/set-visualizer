@@ -1201,12 +1201,22 @@ kbd {
   border-top: 1px solid var(--line);
 }
 
-.steps li {
-  padding: 24px 24px 0 0;
+.steps {
+  column-gap: 48px;
 }
 
-.steps li + li {
-  padding-left: 24px;
+/* the seams sit in the gaps so every column, and its illustration, is the same width */
+.steps li {
+  position: relative;
+  padding: 24px 0 0;
+}
+
+.steps li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -24px;
   border-left: 1px solid var(--line);
 }
 
@@ -1220,6 +1230,141 @@ kbd {
 .steps .step-num {
   display: block;
   margin-bottom: 16px;
+}
+
+/*
+ * Step illustrations: inline SVG drawn in the editor's palette so a visitor can follow themselves
+ * from the booth to the upload. They carry no words to translate beyond file extensions, key
+ * caps and video formats. Figures and hands are graphite on purpose, so anyone can see themselves.
+ */
+.step-art {
+  margin: 0 0 20px;
+  aspect-ratio: 8 / 5;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-2);
+}
+
+.step-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.step-art text {
+  font: 500 11px/1 var(--mono);
+  fill: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+.step-art .sa-ink { fill: var(--amber-ink); font-weight: 600; }
+.step-art .sa-faint { fill: var(--text-3); font-size: 9px; }
+.sa-panel { fill: var(--panel); }
+.sa-raised { fill: var(--raised); }
+.sa-amber { fill: var(--amber); }
+.sa-line { fill: var(--line-strong); }
+.sa-line-strong { stroke: rgba(255, 255, 255, 0.22); stroke-width: 2.5; stroke-linecap: round; }
+.sa-pill { fill: var(--bg); stroke: var(--line-strong); }
+.sa-tag { fill: var(--amber); }
+.sa-wave-on { stroke: var(--amber); stroke-width: 2; stroke-linecap: round; }
+
+/* 01: a DDJ-FLX4-style controller (matte grey, orange accents) and a laptop, over the DJ's shoulder */
+.step-art { --flx-orange: #f7931e; }
+.sa-figure { fill: #303036; }
+.sa-limb { stroke: #303036; stroke-width: 12; stroke-linecap: round; }
+.sa-phones { stroke: #4a4a52; stroke-width: 3.5; }
+.sa-cup { fill: #4a4a52; }
+.sa-stand { stroke: #55555c; stroke-width: 3; stroke-linecap: round; }
+.sa-lap-base { fill: #2e2e33; stroke: var(--line-strong); }
+.sa-rec { fill: var(--amber); }
+.step-art .sa-small { font-size: 8px; fill: var(--text); }
+.sa-wave-a { stroke: var(--deck-a); stroke-width: 1.2; }
+.sa-wave-b { stroke: var(--deck-b); stroke-width: 1.2; }
+.sa-playhead-thin { stroke: var(--amber); stroke-width: 1; }
+.sa-thin { stroke-width: 2; }
+.sa-ctrl { fill: #232326; stroke: rgba(255, 255, 255, 0.16); }
+.sa-ctrl-edge { fill: #161618; }
+.sa-seam { stroke: #0e0e10; stroke-width: 0.8; }
+.sa-slot { fill: #0a0a0b; }
+.sa-fadercap { fill: #121214; stroke: #8a8a90; stroke-width: 0.5; }
+.sa-jog-side { fill: #121214; }
+.sa-jog-knurl { stroke: #2a2a2e; stroke-width: 3; stroke-dasharray: 2.2 1.6; }
+.sa-jog { fill: #19191c; stroke: #3a3a40; stroke-width: 0.6; }
+.sa-jog-top { fill: #1e1e21; }
+.sa-jog-hub { fill: #141416; }
+.sa-jog-ring { stroke: #b4b4ba; stroke-width: 0.8; }
+.sa-bigbtn { fill: #141416; stroke-width: 1; }
+.sa-bigbtn-cue { stroke: var(--flx-orange); }
+.sa-bigbtn-play { stroke: var(--ok); }
+.sa-pad { fill: #1a1a1c; stroke: var(--flx-orange); stroke-width: 0.5; }
+.sa-pad-lit { fill: var(--flx-orange); }
+.sa-btn-black { fill: #121214; stroke: #3a3a40; stroke-width: 0.4; }
+.sa-btn-orange { fill: var(--flx-orange); }
+.sa-knob { fill: #141416; stroke: #3a3a40; stroke-width: 0.5; }
+.sa-knob-mark { stroke: #e0e0e4; stroke-width: 0.8; stroke-linecap: round; }
+.sa-meter { fill: #1a1a1c; }
+.sa-meter-on { fill: var(--flx-orange); }
+
+/* 02: the files */
+.sa-drop { fill: var(--panel); stroke: var(--amber); stroke-dasharray: 5 4; stroke-width: 1.2; }
+.sa-drop-icon { stroke: var(--amber); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sa-trail { stroke: rgba(255, 255, 255, 0.16); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
+.sa-file { fill: var(--raised); stroke: var(--line-strong); }
+.sa-file-lift { filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.55)); }
+.sa-fold { fill: var(--panel-2); stroke: var(--line-strong); }
+.step-art .sa-ext { font-size: 14px; font-weight: 700; fill: var(--amber-ink); }
+.sa-cursor { fill: #fff; stroke: #000; stroke-width: 1; stroke-linejoin: round; }
+
+/* 03: the laptop */
+.sa-lid { fill: #09090a; stroke: var(--line-strong); }
+.sa-screen { fill: var(--bg-2); }
+.sa-stage { fill: #000; }
+.sa-card { fill: var(--panel-2); stroke-width: 1.2; }
+.sa-card-a { stroke: var(--deck-a); }
+.sa-card-b { stroke: var(--deck-b); }
+.sa-art-a { fill: var(--deck-a); opacity: 0.55; }
+.sa-art-b { fill: var(--deck-b); opacity: 0.55; }
+.sa-tick-a { stroke: var(--deck-a); stroke-width: 2.5; stroke-linecap: round; }
+.sa-tick-b { stroke: var(--deck-b); stroke-width: 2.5; stroke-linecap: round; }
+.sa-clip-a { fill: rgba(255, 61, 127, 0.28); stroke: var(--deck-a); }
+.sa-clip-b { fill: rgba(61, 214, 255, 0.24); stroke: var(--deck-b); }
+.sa-mark { stroke: var(--amber); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0.35; }
+.sa-playhead { stroke: var(--amber); fill: var(--amber); stroke-width: 1.5; }
+.sa-base { fill: var(--panel); stroke: var(--line-strong); }
+.sa-key { fill: #202023; }
+.sa-key-on { fill: rgba(240, 165, 48, 0.35); stroke: var(--amber); stroke-width: 0.8; }
+.sa-hand-o { fill: var(--bg); stroke: var(--bg); stroke-width: 3; }
+.sa-hand-o path { fill: none; stroke-width: 11.5; stroke-linecap: round; }
+.step-art .sa-cap { font: 600 5px/1 var(--ui); fill: var(--amber-ink); }
+.sa-hand { fill: #3a3a41; }
+.sa-hand path { fill: none; stroke: #3a3a41; stroke-width: 8.5; stroke-linecap: round; }
+
+/* the A, S and D presses light their key and their mark on the timeline in turn */
+.sa-key-on { animation: sa-key 3s infinite; }
+.sa-mark { animation: sa-press 3s infinite; }
+.sa-key-2, .sa-mark-2 { animation-delay: 1s; }
+.sa-key-3, .sa-mark-3 { animation-delay: 2s; }
+
+/* 04: the export */
+.sa-frame { stroke: var(--line-strong); }
+.sa-progress { fill: var(--amber); transform-origin: 22px 0; animation: sa-progress 6s var(--ease) infinite; }
+.sa-button { fill: var(--text); }
+.sa-button-icon { stroke: var(--bg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+@keyframes sa-key {
+  0%, 30%, 100% { fill: rgba(240, 165, 48, 0.35); }
+  8% { fill: var(--amber); }
+}
+
+@keyframes sa-press {
+  0%, 30%, 100% { opacity: 0.35; }
+  8% { opacity: 1; }
+}
+
+@keyframes sa-progress {
+  0% { transform: scaleX(0.05); }
+  85%, 100% { transform: scaleX(1); }
 }
 
 .steps h3 {
@@ -1643,9 +1788,8 @@ kbd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .steps li:nth-child(3) {
-    padding-left: 0;
-    border-left: 0;
+  .steps li:nth-child(3)::before {
+    display: none;
   }
 
   .steps li:nth-child(n + 3) {
@@ -1781,10 +1925,12 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .steps li,
-  .steps li + li {
+  .steps li {
     padding: 24px 0;
-    border-left: 0;
+  }
+
+  .steps li::before {
+    display: none;
   }
 
   .steps li + li {
