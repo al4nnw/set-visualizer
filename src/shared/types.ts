@@ -179,6 +179,9 @@ export const DEFAULT_THEME: Theme = {
   waveUnplayed: 'rgba(255,255,255,0.22)'
 }
 
+/** The name drawn top-left in every video (the app's watermark); not editable. */
+export const BRAND = 'REKCUT'
+
 export const DEFAULT_SETTINGS: RenderSettings = {
   width: 1920,
   height: 1080,
@@ -189,7 +192,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   showDeckWave: true,
   showSetWave: true,
   setTitle: '',
-  djName: '',
+  djName: BRAND,
   theme: DEFAULT_THEME,
   quality: 'high'
 }

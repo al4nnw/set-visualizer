@@ -21,6 +21,10 @@ export interface ExportJob {
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled'
   progress?: ExportProgress
   error?: string
+  /** Called once when the job ends: true when its video was written (the account counts it). */
+  onEnd?: (ok: boolean) => void
+  /** The server's signed permission to render it. */
+  ticket?: string
 }
 
 let jobs: ExportJob[] = []
@@ -35,6 +39,7 @@ const patch = (id: number, p: Partial<ExportJob>) => {
   jobs = jobs.map((j) => (j.id === id ? { ...j, ...p } : j))
   emit()
 }
+const ended = (j: ExportJob | undefined, ok: boolean) => j?.onEnd?.(ok)
 
 async function pump() {
   if (running) return
@@ -44,10 +49,12 @@ async function pump() {
   running = { id: job.id, abort }
   patch(job.id, { status: 'running' })
   try {
-    await runExport(job.project, job.out, (progress) => patch(job.id, { progress }), abort.signal, job.range)
+    await runExport(job.project, job.out, (progress) => patch(job.id, { progress }), abort.signal, job.range, job.ticket)
     patch(job.id, { status: 'done' })
+    ended(job, true)
   } catch (e) {
     patch(job.id, abort.signal.aborted ? { status: 'cancelled' } : { status: 'error', error: (e as Error).message })
+    ended(job, false)
   } finally {
     if (abort.signal.aborted && cleared.delete(job.id)) {
       jobs = jobs.filter((j) => j.id !== job.id)
@@ -59,7 +66,7 @@ async function pump() {
 }
 
 export const exportQueue = {
-  add(job: Pick<ExportJob, 'label' | 'clipId' | 'project' | 'out' | 'range'>) {
+  add(job: Pick<ExportJob, 'label' | 'clipId' | 'project' | 'out' | 'range' | 'onEnd' | 'ticket'>) {
     jobs = [...jobs, { ...job, id: nextId++, status: 'queued' }]
     emit()
     void pump()
@@ -67,7 +74,10 @@ export const exportQueue = {
   /** Stops a running job, or takes a waiting one off the list. */
   cancel(id: number) {
     if (running?.id === id) running.abort.abort()
-    else if (jobs.some((j) => j.id === id && j.status === 'queued')) patch(id, { status: 'cancelled' })
+    else if (jobs.some((j) => j.id === id && j.status === 'queued')) {
+      patch(id, { status: 'cancelled' })
+      ended(jobs.find((j) => j.id === id), false)
+    }
   },
   /** Clears a finished job from the list. */
   dismiss(id: number) {
@@ -79,6 +89,7 @@ export const exportQueue = {
     running?.abort.abort()
     const id = running?.id
     if (id !== undefined) cleared.add(id)
+    jobs.filter((j) => j.status === 'queued').forEach((j) => ended(j, false))
     jobs = jobs.filter((j) => j.id === id)
     emit()
   },

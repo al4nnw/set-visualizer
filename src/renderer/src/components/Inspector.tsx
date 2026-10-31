@@ -225,9 +225,6 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
         </Prop>
       </Section>
       <Section title={t('inspector.text')}>
-        <Prop label={t('inspector.djName')}>
-          <input value={s.djName} onChange={(e) => onChangeSettings({ djName: e.target.value }, 'dj')} placeholder={t('inspector.djNamePlaceholder')} />
-        </Prop>
         <Prop label={t('inspector.setTitle')}>
           <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder={t('inspector.setTitlePlaceholder')} />
         </Prop>

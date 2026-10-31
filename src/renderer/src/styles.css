@@ -2048,3 +2048,89 @@ kbd {
   opacity: 0.4;
   cursor: default;
 }
+
+/* ---------- account: sign-in, plans ---------- */
+.account-backdrop {
+  z-index: 60;
+}
+.account-modal {
+  width: min(460px, 92vw);
+}
+.sign-in-btn {
+  height: 34px;
+  font-size: 13px;
+}
+.account-modal:has(.plans) {
+  width: min(680px, 92vw);
+}
+.plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .plans {
+    grid-template-columns: 1fr;
+  }
+}
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--raised);
+}
+.plan.best {
+  border-color: var(--accent);
+}
+.plan.current {
+  background: var(--accent-soft);
+}
+.plan p {
+  flex: 1;
+}
+.plan-price {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+.plan-tag {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.account-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-name {
+  font-weight: 600;
+  color: var(--text-hi);
+}
+.avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.account-who .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+}
+.account-btn {
+  border-radius: 50%;
+}
+.export-plan {
+  margin-right: 4px;
+}

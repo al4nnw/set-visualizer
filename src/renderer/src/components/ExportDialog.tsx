@@ -7,6 +7,8 @@ import { platform } from '../platform'
 import { webCodecsAvailable } from '../export/runExport'
 import { exportQueue } from '../export/queue'
 import { Icon } from './icons'
+import { beforeExport, claimExport, settleExport, useAccount } from '../account/account'
+import { usePlanLine } from '../account/AccountDialogs'
 
 interface Props {
   project: Project
@@ -39,15 +41,21 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const chapters = youtubeChapters(project)
+  const account = useAccount()
+  const planLine = usePlanLine()
 
   const start = async () => {
     const name = (s.setTitle || project.audioName.replace(/\.[^.]+$/, '')).replace(/[\\/:*?"<>|]+/g, '-') + '.mp4'
     setError(null)
     try {
+      // Exports need an account (the first few are free): see account.ts.
+      if (!(await beforeExport())) return
       const out = await platform.chooseVideoPath(name)
       if (!out) return
+      const claim = await claimExport('set')
+      if (!claim) return
       // It runs in the background (see ExportJobs), with the project as it is now.
-      exportQueue.add({ label: name.replace(/\.mp4$/, ''), project, out })
+      exportQueue.add({ label: name.replace(/\.mp4$/, ''), project, out, ticket: claim.ticket, onEnd: (ok) => settleExport(claim.id, ok) })
       onClose()
     } catch (e) {
       setError((e as Error).message)
@@ -124,6 +132,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
             {formatTime(project.duration)} · {s.width}×{s.height} · {t('common.fps', { fps: s.fps })} · {t('export.frames', { count: Math.ceil(project.duration * s.fps).toLocaleString(lang()) })}
           </span>
           <div className="grow" />
+          <span className="muted small export-plan">{account.user ? account.entitlement && !account.entitlement.unlimited && planLine(account.entitlement) : account.ready && t('account.exportNeedsSignIn')}</span>
           <button className="btn primary" onClick={start} disabled={!webCodecsAvailable()}>
             {t('export.render')}
           </button>

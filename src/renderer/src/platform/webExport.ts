@@ -6,10 +6,9 @@ import { i18n } from '../i18n'
 /**
  * The MP4 of a web export, put together in the browser: the H.264 the export worker encodes (see
  * ../export/runExport.ts), and the set's own audio for the same stretch, decoded and encoded again
- * as AAC (Opus where the browser has no AAC encoder). It's
- * written as it goes to a file the user picked (Chrome, Edge). Other browsers download it: written
- * first to the page's private storage on disk (a long set's video doesn't fit in memory), or into
- * memory where there's none.
+ * as AAC (Opus where the browser has no AAC encoder). It's written first to the page's private
+ * storage on disk (a long set's video doesn't fit in memory), or into memory where there's none,
+ * then downloaded.
  */
 
 export type VideoTarget = { kind: 'file'; handle: FileSystemFileHandle & { createWritable(): Promise<WritableStream<StreamTargetChunk>> }; name: string } | { kind: 'download'; name: string }
@@ -53,7 +52,7 @@ async function scratchFile() {
 /** Seconds of audio the muxer is let run ahead of the video, so neither waits in memory for long. */
 const AHEAD = 4
 
-export async function startExport(audio: File, p: ProjectFile, target: VideoTarget, range?: ExportRange) {
+export async function startExport(audio: File, p: ProjectFile, target: VideoTarget, range?: ExportRange, ticketId?: string) {
   const { fps } = p.settings
   // The video starts on a frame boundary, so the audio does too.
   const firstFrame = Math.floor(Math.max(0, range?.from ?? 0) * fps)
@@ -79,6 +78,7 @@ export async function startExport(audio: File, p: ProjectFile, target: VideoTarg
   const sound = new AudioSampleSource({ codec: enc.codec, bitrate: enc.bitrate, transform: { sampleRate: enc.sampleRate, numberOfChannels: channels } })
   output.addVideoTrack(video, { frameRate: fps })
   output.addAudioTrack(sound)
+  output.setMetadataTags({ comment: ticketId ? `REKCUT export ${ticketId}` : 'REKCUT' })
   await output.start()
 
   // How far the video has got, for the audio to keep pace with.

@@ -2,6 +2,8 @@ import { forDisk, type ExportProgress, type ExportRange, type Project } from '@s
 import { errMsg, platform } from '../platform'
 import { SCENE_FONTS } from '../fonts'
 import { i18n } from '../i18n'
+import { checkTicket } from '../account/ticket'
+import { currentUid } from '../account/account'
 
 export const webCodecsAvailable = () => typeof VideoEncoder !== 'undefined'
 
@@ -24,7 +26,9 @@ export async function runExport(
   outPath: string,
   onProgress: (p: ExportProgress) => void,
   signal: AbortSignal,
-  range?: ExportRange
+  range?: ExportRange,
+  /** The server's signed permission for this export (see account/ticket.ts). */
+  ticket?: string
 ): Promise<string> {
   const { fps } = project.settings
   const { firstFrame, endFrame } = frameSpan(project, range)
@@ -36,7 +40,8 @@ export async function runExport(
     onProgress({ frame: done, totalFrames, fps: rate, etaSec: rate > 0 ? (totalFrames - done) / rate : 0, stage, ...extra })
   }
 
-  await platform.exportBegin(forDisk(project), outPath, range)
+  const t = await checkTicket(ticket, { kind: range ? 'clip' : 'set', uid: currentUid() })
+  await platform.exportBegin(forDisk(project), outPath, range, t.id)
   report('preparing')
   const worker = new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' })
   const abort = () => worker.postMessage({ type: 'cancel' })

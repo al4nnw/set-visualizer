@@ -5,7 +5,7 @@ import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from
 import { buildMotion } from '@shared/motion'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
-import { DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
+import { BRAND, DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { errMsg, needsFile, platform, type NeedsFile } from './platform'
 import { ExportDialog } from './components/ExportDialog'
 import type { ClipFormat } from './components/Clips'
@@ -23,6 +23,8 @@ import { useHistory } from './useHistory'
 import { ExportJobs } from './components/ExportJobs'
 import { exportQueue, useExportJobs } from './export/queue'
 import { setUiLocale, uiLocale } from './i18n'
+import { loadAccount } from './account/account'
+import { AccountButton, AccountDialogs } from './account/AccountDialogs'
 import type { en } from './i18n/en'
 
 type Dialog = { kind: 'search'; trackId: string } | { kind: 'export' } | { kind: 'prefs' } | { kind: 'shortcuts' } | { kind: 'about' } | { kind: 'noTutorial' } | null
@@ -88,6 +90,12 @@ export function App() {
   }, [refreshRecent])
 
   useEffect(() => setUiLocale(prefs?.language), [prefs?.language])
+
+  // Who is signed in, loaded after the editor is up (exports need an account).
+  useEffect(() => {
+    const id = setTimeout(loadAccount, 300)
+    return () => clearTimeout(id)
+  }, [])
 
   const changePrefs = async (patch: Partial<Preferences>) => setPrefsState(await platform.setPrefs(patch))
 
@@ -336,7 +344,7 @@ export function App() {
       const r = await platform.openProject(path)
       if (!r) return
       await cancelLoad()
-      reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings } })
+      reset({ ...r.project, settings: { ...DEFAULT_SETTINGS, ...r.project.settings, djName: BRAND } })
       setTutorial(null)
       // Projects from before the vocal band was analysed: add it in the background so the cards
       // can follow the vocals where there's no bass.
@@ -790,6 +798,7 @@ export function App() {
         }
         right={
           <>
+            <AccountButton />
             <button className="icon-btn small" title={t('app.settingsButton', { keys: shortcutLabel('Mod+,') })} onClick={() => setDialog({ kind: 'prefs' })}>
               <Icon name="gear" size={14} />
             </button>
@@ -937,6 +946,7 @@ export function App() {
       )}
       {toast && <div className="toast">{toast}</div>}
       <ExportJobs />
+      <AccountDialogs />
     </div>
   )
 }

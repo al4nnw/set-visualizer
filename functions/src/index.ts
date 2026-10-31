@@ -57,3 +57,5 @@ export const youtubeSearch = onCall({ region: 'southamerica-east1', secrets: [YO
   const found = r.items.map((v) => (typeof v.id === 'string' ? v.id : v.id.videoId)).filter((id): id is string => !!id)
   return { videos: found.length ? await videos(found) : [] }
 })
+
+export { accountStatus, billingPortal, billingWebhook, claimExport, settleExport, startCheckout } from './billing/functions.js'

@@ -67,7 +67,8 @@ export interface Platform {
   autoArtwork(artist: string, title: string): Promise<{ artwork: FileRef; url: string; source: string } | null>
 
   /** The export writes the encoded H.264 stream through these; the platform adds the audio. */
-  exportBegin(p: ProjectFile, out: FileRef, range?: ExportRange): Promise<void>
+  /** `ticketId`: the export ticket the video was made with, written into its metadata. */
+  exportBegin(p: ProjectFile, out: FileRef, range?: ExportRange, ticketId?: string): Promise<void>
   /** `info`: the frame's timing, for a platform that writes the MP4 itself (the web). */
   exportChunk(data: Uint8Array, info?: { timestamp: number; duration: number; key: boolean; decoderConfig?: VideoDecoderConfig }): void
   exportFinish(): Promise<FileRef>
