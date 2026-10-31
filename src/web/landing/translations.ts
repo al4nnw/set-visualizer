@@ -7,6 +7,7 @@
  * Values are HTML: keep <code>, <strong> and <kbd> as in the English, and escape & as &amp;.
  */
 import type { Locale } from '@shared/i18n'
+import { PAGES_ES, PAGES_PT_BR } from './pageTranslations'
 
 export type LandingCatalog = Record<string, string>
 
@@ -460,10 +461,10 @@ export const ptBR: LandingCatalog = {
   'faq.16': 'Preciso instalar alguma coisa?',
   // No. It runs in your browser, and Chrome or Edge are the smoothest choice. Your project saves as you go, and you can keep a copy as a <code>.djvis</code> file to open on another computer.
   'faq.17': 'Não. Ele roda no navegador, e Chrome ou Edge são a opção mais tranquila. Seu projeto se salva enquanto você edita, e você pode guardar uma cópia como arquivo <code>.djvis</code> para abrir em outro computador.',
-  // Why does every exported video show REKCUT?
-  'faq.18': 'Por que todo vídeo exportado mostra REKCUT?',
-  // REKCUT is the app's name, and it appears in the top-left of every video like a small signature. It's there so viewers can find the tool that made the video. Your set title, track names, artwork and colours are still yours to change.
-  'faq.19': 'REKCUT é o nome do app, e ele aparece no canto superior esquerdo de cada vídeo como uma pequena assinatura. Ele está lá para quem assiste encontrar a ferramenta que fez o vídeo. O título do set, os nomes das faixas, as capas e as cores continuam sendo seus para mudar.',
+  // Why do my videos show REKCUT?
+  'faq.18': 'Por que meus vídeos mostram REKCUT?',
+  // Videos exported on the free plan show the REKCUT name in the top-left, like a small signature, so viewers can find the tool that made them. Monthly and Lifetime remove it. Your track names, artwork and colours are yours to change on every plan.
+  'faq.19': 'Os vídeos exportados no plano grátis mostram o nome REKCUT no canto superior esquerdo, como uma pequena assinatura, para quem assiste encontrar a ferramenta que fez o vídeo. O Mensal e o Vitalício tiram essa marca. Os nomes das faixas, as capas e as cores são seus para mudar em qualquer plano.',
   // How long does a set take to analyse and export?
   'faq.20': 'Quanto tempo leva para analisar e exportar um set?',
   // A two-hour set is usually ready to edit in a few seconds. Export time depends on your computer and the quality you choose; a modern laptop, especially one with a graphics card, will be much faster.
@@ -506,10 +507,26 @@ export const ptBR: LandingCatalog = {
   'footer.12': 'Código no GitHub',
   // Sitemap
   'footer.13': 'Mapa do site',
-  // © 2026 REKCUT. Exported videos carry the REKCUT mark.
-  'footer.14': '© 2026 REKCUT. Os vídeos exportados levam a marca REKCUT.',
+  // © 2026 REKCUT. Videos exported on the free plan carry the REKCUT mark.
+  'footer.14': '© 2026 REKCUT. Os vídeos exportados no plano grátis levam a marca REKCUT.',
   // Built for DJs who record their sets
-  'footer.15': 'Feito para DJs que gravam seus sets'
+  'footer.15': 'Feito para DJs que gravam seus sets',
+  // Legal
+  'footer.legalLabel': 'Informações legais',
+  // Legal
+  'footer.16': 'Legal',
+  // Pricing
+  'footer.17': 'Preços',
+  // Terms of service
+  'footer.18': 'Termos de uso',
+  // Refund policy
+  'footer.19': 'Política de reembolso',
+  // Privacy policy
+  'footer.20': 'Política de privacidade',
+  // Videos carry the REKCUT mark
+  'pricing.32': 'Os vídeos levam a marca REKCUT',
+  // No REKCUT mark on your videos
+  'pricing.33': 'Sem a marca REKCUT nos seus vídeos'
 }
 
 export const es: LandingCatalog = {
@@ -961,10 +978,10 @@ export const es: LandingCatalog = {
   'faq.16': '¿Tengo que instalar algo?',
   // No. It runs in your browser, and Chrome or Edge are the smoothest choice. Your project saves as you go, and you can keep a copy as a <code>.djvis</code> file to open on another computer.
   'faq.17': 'No. Funciona en tu navegador, y Chrome o Edge son la opción más fluida. Tu proyecto se guarda mientras editas, y puedes guardar una copia como archivo <code>.djvis</code> para abrirla en otra computadora.',
-  // Why does every exported video show REKCUT?
-  'faq.18': '¿Por qué todos los videos exportados muestran REKCUT?',
-  // REKCUT is the app's name, and it appears in the top-left of every video like a small signature. It's there so viewers can find the tool that made the video. Your set title, track names, artwork and colours are still yours to change.
-  'faq.19': 'REKCUT es el nombre de la app, y aparece arriba a la izquierda de cada video como una pequeña firma. Está ahí para que quien mira encuentre la herramienta que hizo el video. El título del set, los nombres de los temas, las portadas y los colores siguen siendo tuyos para cambiarlos.',
+  // Why do my videos show REKCUT?
+  'faq.18': '¿Por qué mis videos muestran REKCUT?',
+  // Videos exported on the free plan show the REKCUT name in the top-left, like a small signature, so viewers can find the tool that made them. Monthly and Lifetime remove it. Your track names, artwork and colours are yours to change on every plan.
+  'faq.19': 'Los videos exportados con el plan gratis muestran el nombre REKCUT arriba a la izquierda, como una pequeña firma, para que quien mira encuentre la herramienta que los hizo. Los planes Mensual y De por vida la quitan. Los nombres de los temas, las portadas y los colores son tuyos para cambiarlos en cualquier plan.',
   // How long does a set take to analyse and export?
   'faq.20': '¿Cuánto tarda en analizarse y exportarse un set?',
   // A two-hour set is usually ready to edit in a few seconds. Export time depends on your computer and the quality you choose; a modern laptop, especially one with a graphics card, will be much faster.
@@ -1007,11 +1024,33 @@ export const es: LandingCatalog = {
   'footer.12': 'Código en GitHub',
   // Sitemap
   'footer.13': 'Mapa del sitio',
-  // © 2026 REKCUT. Exported videos carry the REKCUT mark.
-  'footer.14': '© 2026 REKCUT. Los videos exportados llevan la marca REKCUT.',
+  // © 2026 REKCUT. Videos exported on the free plan carry the REKCUT mark.
+  'footer.14': '© 2026 REKCUT. Los videos exportados con el plan gratis llevan la marca REKCUT.',
   // Built for DJs who record their sets
-  'footer.15': 'Hecho para DJs que graban sus sets'
+  'footer.15': 'Hecho para DJs que graban sus sets',
+  // Legal
+  'footer.legalLabel': 'Información legal',
+  // Legal
+  'footer.16': 'Legal',
+  // Pricing
+  'footer.17': 'Precios',
+  // Terms of service
+  'footer.18': 'Términos del servicio',
+  // Refund policy
+  'footer.19': 'Política de reembolso',
+  // Privacy policy
+  'footer.20': 'Política de privacidad',
+  // Videos carry the REKCUT mark
+  'pricing.32': 'Los videos llevan la marca REKCUT',
+  // No REKCUT mark on your videos
+  'pricing.33': 'Sin la marca REKCUT en tus videos'
 }
 
-/** The translated pages, by locale (English is index.html itself). */
-export const LANDING_CATALOGS: Record<Exclude<Locale, 'en'>, LandingCatalog> = { 'pt-BR': ptBR, es }
+/**
+ * The translated pages, by locale (English is the HTML itself): the front page's text from this
+ * file, and the pricing, terms, refund and privacy pages' text from pageTranslations.ts.
+ */
+export const LANDING_CATALOGS: Record<Exclude<Locale, 'en'>, LandingCatalog> = {
+  'pt-BR': { ...ptBR, ...PAGES_PT_BR },
+  es: { ...es, ...PAGES_ES }
+}

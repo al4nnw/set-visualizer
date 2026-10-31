@@ -36,4 +36,124 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/pricing.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/pricing.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/pt-BR/pricing.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/pricing.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/es/pricing.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/pricing.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/pricing.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/terms.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/terms.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/terms.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/terms.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/terms.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/pt-BR/terms.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/terms.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/terms.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/terms.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/terms.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/es/terms.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/terms.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/terms.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/terms.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/terms.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/refund.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/refund.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/refund.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/refund.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/refund.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/pt-BR/refund.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/refund.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/refund.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/refund.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/refund.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/es/refund.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/refund.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/refund.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/refund.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/refund.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/privacy.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/privacy.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/pt-BR/privacy.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/privacy.html" />
+  </url>
+  <url>
+    <loc>https://set-visualizer-app.web.app/es/privacy.html</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/privacy.html" />
+  </url>
 </urlset>
