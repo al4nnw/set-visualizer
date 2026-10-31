@@ -60,8 +60,15 @@ export interface RenderSettings {
   /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
   swapCurve?: SwapCurve
   showTimestamps: boolean
-  /** The scrolling close-up waveform along the bottom. */
+  /** The scrolling close-up waveform. */
   showDeckWave: boolean
+  /** Which lane of the bottom area the waveform sits in. Missing means bottom. Ignored in social. */
+  wavePosition?: WavePosition
+  /**
+   * 9:16 laid out for TikTok and Reels: everything stays clear of the apps' buttons and captions,
+   * and the waveform sits at the top. Only applies when the video is portrait.
+   */
+  social?: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
@@ -70,6 +77,11 @@ export interface RenderSettings {
   theme: Theme
   quality: Quality
 }
+
+/** 16:9 for YouTube, 9:16 for phones, or 9:16 laid out for TikTok and Reels. */
+export type VideoFormat = 'landscape' | 'portrait' | 'social'
+
+export type WavePosition = 'top' | 'middle' | 'bottom'
 
 export type SwapCurve = 'auto' | 'smooth' | 'snappy' | 'anticipate' | 'spring'
 

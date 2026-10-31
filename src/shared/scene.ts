@@ -2,7 +2,7 @@
  * Draws one frame of the visualizer. The same code runs in the app's live preview (browser
  * canvas) and in the exporter (OffscreenCanvas in a Web Worker), so what you see is what gets rendered.
  */
-import type { Project, Track, Waveform } from './types'
+import type { Project, RenderSettings, Track, VideoFormat, WavePosition, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, stageShare, type CardState } from './layout'
 import { buildMotion, motionAt, type Motion } from './motion'
 import { planSwaps, type SwapPlan } from './swapPlan'
@@ -145,7 +145,7 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   const s = Math.min(W, H) / 1080
   const sorted = mainTracks(project.tracks)
   const motion = buildMotion(project.waveform)
-  const base = { project, sorted, art, motion, swaps: planSwaps(sorted, motion), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
+  const base = { project, sorted, art, motion, swaps: planSwaps(sorted, motion), scale: s, textScale: s * textScaleFor(project.settings), font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
   const cardSize = Math.ceil(cardMain(project.settings) * s * 1.06)
   const cards = new Map<string, ArtAsset>()
   for (const [id, a] of art) cards.set(id, { ...a, image: cardImage(a.image, cardSize, factory) })
@@ -165,9 +165,48 @@ const CARD_NEXT = 330
 /** Main card size in a 9:16 (phone) video, where the cards stack vertically. */
 const CARD_MAIN_PORTRAIT = 500
 const PORTRAIT_TEXT = 1.45
+/** Social (TikTok, Reels) cards and text: smaller, so both cards fit between the apps' overlays. */
+const CARD_MAIN_SOCIAL = 320
+const CARD_NEXT_SOCIAL = 210
+const SOCIAL_TEXT = 1.15
 
-export const isPortrait = (settings: { width: number; height: number }) => settings.height > settings.width
-const cardMain = (settings: { width: number; height: number }) => (isPortrait(settings) ? CARD_MAIN_PORTRAIT : CARD_MAIN)
+/**
+ * Where TikTok and Reels draw their own UI over a 1080x1920 video (tabs and search at the top,
+ * caption, sound and progress bar at the bottom, like/comment/share down the right). A social
+ * video keeps everything inside the rest.
+ */
+export const SOCIAL_SAFE = { top: 210, bottom: 440, left: 60, right: 150 }
+
+type Size = { width: number; height: number; social?: boolean }
+export const isPortrait = (settings: Size) => settings.height > settings.width
+export const isSocial = (settings: Size) => isPortrait(settings) && !!settings.social
+export const videoFormat = (settings: Size): VideoFormat => (isSocial(settings) ? 'social' : isPortrait(settings) ? 'portrait' : 'landscape')
+
+/** The settings change that switches a video to `format`, keeping its resolution. */
+export function formatPatch(settings: Size, format: VideoFormat): Partial<RenderSettings> {
+  const portrait = format !== 'landscape'
+  const turn = portrait !== isPortrait(settings) ? { width: settings.height, height: settings.width } : {}
+  return { ...turn, social: format === 'social' }
+}
+const cardMain = (settings: Size) => (isSocial(settings) ? CARD_MAIN_SOCIAL : isPortrait(settings) ? CARD_MAIN_PORTRAIT : CARD_MAIN)
+const cardNext = (settings: Size) => (isSocial(settings) ? CARD_NEXT_SOCIAL : CARD_NEXT)
+const textScaleFor = (settings: Size) => (isSocial(settings) ? SOCIAL_TEXT : isPortrait(settings) ? PORTRAIT_TEXT : 1)
+
+/** Left and right edges of what's drawn, in pixels: inside the apps' buttons in social. */
+function sideMargins(settings: Size, s: number): { left: number; right: number } {
+  return isSocial(settings) ? { left: SOCIAL_SAFE.left * s, right: settings.width - SOCIAL_SAFE.right * s } : { left: 60 * s, right: settings.width - 60 * s }
+}
+
+/** Top of the waveform in each lane of the bottom area, measured up from the bottom edge. */
+const WAVE_LANES = { top: 250, middle: 182, bottom: 114 }
+const WAVE_H = 64
+
+/** Where the close-up waveform goes: a lane of the bottom area, or under the header in social. */
+export function waveRect(settings: Size & { wavePosition?: WavePosition }, s: number): { x: number; y: number; w: number; h: number } {
+  const { left, right } = sideMargins(settings, s)
+  const y = isSocial(settings) ? SOCIAL_SAFE.top * s + 190 * s : settings.height - WAVE_LANES[settings.wavePosition ?? 'bottom'] * s
+  return { x: left, y, w: right - left, h: WAVE_H * s }
+}
 const GLOW_BASE = 200
 const GLOW_PAD = 80
 
@@ -220,19 +259,21 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   const s = prep.scale
   const ts = prep.textScale
   const f = prep.font
+  const { left, right } = sideMargins(settings, s)
+  const top = isSocial(settings) ? SOCIAL_SAFE.top * s : 0
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
-  let y = 86 * ts
+  let y = top + 86 * ts
   if (settings.djName) {
     ctx.fillStyle = settings.theme.text
     ctx.font = `800 ${42 * ts}px ${f}`
-    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), W * 0.6), 60 * s, y)
+    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), (right - left) * 0.6), left, y)
     y += 40 * ts
   }
   if (settings.setTitle) {
     ctx.fillStyle = hexToRgba(settings.theme.text, 0.65)
     ctx.font = `400 ${26 * ts}px ${f}`
-    ctx.fillText(fitText(ctx, settings.setTitle, W * 0.6), 60 * s, y)
+    ctx.fillText(fitText(ctx, settings.setTitle, (right - left) * 0.6), left, y)
   }
   if (settings.showTimestamps) {
     ctx.textAlign = 'right'
@@ -240,7 +281,7 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
     ctx.fillStyle = hexToRgba(settings.theme.text, 0.85)
     const total = prep.project.duration
     const hours = total >= 3600
-    ctx.fillText(`${formatTime(t, hours)} / ${formatTime(total, hours)}`, W - 60 * s, 86 * ts)
+    ctx.fillText(`${formatTime(t, hours)} / ${formatTime(total, hours)}`, right, top + 86 * ts)
     ctx.textAlign = 'left'
   }
 }
@@ -261,13 +302,16 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const s = prep.scale
   const f = prep.font
   // 16:9: main card on the left, next on the right. 9:16: main card on top, next below it.
+  // Social: the same, in the space left between the apps' overlays and under the waveform.
   const portrait = isPortrait(settings)
-  const cx = portrait ? W / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
-  const cy = portrait ? slotPos(c.slot, share, 905 * s, 540 * s, 1270 * s) : 395 * s
+  const social = isSocial(settings)
+  const { left, right } = sideMargins(settings, s)
+  const cx = portrait ? (left + right) / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
+  const cy = social ? slotPos(c.slot, share, 880 * s, 664 * s, 1165 * s) : portrait ? slotPos(c.slot, share, 880 * s, 520 * s, 1240 * s) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
   const pulse = 1 + 0.05 * mo.beat * energy
-  const baseSize = lerp(CARD_NEXT * s, cardMain(settings) * s, c.mainness)
+  const baseSize = lerp(cardNext(settings) * s, cardMain(settings) * s, c.mainness)
   const size = baseSize * pulse
   // The text follows a smoothed bounce, so it floats under the artwork instead of jolting with it.
   const textSize = baseSize * (1 + 0.05 * mo.soft * energy)
@@ -325,7 +369,7 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const ts = prep.textScale
   const tx = cx
   let ty = cy + textSize / 2 + (portrait ? 46 : 52) * ts
-  const maxW = portrait ? W - 120 * s : lerp(520 * s, 620 * s, c.mainness)
+  const maxW = portrait ? right - left : lerp(520 * s, 620 * s, c.mainness)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
   const num = String(c.index + 1).padStart(2, '0')
@@ -356,12 +400,9 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
 
 function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const { project, sorted, scale: s } = prep
-  const { width: W, height: H, theme } = project.settings
+  const { theme } = project.settings
   const wf = project.waveform
-  const x0 = 60 * s
-  const w = W - 120 * s
-  const h = 64 * s
-  const y0 = H - 50 * s - h
+  const { x: x0, y: y0, w, h } = waveRect(project.settings, s)
   const mid = y0 + h / 2
   const windowSec = 10
   const pxPerSec = w / (windowSec * 2)

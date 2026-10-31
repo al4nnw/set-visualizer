@@ -1539,7 +1539,8 @@ kbd {
 .clips-thumb canvas {
   display: block;
 }
-.clips-grid.portrait .clips-thumb canvas {
+.clips-grid.portrait .clips-thumb canvas,
+.clips-grid.social .clips-thumb canvas {
   width: 90px;
   height: 160px;
 }

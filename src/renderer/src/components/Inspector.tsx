@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
+import { formatPatch, videoFormat } from '@shared/scene'
 import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
 import { Trans, useTranslation } from 'react-i18next'
 import { LOCALE_NAMES, LOCALES, type Locale } from '@shared/i18n'
@@ -209,18 +210,18 @@ function TracksTab(p: Props & { project: Project }) {
 function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
   const { t } = useTranslation()
   const s = project.settings
+  const format = videoFormat(s)
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
   return (
     <div className="scroll">
       <Section title={t('inspector.format')}>
         <Prop label={t('inspector.aspect')} title={t('inspector.aspectTitle')}>
           <div className="seg">
-            <button className={s.height <= s.width ? 'on' : ''} onClick={() => s.height > s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              {t('inspector.landscape')}
-            </button>
-            <button className={s.height > s.width ? 'on' : ''} onClick={() => s.height <= s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              {t('inspector.portrait')}
-            </button>
+            {(['landscape', 'portrait', 'social'] as const).map((f) => (
+              <button key={f} className={format === f ? 'on' : ''} onClick={() => format !== f && onChangeSettings(formatPatch(s, f))}>
+                {t(`inspector.${f}`)}
+              </button>
+            ))}
           </div>
         </Prop>
       </Section>
@@ -255,6 +256,19 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
             </button>
           </div>
           <span className="muted small">{t('inspector.closeUpNote')}</span>
+        </Prop>
+        <Prop label={t('inspector.position')} title={t('inspector.positionTitle')}>
+          {format === 'social' ? (
+            <span className="muted small">{t('inspector.positionSocial')}</span>
+          ) : (
+            <div className="seg">
+              {(['top', 'middle', 'bottom'] as const).map((p) => (
+                <button key={p} className={(s.wavePosition ?? 'bottom') === p ? 'on' : ''} onClick={() => onChangeSettings({ wavePosition: p })}>
+                  {t(`inspector.lanes.${p}`)}
+                </button>
+              ))}
+            </div>
+          )}
         </Prop>
       </Section>
       <Section title={t('inspector.colors')}>
