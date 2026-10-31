@@ -261,6 +261,7 @@ export const es: Messages = {
     text: 'Texto',
     setTitle: 'Título del set',
     setTitlePlaceholder: 'En directo desde el estudio',
+    setTitleNote: 'Da nombre a los archivos exportados. Por ahora no aparece en el video.',
     videoLanguage: 'Idioma del vídeo',
     videoLanguageTitle: 'Idioma del texto dibujado en el vídeo, como "sonando ahora" y "a continuación"',
     clock: 'Reloj',

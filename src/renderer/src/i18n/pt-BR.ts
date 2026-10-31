@@ -261,6 +261,7 @@ export const ptBR: Messages = {
     text: 'Texto',
     setTitle: 'Título do set',
     setTitlePlaceholder: 'Ao vivo do estúdio',
+    setTitleNote: 'Dá nome aos arquivos exportados. Por enquanto não aparece no vídeo.',
     videoLanguage: 'Idioma do vídeo',
     videoLanguageTitle: 'Idioma do texto desenhado no vídeo, como "tocando agora" e "a seguir"',
     clock: 'Relógio',

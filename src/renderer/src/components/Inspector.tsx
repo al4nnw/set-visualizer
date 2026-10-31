@@ -243,6 +243,7 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
       <Section title={t('inspector.text')}>
         <Prop label={t('inspector.setTitle')}>
           <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder={t('inspector.setTitlePlaceholder')} />
+          <span className="muted small">{t('inspector.setTitleNote')}</span>
         </Prop>
         <Prop label={t('inspector.videoLanguage')} title={t('inspector.videoLanguageTitle')}>
           <select value={s.videoLanguage ?? 'en'} onChange={(e) => onChangeSettings({ videoLanguage: e.target.value as Locale })}>

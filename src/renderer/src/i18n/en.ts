@@ -266,6 +266,7 @@ export const en = {
     text: 'Text',
     setTitle: 'Set title',
     setTitlePlaceholder: 'Live from the studio',
+    setTitleNote: 'Names the exported files. Not shown in the video for now.',
     videoLanguage: 'Video language',
     videoLanguageTitle: 'Language of the text drawn into the video, like "now playing" and "up next"',
     clock: 'Clock',

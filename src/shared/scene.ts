@@ -280,22 +280,13 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   const top = isSocial(settings) ? SOCIAL_SAFE.top * s : 0
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
-  let y = top + 86 * ts
   const social = isSocial(settings)
+  // The set title is kept in the project (and names the exported files) but isn't drawn for now.
   if (settings.djName) {
     ctx.fillStyle = settings.theme.text
     ctx.font = `800 ${42 * ts}px ${f}`
     const nameW = social ? (SOCIAL_WAVE_AFTER_NAME - 30) * s : (right - left) * 0.6
-    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), nameW), left, y)
-    y += 40 * ts
-  } else if (social) {
-    // The waveform has the whole first line, so the title stays on the second.
-    y += 40 * ts
-  }
-  if (settings.setTitle) {
-    ctx.fillStyle = hexToRgba(settings.theme.text, 0.65)
-    ctx.font = `400 ${26 * ts}px ${f}`
-    ctx.fillText(fitText(ctx, settings.setTitle, (right - left) * 0.6), left, y)
+    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), nameW), left, top + 86 * ts)
   }
   // Social has the waveform where the clock would be, and the completion line shows what's left.
   if (settings.showTimestamps && !social) {
@@ -497,12 +488,10 @@ function drawProgress(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const done = Math.min(1, Math.max(0, (t - range.from) / Math.max(1e-6, range.to - range.from)))
   const color = pb.color === 'deck' ? deckColor(project, trackAtTime(sorted, t)) : pb.color
   const size = pb.size * s * (1 + 0.8 * pb.pulse * beat)
-  const bottom = settings.height
-  // The apps' buttons stop above the bottom edge, so social uses the plain margins here.
-  const { left, right } = pb.style !== 'flat' ? { left: 60 * s, right: settings.width - 60 * s } : { left: 0, right: settings.width }
-  const w = right - left
-  // Flat sits on the edge; the others keep a sliver of space under them so their ends stay round.
-  const cy = pb.style === 'flat' ? bottom - size / 2 : bottom - size / 2 - 10 * s
+  // Edge to edge, flush with the bottom, in every style.
+  const left = 0
+  const w = settings.width
+  const cy = settings.height - size / 2
   const head = left + w * done
   ctx.save()
   if (pb.style === 'flat') {
