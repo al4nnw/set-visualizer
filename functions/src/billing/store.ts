@@ -13,7 +13,8 @@ import type { Account, BillingEvent } from './types.js'
 
 let db: Firestore | undefined
 const firestore = () => {
-  if (!getApps().length) initializeApp()
+  // By name: firebase-functions creates an app of its own (to check sign-in) before this runs.
+  if (!getApps().some((a) => a.name === '[DEFAULT]')) initializeApp()
   return (db ??= getFirestore())
 }
 
