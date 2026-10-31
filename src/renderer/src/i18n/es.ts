@@ -14,7 +14,7 @@ export const es: Messages = {
     reset: 'Restablecer',
     fps: '{{fps}} fps',
     seconds: '{{n}} s',
-    appName: 'Set Visualizer'
+    appName: 'REKCUT'
   },
   menu: {
     file: 'Archivo',
@@ -68,7 +68,7 @@ export const es: Messages = {
     goToEnd: 'Ir al final',
     shortcuts: 'Atajos de teclado',
     tutorial: 'Tutorial de atajos…',
-    about: 'Acerca de Set Visualizer'
+    about: 'Acerca de REKCUT'
   },
   app: {
     savedAs: 'Guardado como {{name}}',
@@ -439,7 +439,7 @@ export const es: Messages = {
   web: {
     findRecording: 'Para abrir este proyecto, vuelve a elegir su grabación, {{name}} (el navegador no puede abrirla por sí solo).',
     locate: 'Buscar {{name}}…',
-    notProject: '{{name}} no es un proyecto de Set Visualizer.',
+    notProject: '{{name}} no es un proyecto de REKCUT.',
     projectGone: '{{name}} ya no está guardado en este navegador.',
     noAudioEncoder: 'Este navegador no puede codificar el audio del vídeo. Prueba Chrome o Edge.',
     searchNotYet: 'SoundCloud no está en la versión web. Usa Apple Music, Deezer o YouTube, o elige una imagen de tu ordenador.',

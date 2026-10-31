@@ -14,7 +14,7 @@ export const ptBR: Messages = {
     reset: 'Restaurar',
     fps: '{{fps}} fps',
     seconds: '{{n}} s',
-    appName: 'Set Visualizer'
+    appName: 'REKCUT'
   },
   menu: {
     file: 'Arquivo',
@@ -68,7 +68,7 @@ export const ptBR: Messages = {
     goToEnd: 'Ir para o fim',
     shortcuts: 'Atalhos de teclado',
     tutorial: 'Tutorial de atalhos…',
-    about: 'Sobre o Set Visualizer'
+    about: 'Sobre o REKCUT'
   },
   app: {
     savedAs: 'Salvo como {{name}}',
@@ -439,7 +439,7 @@ export const ptBR: Messages = {
   web: {
     findRecording: 'Para abrir este projeto, escolha de novo a gravação dele, {{name}} (o navegador não consegue abri-la sozinho).',
     locate: 'Encontrar {{name}}…',
-    notProject: '{{name}} não é um projeto do Set Visualizer.',
+    notProject: '{{name}} não é um projeto do REKCUT.',
     projectGone: '{{name}} não está mais salvo neste navegador.',
     noAudioEncoder: 'Este navegador não consegue codificar o áudio do vídeo. Tente o Chrome ou o Edge.',
     searchNotYet: 'O SoundCloud não está na versão web. Use Apple Music, Deezer ou YouTube, ou escolha uma imagem do seu computador.',

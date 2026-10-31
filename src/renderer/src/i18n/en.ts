@@ -16,7 +16,7 @@ export const en = {
     reset: 'Reset',
     fps: '{{fps}} fps',
     seconds: '{{n}} s',
-    appName: 'Set Visualizer'
+    appName: 'REKCUT'
   },
   menu: {
     file: 'File',
@@ -71,7 +71,7 @@ export const en = {
     goToEnd: 'Go to End',
     shortcuts: 'Keyboard Shortcuts',
     tutorial: 'Shortcuts Tutorial…',
-    about: 'About Set Visualizer'
+    about: 'About REKCUT'
   },
   app: {
     savedAs: 'Saved as {{name}}',
@@ -445,7 +445,7 @@ export const en = {
   web: {
     findRecording: 'To open this project, pick its recording, {{name}}, again (the browser can\'t open it by itself).',
     locate: 'Find {{name}}…',
-    notProject: '{{name}} isn\'t a Set Visualizer project.',
+    notProject: '{{name}} isn\'t a REKCUT project.',
     projectGone: '{{name}} is no longer saved in this browser.',
     noAudioEncoder: 'This browser can\'t encode audio for the video. Try Chrome or Edge.',
     searchNotYet: "SoundCloud isn't in the web version. Use Apple Music, Deezer or YouTube, or choose an image from your computer.",
