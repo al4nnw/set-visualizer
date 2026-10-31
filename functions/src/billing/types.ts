@@ -26,6 +26,25 @@ export interface Grant {
   until?: number
   /** When it was given (ms). */
   at: number
+  /** The invite code it came from, when it came from an invite link rather than the back office. */
+  invite?: string
+}
+
+/**
+ * An invite link, `invites/{code}`: whoever opens it and signs in gets Lifetime, until it is used
+ * up, expires or is revoked. Each user can claim a given invite once
+ * (`invites/{code}/redemptions/{uid}`).
+ */
+export interface Invite {
+  plan: 'lifetime'
+  maxUses: number
+  uses: number
+  /** A note for the back office only, like who it was for. */
+  label?: string
+  createdBy: string
+  createdAt: number
+  expiresAt?: number
+  revoked?: boolean
 }
 
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled'

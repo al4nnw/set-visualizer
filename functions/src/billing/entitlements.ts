@@ -1,5 +1,5 @@
 import { FREE_EXPORTS, GRACE_MS, PLANS, type PlanId } from './plans.js'
-import type { Account, BillingEvent, Entitlement } from './types.js'
+import type { Account, BillingEvent, Entitlement, Invite } from './types.js'
 
 /**
  * The rules, with no Firestore and no provider in them, so they can be tested on their own:
@@ -123,4 +123,22 @@ export function grantPlan(acc: Account, plan: 'free' | PlanId, now: number, mont
     next.granted = { plan, until: until.getTime(), at: now }
   }
   return next
+}
+
+/** Why an invite can't be claimed at `now`, or null when it can. */
+export function inviteProblem(inv: Invite | undefined, now: number): 'invalid' | 'revoked' | 'expired' | 'used-up' | null {
+  if (!inv) return 'invalid'
+  if (inv.revoked) return 'revoked'
+  if (inv.expiresAt !== undefined && now >= inv.expiresAt) return 'expired'
+  if (inv.uses >= inv.maxUses) return 'used-up'
+  return null
+}
+
+/**
+ * Claiming an invite: the account gets Lifetime (noted as coming from that invite), or `null`
+ * when it already has Lifetime, so a user who has it doesn't use up someone else's place.
+ */
+export function redeemInvite(acc: Account, code: string, now: number): Account | null {
+  if (paidPlan(acc, now) === 'lifetime') return null
+  return { ...acc, granted: { plan: 'lifetime', at: now, invite: code } }
 }

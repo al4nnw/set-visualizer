@@ -32,6 +32,8 @@ export type AccountDialog =
   | { kind: 'plans'; reason: 'limit' | 'menu' }
   | { kind: 'account' }
   | { kind: 'admin' }
+  | { kind: 'invite'; /** Why it can't be claimed, once the server said so. */ problem?: string }
+  | { kind: 'inviteDone' }
   | { kind: 'paid' }
   | { kind: 'error'; message: string }
 
@@ -42,7 +44,7 @@ export interface AccountState {
   entitlement: Entitlement | null
   dialog: AccountDialog | null
   /** A sign-in or checkout under way (its button shows it). */
-  pending: 'signIn' | PlanId | 'portal' | null
+  pending: 'signIn' | PlanId | 'portal' | 'invite' | null
   /** What went wrong in the open dialog. */
   error: string | null
 }
@@ -65,6 +67,9 @@ let fbLoad: Promise<Fb> | null = null
 /** Firebase, loaded the first time; the editor never waits for it. */
 const fb = () => (fbLoad ??= import('../platform/webFirebase').then(start))
 
+/** The invite code from the link this tab was opened with, until it is claimed. */
+let invite: string | null = null
+
 /** Someone waiting on the sign-in dialog (an export, a YouTube search). */
 let waiting: ((signedIn: boolean) => void) | null = null
 
@@ -77,6 +82,8 @@ function start(m: Fb): Fb {
       if (state.dialog?.kind === 'signIn') setState({ dialog: null, pending: null, error: null })
       waiting?.(true)
       waiting = null
+      // Signed in from an invite link's dialog: claim it straight away.
+      if (state.dialog?.kind === 'invite' && invite) void claimInvite()
     }
   })
   return m
@@ -87,8 +94,15 @@ export function loadAccount() {
   // Back from a checkout, in the tab the provider opened: say so, and leave the URL clean.
   const q = new URLSearchParams(location.search)
   if (q.get('checkout') === 'done') setState({ dialog: { kind: 'paid' } })
-  if (q.has('checkout')) {
+  // An invite link (app.html?invite=CODE): offer it, and claim it once signed in.
+  const code = q.get('invite')?.trim().toUpperCase()
+  if (code) {
+    invite = code
+    setState({ dialog: { kind: 'invite' } })
+  }
+  if (q.has('checkout') || q.has('invite')) {
     q.delete('checkout')
+    q.delete('invite')
     history.replaceState(null, '', location.pathname + (q.size ? `?${q}` : '') + location.hash)
   }
   void fb()
@@ -105,7 +119,7 @@ export function loadAccount() {
 const call = async <Res>(name: Parameters<Fb['callAccount']>[0], data?: unknown) => (await fb()).callAccount<unknown, Res>(name, data)
 
 /** One of the back office's calls (functions/src/billing/admin.ts). The server refuses non-admins. */
-export const callAdmin = <Res>(name: 'adminListUsers' | 'adminAddExports' | 'adminSetPlan', data?: unknown) => call<Res>(name, data)
+export const callAdmin = <Res>(name: 'adminListUsers' | 'adminAddExports' | 'adminSetPlan' | 'adminCreateInvite' | 'adminListInvites' | 'adminRevokeInvite', data?: unknown) => call<Res>(name, data)
 
 /** Who is signed in now, for checking an export ticket is theirs. */
 export const currentUid = () => state.user?.uid
@@ -136,6 +150,25 @@ export function errorText(e: unknown): string {
     } as Record<string, string>
   )[code]
   return key ? i18n.t(key as 'account.errors.server') : String((e as Error)?.message ?? e)
+}
+
+const INVITE_PROBLEMS = ['invalid', 'revoked', 'expired', 'used-up', 'already-lifetime'] as const
+
+/** Claims the invite link this tab was opened with: the signed-in user gets Lifetime. */
+export async function claimInvite() {
+  if (!invite || state.pending === 'invite') return
+  setState({ pending: 'invite', error: null })
+  try {
+    const entitlement = await call<Entitlement>('redeemInviteLink', { code: invite })
+    invite = null
+    setState({ entitlement, pending: null, dialog: { kind: 'inviteDone' } })
+  } catch (e) {
+    // The server's reason, without the status the emulator adds ("used-up [400]").
+    const msg = String((e as { message?: string })?.message ?? '').replace(/\s*\[\d+\]$/, '') as (typeof INVITE_PROBLEMS)[number]
+    if (!INVITE_PROBLEMS.includes(msg)) return setState({ pending: null, error: errorText(e) })
+    invite = null
+    setState({ pending: null, dialog: { kind: 'invite', problem: i18n.t(`account.invite.problem.${msg}`) } })
+  }
 }
 
 /** Opens the sign-in dialog; true once someone signs in, false if it's closed. */

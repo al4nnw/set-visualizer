@@ -2324,3 +2324,52 @@ input[type='text'].admin-search {
     display: none;
   }
 }
+.admin-head {
+  gap: 14px;
+}
+.admin-col-uses {
+  width: 80px;
+}
+.admin-col-actions {
+  width: 170px;
+}
+.admin-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.admin-actions .btn + .btn {
+  margin-left: 4px;
+}
+.admin-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+.admin-state {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.admin-state.active {
+  color: var(--ok);
+}
+.admin-state.revoked,
+.admin-state.expired {
+  color: var(--danger);
+}
+.admin-invite {
+  cursor: default !important;
+}
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.admin-field .seg {
+  align-self: flex-start;
+}
+.admin-field input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+}

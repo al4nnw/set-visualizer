@@ -23,6 +23,7 @@ export interface AdminUser {
   plan: 'free' | 'monthly' | 'lifetime'
   planSource: 'paid' | 'granted' | null
   grantedUntil?: number
+  grantedInvite?: string
   freeLimit: number
   freeUsed: number
   bonusExports: number
@@ -34,6 +35,34 @@ const DAY = 24 * 3600 * 1000
 const date = (ms: number) => new Date(ms).toLocaleDateString(lang(), { dateStyle: 'medium' })
 
 export function BackOffice() {
+  const { t } = useTranslation()
+  const [tab, setTab] = useState<'users' | 'invites'>('users')
+  return (
+    <div className="modal-backdrop account-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
+      <div className="modal admin-modal" role="dialog" aria-label={t('admin.title')}>
+        <div className="modal-head">
+          <div className="row admin-head">
+            <h3>{t('admin.title')}</h3>
+            <div className="seg">
+              <button className={tab === 'users' ? 'on' : ''} onClick={() => setTab('users')}>
+                {t('admin.tabUsers')}
+              </button>
+              <button className={tab === 'invites' ? 'on' : ''} onClick={() => setTab('invites')}>
+                {t('admin.tabInvites')}
+              </button>
+            </div>
+          </div>
+          <button className="icon-btn" onClick={closeDialog}>
+            <Icon name="close" />
+          </button>
+        </div>
+        {tab === 'users' ? <UsersView /> : <InvitesView />}
+      </div>
+    </div>
+  )
+}
+
+function UsersView() {
   const { t } = useTranslation()
   const [users, setUsers] = useState<AdminUser[] | null>(null)
   const [total, setTotal] = useState(0)
@@ -67,83 +96,79 @@ export function BackOffice() {
   }
 
   return (
-    <div className="modal-backdrop account-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
-      <div className="modal admin-modal" role="dialog" aria-label={t('admin.title')}>
-        <div className="modal-head">
-          <h3>{t('admin.title')}</h3>
-          <button className="icon-btn" onClick={closeDialog}>
-            <Icon name="close" />
-          </button>
+    <>
+      <div className="admin-bar">
+        <div className="admin-stats">
+          <span>
+            <b>{users ? total : '–'}</b> {t('admin.statUsers')}
+          </span>
+          <span>
+            <b>{users ? newThisWeek : '–'}</b> {t('admin.statNew')}
+          </span>
+          <span>
+            <b>{users ? paying : '–'}</b> {t('admin.statPlans')}
+          </span>
         </div>
-        <div className="admin-bar">
-          <div className="admin-stats">
-            <span>
-              <b>{users ? total : '–'}</b> {t('admin.statUsers')}
-            </span>
-            <span>
-              <b>{users ? newThisWeek : '–'}</b> {t('admin.statNew')}
-            </span>
-            <span>
-              <b>{users ? paying : '–'}</b> {t('admin.statPlans')}
-            </span>
-          </div>
-          <div className="grow" />
-          <input type="text" className="admin-search" placeholder={t('admin.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button className="btn small" onClick={() => setReload((n) => n + 1)}>
-            {t('admin.reload')}
-          </button>
-        </div>
-        {error && <div className="error">{error}</div>}
-        <div className="admin-body">
-          <div className="admin-list">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>{t('admin.colUser')}</th>
-                  <th className="admin-col-date">{t('admin.colJoined')}</th>
-                  <th className="admin-col-plan">{t('admin.colPlan')}</th>
-                  <th className="num admin-col-exports">{t('admin.colExports')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((u) => (
-                  <tr key={u.uid} className={u.uid === selected ? 'on' : ''} onClick={() => setSelected(u.uid)}>
-                    <td>
-                      <div className="admin-who">
-                        <Avatar u={u} />
-                        <div>
-                          <div className="admin-name">
-                            {u.name || u.email}
-                            {now - u.createdAt < 7 * DAY && <span className="admin-new">{t('admin.new')}</span>}
-                          </div>
-                          {u.name && <div className="muted small">{u.email}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="muted admin-date">{date(u.createdAt)}</td>
-                    <td>
-                      <PlanCell u={u} />
-                    </td>
-                    <td className="num">
-                      <ExportsCell u={u} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!users && !error && <p className="muted admin-empty">{t('account.loading')}</p>}
-            {users && !shown.length && <p className="muted admin-empty">{t(users.length ? 'admin.noMatch' : 'admin.noUsers')}</p>}
-            {users && total > users.length && <p className="muted small admin-empty">{t('admin.newestOnly', { count: users.length, total })}</p>}
-          </div>
-          <aside className="admin-side">{user ? <UserPanel key={user.uid} u={user} onChange={replace} /> : <p className="muted">{t('admin.pick')}</p>}</aside>
-        </div>
+        <div className="grow" />
+        <input type="text" className="admin-search" placeholder={t('admin.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button className="btn small" onClick={() => setReload((n) => n + 1)}>
+          {t('admin.reload')}
+        </button>
       </div>
-    </div>
+      {error && <div className="error">{error}</div>}
+      <div className="admin-body">
+        <div className="admin-list">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>{t('admin.colUser')}</th>
+                <th className="admin-col-date">{t('admin.colJoined')}</th>
+                <th className="admin-col-plan">{t('admin.colPlan')}</th>
+                <th className="num admin-col-exports">{t('admin.colExports')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((u) => (
+                <tr key={u.uid} className={u.uid === selected ? 'on' : ''} onClick={() => setSelected(u.uid)}>
+                  <td>
+                    <div className="admin-who">
+                      <Avatar u={u} />
+                      <div>
+                        <div className="admin-name">
+                          {u.name || u.email}
+                          {now - u.createdAt < 7 * DAY && <span className="admin-new">{t('admin.new')}</span>}
+                        </div>
+                        {u.name && <div className="muted small">{u.email}</div>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="muted admin-date">{date(u.createdAt)}</td>
+                  <td>
+                    <PlanCell u={u} />
+                  </td>
+                  <td className="num">
+                    <ExportsCell u={u} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!users && !error && <p className="muted admin-empty">{t('account.loading')}</p>}
+          {users && !shown.length && <p className="muted admin-empty">{t(users.length ? 'admin.noMatch' : 'admin.noUsers')}</p>}
+          {users && total > users.length && <p className="muted small admin-empty">{t('admin.newestOnly', { count: users.length, total })}</p>}
+        </div>
+        <aside className="admin-side">{user ? <UserPanel key={user.uid} u={user} onChange={replace} /> : <p className="muted">{t('admin.pick')}</p>}</aside>
+      </div>
+    </>
   )
 }
 
 function Avatar({ u }: { u: AdminUser }) {
-  return u.photo ? <img className="avatar" src={u.photo} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{(u.name || u.email || '?').trim()[0]?.toUpperCase()}</span>
+  return u.photo ? (
+    <img className="avatar" src={u.photo} alt="" referrerPolicy="no-referrer" />
+  ) : (
+    <span className="avatar">{(u.name || u.email || '?').trim()[0]?.toUpperCase()}</span>
+  )
 }
 
 function PlanCell({ u }: { u: AdminUser }) {
@@ -152,7 +177,12 @@ function PlanCell({ u }: { u: AdminUser }) {
   return (
     <span className={`admin-plan ${u.plan}`}>
       {name}
-      {u.planSource === 'granted' && <span className="muted small"> · {u.plan === 'monthly' && u.grantedUntil ? t('admin.givenUntil', { date: date(u.grantedUntil) }) : t('admin.given')}</span>}
+      {u.planSource === 'granted' && (
+        <span className="muted small">
+          {' · '}
+          {u.grantedInvite ? t('admin.viaInvite') : u.plan === 'monthly' && u.grantedUntil ? t('admin.givenUntil', { date: date(u.grantedUntil) }) : t('admin.given')}
+        </span>
+      )}
     </span>
   )
 }
@@ -242,7 +272,16 @@ function UserPanel({ u, onChange }: { u: AdminUser; onChange: (u: AdminUser) => 
           className="btn small ghost"
           disabled={!!busy || u.bonusExports <= 0}
           title={t('admin.takeBackTitle')}
-          onClick={() => void run('take', 'adminAddExports', { count: -Math.min(count, u.bonusExports) }, t('admin.tookExports', { count: Math.min(count, u.bonusExports) }))}
+          onClick={() =>
+            void run(
+              'take',
+              'adminAddExports',
+              { count: -Math.min(count, u.bonusExports) },
+              t('admin.tookExports', {
+                count: Math.min(count, u.bonusExports)
+              })
+            )
+          }
         >
           {t('admin.takeBack')}
         </button>
@@ -252,7 +291,11 @@ function UserPanel({ u, onChange }: { u: AdminUser; onChange: (u: AdminUser) => 
       <h4>{t('admin.givePlan')}</h4>
       <div className="admin-plan-choices">
         <div className="row">
-          <button className="btn small" disabled={!!busy || (u.planSource !== 'granted' && u.plan === 'lifetime')} onClick={() => void run('monthly', 'adminSetPlan', { plan: 'monthly', months }, t('admin.gaveMonthly', { count: months }))}>
+          <button
+            className="btn small"
+            disabled={!!busy || (u.planSource !== 'granted' && u.plan === 'lifetime')}
+            onClick={() => void run('monthly', 'adminSetPlan', { plan: 'monthly', months }, t('admin.gaveMonthly', { count: months }))}
+          >
             {busy === 'monthly' ? t('admin.saving') : t('admin.giveMonthly')}
           </button>
           <div className="seg admin-stepper">
@@ -265,7 +308,11 @@ function UserPanel({ u, onChange }: { u: AdminUser; onChange: (u: AdminUser) => 
             </button>
           </div>
         </div>
-        <button className="btn small" disabled={!!busy || u.plan === 'lifetime'} onClick={() => void run('lifetime', 'adminSetPlan', { plan: 'lifetime' }, t('admin.gaveLifetime'))}>
+        <button
+          className="btn small"
+          disabled={!!busy || u.plan === 'lifetime'}
+          onClick={() => void run('lifetime', 'adminSetPlan', { plan: 'lifetime' }, t('admin.gaveLifetime'))}
+        >
           {busy === 'lifetime' ? t('admin.saving') : t('admin.giveLifetime')}
         </button>
         {u.planSource === 'granted' && (
@@ -282,5 +329,189 @@ function UserPanel({ u, onChange }: { u: AdminUser; onChange: (u: AdminUser) => 
       )}
       {error && <div className="error">{error}</div>}
     </div>
+  )
+}
+
+/** As functions/src/billing/admin.ts sends it. */
+export interface AdminInvite {
+  code: string
+  plan: 'lifetime'
+  maxUses: number
+  uses: number
+  label?: string
+  createdAt: number
+  expiresAt?: number
+  revoked?: boolean
+}
+
+/** The page an invite link opens: the editor, which offers the invite and claims it after sign-in. */
+export const inviteLink = (code: string) => `${location.origin}/app.html?invite=${code}`
+
+type InviteState = 'active' | 'usedUp' | 'expired' | 'revoked'
+const inviteState = (i: AdminInvite, now: number): InviteState =>
+  i.revoked ? 'revoked' : i.expiresAt !== undefined && now >= i.expiresAt ? 'expired' : i.uses >= i.maxUses ? 'usedUp' : 'active'
+
+const USE_CHOICES = [1, 5, 10, 25, 100]
+const EXPIRY_CHOICES = [0, 7, 30] as const
+
+/** Invite links: each gives Lifetime to whoever opens it and signs in, up to its number of uses. */
+function InvitesView() {
+  const { t } = useTranslation()
+  const [invites, setInvites] = useState<AdminInvite[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [maxUses, setMaxUses] = useState(1)
+  const [days, setDays] = useState<(typeof EXPIRY_CHOICES)[number]>(0)
+  const [label, setLabel] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [fresh, setFresh] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    callAdmin<{ invites: AdminInvite[] }>('adminListInvites').then(
+      (r) => live && setInvites(r.invites),
+      (e) => live && setError(errorText(e))
+    )
+    return () => void (live = false)
+  }, [])
+
+  const copy = (code: string) => {
+    void navigator.clipboard?.writeText(inviteLink(code)).then(
+      () => setCopied(code),
+      () => setCopied(null)
+    )
+  }
+  const create = async () => {
+    setBusy('create')
+    setError(null)
+    try {
+      const inv = await callAdmin<AdminInvite>('adminCreateInvite', {
+        maxUses,
+        ...(label.trim() ? { label: label.trim() } : {}),
+        ...(days ? { expiresInDays: days } : {})
+      })
+      setInvites((list) => [inv, ...(list ?? [])])
+      setFresh(inv.code)
+      setLabel('')
+      copy(inv.code)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+  const revoke = async (code: string) => {
+    setBusy(code)
+    setError(null)
+    try {
+      const inv = await callAdmin<AdminInvite>('adminRevokeInvite', { code })
+      setInvites((list) => list?.map((x) => (x.code === code ? inv : x)) ?? null)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+  const now = Date.now()
+  const claimed = (invites ?? []).reduce((n, i) => n + i.uses, 0)
+  const active = (invites ?? []).filter((i) => inviteState(i, now) === 'active').length
+
+  return (
+    <>
+      <div className="admin-bar">
+        <div className="admin-stats">
+          <span>
+            <b>{invites ? active : '–'}</b> {t('admin.statActiveInvites')}
+          </span>
+          <span>
+            <b>{invites ? claimed : '–'}</b> {t('admin.statClaimed')}
+          </span>
+        </div>
+      </div>
+      {error && <div className="error">{error}</div>}
+      <div className="admin-body">
+        <div className="admin-list">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>{t('admin.colInvite')}</th>
+                <th className="admin-col-date">{t('admin.colCreated')}</th>
+                <th className="admin-col-uses num">{t('admin.colUses')}</th>
+                <th className="admin-col-actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {(invites ?? []).map((i) => {
+                const st = inviteState(i, now)
+                return (
+                  <tr key={i.code} className={`admin-invite ${i.code === fresh ? 'on' : ''}`}>
+                    <td>
+                      <div className="admin-name">
+                        {i.label || <span className="muted">{t('admin.noLabel')}</span>}
+                        <span className={`admin-state ${st}`}>{t(`admin.inviteState.${st}`)}</span>
+                      </div>
+                      <div className="mono muted admin-link">{inviteLink(i.code)}</div>
+                      {i.expiresAt !== undefined && st === 'active' && <div className="muted small">{t('admin.expiresOn', { date: date(i.expiresAt) })}</div>}
+                    </td>
+                    <td className="muted admin-date">{date(i.createdAt)}</td>
+                    <td className="num">
+                      {i.uses} / {i.maxUses}
+                    </td>
+                    <td className="admin-actions">
+                      <button className="btn small" disabled={st !== 'active'} onClick={() => copy(i.code)}>
+                        {copied === i.code ? t('admin.copied') : t('admin.copyLink')}
+                      </button>
+                      <button className="btn small ghost danger" disabled={st === 'revoked' || busy === i.code} onClick={() => void revoke(i.code)}>
+                        {t('admin.revoke')}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {!invites && !error && <p className="muted admin-empty">{t('account.loading')}</p>}
+          {invites && !invites.length && <p className="muted admin-empty">{t('admin.noInvites')}</p>}
+        </div>
+        <aside className="admin-side">
+          <div className="admin-panel">
+            <h4>{t('admin.newInvite')}</h4>
+            <p className="muted small">{t('admin.newInviteWhat')}</p>
+            <label className="admin-field">
+              <span className="muted">{t('admin.inviteUses')}</span>
+              <div className="seg">
+                {USE_CHOICES.map((n) => (
+                  <button key={n} className={maxUses === n ? 'on' : ''} onClick={() => setMaxUses(n)}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label className="admin-field">
+              <span className="muted">{t('admin.inviteExpires')}</span>
+              <div className="seg">
+                {EXPIRY_CHOICES.map((d) => (
+                  <button key={d} className={days === d ? 'on' : ''} onClick={() => setDays(d)}>
+                    {d ? t('admin.days', { count: d }) : t('admin.never')}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label className="admin-field">
+              <span className="muted">{t('admin.inviteLabel')}</span>
+              <input type="text" maxLength={80} placeholder={t('admin.inviteLabelHint')} value={label} onChange={(e) => setLabel(e.target.value)} />
+            </label>
+            <button className="btn primary" disabled={!!busy} onClick={() => void create()}>
+              {busy === 'create' ? t('admin.saving') : t('admin.createInvite')}
+            </button>
+            {fresh && copied === fresh && (
+              <p className="admin-done small">
+                <Icon name="check" size={11} /> {t('admin.inviteCreated')}
+              </p>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
   )
 }

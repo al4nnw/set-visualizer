@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addBonusExports, applyEvent, claimExport, emptyAccount, entitlementOf, grantPlan, refundExport } from '../functions/src/billing/entitlements'
+import { addBonusExports, applyEvent, claimExport, emptyAccount, entitlementOf, grantPlan, inviteProblem, redeemInvite, refundExport } from '../functions/src/billing/entitlements'
 import { FREE_EXPORTS, GRACE_MS } from '../functions/src/billing/plans'
 import type { Account, BillingEvent } from '../functions/src/billing/types'
 
@@ -127,5 +127,26 @@ describe('back office', () => {
     a = grantPlan(a, 'monthly', NOW, 1)
     expect(ent(a)).toMatchObject({ plan: 'monthly', periodEnd: NOW + 30 * DAY, cancelAtPeriodEnd: false })
     expect(ent(grantPlan(a, 'free', NOW)).plan).toBe('monthly')
+  })
+})
+
+describe('invite links', () => {
+  const inv = { plan: 'lifetime' as const, maxUses: 2, uses: 0, createdBy: 'admin', createdAt: NOW }
+  it('can be claimed until used up, expired or revoked', () => {
+    expect(inviteProblem(undefined, NOW)).toBe('invalid')
+    expect(inviteProblem(inv, NOW)).toBeNull()
+    expect(inviteProblem({ ...inv, uses: 2 }, NOW)).toBe('used-up')
+    expect(inviteProblem({ ...inv, expiresAt: NOW }, NOW)).toBe('expired')
+    expect(inviteProblem({ ...inv, expiresAt: NOW + 1 }, NOW)).toBeNull()
+    expect(inviteProblem({ ...inv, revoked: true }, NOW)).toBe('revoked')
+  })
+
+  it('gives Lifetime, noting the invite, but not to someone who already has it', () => {
+    const a = redeemInvite(claimN(emptyAccount(), FREE_EXPORTS), 'ABCDEFGHJKLM', NOW)!
+    expect(a.granted).toEqual({ plan: 'lifetime', at: NOW, invite: 'ABCDEFGHJKLM' })
+    expect(ent(a)).toMatchObject({ plan: 'lifetime', unlimited: true })
+    expect(redeemInvite(a, 'ZZZZZZZZZZZZ', NOW)).toBeNull()
+    // Someone on Monthly moves up to Lifetime.
+    expect(redeemInvite(grantPlan(emptyAccount(), 'monthly', NOW), 'ABCDEFGHJKLM', NOW)?.granted?.plan).toBe('lifetime')
   })
 })

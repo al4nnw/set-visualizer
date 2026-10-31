@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Icon } from '../components/icons'
 import { lang } from '../i18n'
 import { BackOffice } from './BackOffice'
-import { buyPlan, closeDialog, managePlan, openDialog, signInWithGoogle, signOut, useAccount, type Entitlement, type PlanId } from './account'
+import { buyPlan, claimInvite, closeDialog, managePlan, openDialog, signInWithGoogle, signOut, useAccount, type Entitlement, type PlanId } from './account'
 
 function Modal({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -130,6 +130,38 @@ export function AccountDialogs() {
     )
 
   if (dialog.kind === 'admin') return <BackOffice />
+
+  if (dialog.kind === 'invite')
+    return (
+      <Modal title={t('account.invite.title')}>
+        <p>{t('account.invite.what')}</p>
+        {dialog.problem ? (
+          <div className="error">{dialog.problem}</div>
+        ) : user ? (
+          <>
+            <button className="btn primary sign-in-btn" disabled={!!pending} onClick={() => void claimInvite()}>
+              {pending === 'invite' ? t('account.invite.claiming') : t('account.invite.claim')}
+            </button>
+            <p className="muted small">{t('account.invite.as', { email: user.email || user.name })}</p>
+          </>
+        ) : (
+          <>
+            <p className="muted">{t('account.invite.signIn')}</p>
+            <button className="btn sign-in-btn" disabled={!!pending} onClick={() => void signInWithGoogle()}>
+              {pending === 'signIn' || pending === 'invite' ? t('account.signingIn') : t('account.continueWithGoogle')}
+            </button>
+          </>
+        )}
+        {err}
+      </Modal>
+    )
+
+  if (dialog.kind === 'inviteDone')
+    return (
+      <Modal title={t('account.invite.doneTitle')}>
+        <p className="muted">{t('account.invite.done')}</p>
+      </Modal>
+    )
 
   if (dialog.kind === 'paid')
     return (

@@ -59,4 +59,4 @@ export const youtubeSearch = onCall({ region: 'southamerica-east1', secrets: [YO
 })
 
 export { accountStatus, billingPortal, billingWebhook, claimExport, settleExport, startCheckout } from './billing/functions.js'
-export { adminAddExports, adminListUsers, adminSetPlan } from './billing/admin.js'
+export { adminAddExports, adminCreateInvite, adminListInvites, adminListUsers, adminRevokeInvite, adminSetPlan, redeemInviteLink } from './billing/admin.js'

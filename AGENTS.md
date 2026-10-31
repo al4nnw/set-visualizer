@@ -95,9 +95,9 @@ The `@shared/*` import alias points at `src/shared/` (tsconfig + Vite).
 
 **Tracks and the cue sheet.** A `Track` has a `deck` ('A' or 'B'), a `start` (when it takes over as the main track), optional `mixIn` (when it starts being heard and appears on the right) and optional `tailEnd` (when it stops being heard after the swap). Importing a `.cue` sets each track's cue time as its mix-in and then finds the real takeover in the audio (`takeover.ts`). A track that never takes over is `layered`.
 
-**Backend.** `functions/src/index.ts` exports `youtubeSearch` and the billing callables (`accountStatus`, `claimExport`, `settleExport`, `startCheckout`, `billingPortal`) plus the `billingWebhook` HTTP function, and the back office callables (`adminListUsers`, `adminAddExports`, `adminSetPlan`). Firestore rules deny all client access: only the functions read and write it.
+**Backend.** `functions/src/index.ts` exports `youtubeSearch` and the billing callables (`accountStatus`, `claimExport`, `settleExport`, `startCheckout`, `billingPortal`) plus the `billingWebhook` HTTP function, the back office callables (`adminListUsers`, `adminAddExports`, `adminSetPlan`, `adminCreateInvite`, `adminListInvites`, `adminRevokeInvite`) and `redeemInviteLink`. Firestore rules deny all client access: only the functions read and write it.
 
-**Back office.** Account ▸ Back office lists the users (newest first) and lets an admin give free exports or a Monthly/Lifetime plan without a payment. A user is an admin when `admins/{uid}` exists in Firestore (`npm run make-admin`, or by hand in the console). Every admin call checks that on the server; `accountStatus` only tells the app so it can show the button. Never decide admin access in the app.
+**Back office.** Account ▸ Back office lists the users (newest first) and lets an admin give free exports or a Monthly/Lifetime plan without a payment, and make invite links (`app.html?invite=CODE`) that give Lifetime to whoever opens one and signs in. A user is an admin when `admins/{uid}` exists in Firestore (`npm run make-admin`, or by hand in the console). Every admin call checks that on the server; `accountStatus` only tells the app so it can show the button. Never decide admin access in the app.
 
 ## Conventions
 

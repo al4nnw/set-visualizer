@@ -18,7 +18,7 @@ set, its file name, tracks or artwork.
 | `store.ts` | Firestore transactions (`users/{uid}`, `users/{uid}/exports`, `billingEvents`) |
 | `functions.ts` | The callable functions the app uses, and the provider's webhook |
 | `provider.ts` | **The payment provider interface** |
-| `admin.ts` | The back office's callables: list users, give free exports, give or take away a plan |
+| `admin.ts` | The back office's callables: list users, give free exports, give or take away a plan, invite links (and claiming one) |
 | `providers/` | Its implementations: `none` (default, plans "coming soon"), `fake` (emulators only) |
 
 An export: the app asks `claimExport` before it starts (a free account spends one, or gets the
@@ -40,6 +40,11 @@ Account ▸ Back office (admins only) lists everyone who signed up and can:
   doesn't renew) or Lifetime. It counts like a bought plan, so those exports have no watermark.
   It sits beside anything bought through the provider and never cancels it: a paid plan is
   cancelled or refunded with the provider.
+
+- **Invite links**: `invites/{code}`, made in the Invite links tab with a number of uses (1 to
+  100), an optional expiry and a note only admins see. Opening `app.html?invite=CODE` and signing
+  in gives Lifetime (`granted` with `invite: CODE`), once per user. Someone who already has
+  Lifetime doesn't use up a place. Revoking a link stops it; Lifetime already claimed stays.
 
 An admin is a user with a document at `admins/{uid}`. Add one with
 `npm run make-admin -- you@example.com` (production needs `gcloud auth application-default login`;
