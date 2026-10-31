@@ -5,7 +5,7 @@ import type { Project, RecentProject } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, lang } from '../i18n'
 import { Icon } from './icons'
-import { ClipsPanel, clipProject, clipTitle, exportClipVideo, type ClipFormat } from './Clips'
+import { ClipsPanel, Lengths, clipProject, clipTitle, exportClipVideo, type ClipFormat } from './Clips'
 import { useExportJobs } from '../export/queue'
 import { webCodecsAvailable } from '../export/runExport'
 import { Preview } from './Preview'
@@ -35,6 +35,8 @@ interface Props {
   /** The clip looping in Program; Program shows it in the clip format. */
   loop: ClipSuggestion | null
   onPlayClip: (clip: ClipSuggestion) => void
+  /** Ids of the clips already previewed; only those can be exported from the Clips tab. */
+  previewedClips: ReadonlySet<string>
   onStopLoop: () => void
   /** New start and end for a clip, or null to go back to the suggested ones. */
   onTrimClip: (id: string, range: { from: number; to: number } | null) => void
@@ -183,6 +185,7 @@ export function Viewer(p: Props) {
             project={project}
             clips={p.clips}
             playingId={loop?.id ?? null}
+            previewed={p.previewedClips}
             onPlay={(c) => {
               p.onPlayClip(c)
               setTab('program')
@@ -321,43 +324,38 @@ function VolumeControl(p: Pick<Props, 'volume' | 'muted' | 'onVolume' | 'onMuted
 }
 
 /**
- * Floats at the right of the looping clip: moves its start or end to the playhead, or a second
- * either way (5 s with Shift), and exports it.
+ * Floats at the right of the clip being previewed: its length, buttons that move its start or end
+ * to the playhead, and Export.
  */
-function LoopEdit(p: { clip: ClipSuggestion; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number }) => void; onExport: () => void }) {
+function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number } | null) => void; onExport: () => void }) {
   const { clip, time, duration, hours, onTrim } = p
   const { t } = useTranslation()
   const job = useExportJobs().find((j) => j.clipId === clip.id && (j.status === 'queued' || j.status === 'running'))
   const pct = job?.progress ? Math.round(Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100)) : 0
-  const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
-  const edge = (side: 'from' | 'to') => (
-    <div className="loop-edit-edge">
-      <div className="loop-edit-label">
-        {t(side === 'from' ? 'viewer.clipStart' : 'viewer.clipEnd')} <span className="mono">{formatTime(clip[side], hours)}</span>
-      </div>
-      <div className="loop-edit-row">
-        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startEarlier' : 'clips.endEarlier')} onClick={(e) => onTrim(nudgeClip(clip, side, -step(e), duration))}>
-          ‹
-        </button>
-        <button
-          className="loop-edit-btn here"
-          title={t(side === 'from' ? 'viewer.startHereTitle' : 'viewer.endHereTitle')}
-          onClick={() => onTrim(nudgeClip(clip, side, time - clip[side], duration))}
-        >
-          {t(side === 'from' ? 'viewer.startHere' : 'viewer.endHere')}
-        </button>
-        <button className="loop-edit-btn" title={t(side === 'from' ? 'clips.startLater' : 'clips.endLater')} onClick={(e) => onTrim(nudgeClip(clip, side, step(e), duration))}>
-          ›
-        </button>
-      </div>
-    </div>
+  const here = (side: 'from' | 'to') => (
+    <button
+      className="loop-edit-btn here"
+      title={t(side === 'from' ? 'viewer.startHereTitle' : 'viewer.endHereTitle')}
+      onClick={() => onTrim(nudgeClip(clip, side, time - clip[side], duration))}
+      disabled={!!job}
+    >
+      {t(side === 'from' ? 'viewer.startHere' : 'viewer.endHere')}
+    </button>
   )
   return (
     <div className="loop-edit" role="group" aria-label={t('viewer.clipEdges')}>
-      {edge('from')}
-      <div className="loop-edit-len mono">{t('common.seconds', { n: Math.round(clip.to - clip.from) })}</div>
-      {edge('to')}
-      <button className="btn small primary loop-edit-export" onClick={p.onExport} disabled={!!job || !webCodecsAvailable()}>
+      <div className="loop-edit-label">
+        <span className="mono">
+          {formatTime(clip.from, hours)}–{formatTime(clip.to, hours)}
+        </span>{' '}
+        · {t('common.seconds', { n: Math.round(clip.to - clip.from) })}
+      </div>
+      <Lengths clip={clip} duration={duration} disabled={!!job} onTrim={onTrim} />
+      <div className="loop-edit-row">
+        {here('from')}
+        {here('to')}
+      </div>
+      <button className="btn primary loop-edit-export" onClick={p.onExport} disabled={!!job || !webCodecsAvailable()}>
         <Icon name="export" size={12} /> {job?.status === 'running' ? t('viewer.exportingClip', { pct }) : job ? t('viewer.clipQueued') : t('viewer.exportClip')}
       </button>
     </div>

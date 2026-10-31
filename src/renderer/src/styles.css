@@ -1589,8 +1589,37 @@ kbd {
   width: 144px;
   height: 81px;
 }
+.clips-thumb {
+  position: relative;
+}
 .clips-thumb:hover {
   box-shadow: 0 0 0 1px var(--accent);
+}
+/* A round play mark over the still, so the picture reads as the way to preview the clip. */
+.clips-thumb-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 3px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  opacity: 0.85;
+  transition: background 0.12s, color 0.12s;
+}
+.clips-thumb:hover .clips-thumb-play {
+  background: var(--accent);
+  color: var(--accent-ink);
+  opacity: 1;
+}
+.clips-order {
+  width: auto;
 }
 .clips-info {
   flex: 1;
@@ -1628,10 +1657,6 @@ kbd {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.clips-score {
-  font: 500 11px var(--mono);
-  color: var(--muted);
-}
 .clips-title {
   color: var(--text-hi);
   font-weight: 600;
@@ -1639,50 +1664,13 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.clips-trim {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.clips-range {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.clips-at {
   font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.clips-edge {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  background: var(--panel);
-}
-.clips-edge .mono {
-  padding: 0 4px;
-  color: var(--text);
-}
-.trim-btn {
-  width: 18px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-}
-.trim-btn:hover:not(:disabled) {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.clips-len {
-  flex: 1;
-  text-align: center;
   color: var(--muted);
 }
 .clips-lengths {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 .clips-lengths button {
@@ -1747,13 +1735,17 @@ kbd {
 }
 .clips-reason {
   font-size: 11px;
-  color: var(--text);
+  color: var(--muted);
 }
 .clips-actions {
   display: flex;
   gap: 6px;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 6px;
+}
+.clips-preview {
+  flex: 1;
+  justify-content: center;
 }
 .clips-empty {
   flex: 1;
@@ -1825,22 +1817,21 @@ kbd {
 }
 .loop-edit-btn.here {
   flex: 1;
-  min-width: 96px;
+  min-width: 90px;
   color: var(--accent);
   background: var(--accent-soft);
 }
-.loop-edit-btn:hover {
+.loop-edit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.loop-edit-btn:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent);
 }
 .loop-edit-export {
   margin-top: 6px;
   justify-content: center;
-}
-.loop-edit-len {
-  align-self: center;
-  font-size: 11px;
-  color: var(--muted);
 }
 
 /* ---- export jobs: one panel bottom-right, over everything but dialogs ------------------- */
