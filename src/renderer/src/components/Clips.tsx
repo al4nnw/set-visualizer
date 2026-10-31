@@ -138,7 +138,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
           const pct = job?.progress ? Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100) : 0
           return (
             <div key={c.id} className={`clips-card ${playingId === c.id ? 'on' : ''}`}>
-              <Thumb prep={prep} t={c.focus + 1.5} w={thumbProject.settings.width} h={thumbProject.settings.height} onClick={() => onPlay(c)} />
+              <Thumb prep={{ ...prep, range: { from: c.from, to: c.to } }} t={c.focus + 1.5} w={thumbProject.settings.width} h={thumbProject.settings.height} onClick={() => onPlay(c)} />
               <div className="clips-info">
                 <div className="clips-tags">
                   <span className={`clips-kind ${c.kind}`}>{t(`clips.kind.${c.kind}`)}</span>
@@ -249,7 +249,7 @@ function Thumb({ prep, t, w, h, onClick }: { prep: ReturnType<typeof prepareScen
   useEffect(() => {
     const ctx = ref.current?.getContext('2d') as Ctx | null
     if (ctx) drawFrame(ctx, prep, t)
-  }, [prep, t])
+  }, [prep.range.from, prep.range.to, prep, t])
   return (
     <button className="clips-thumb" onClick={onClick} title={tr('clips.playInProgram')}>
       <canvas ref={ref} width={w} height={h} />

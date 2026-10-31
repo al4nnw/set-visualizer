@@ -46,7 +46,7 @@ async function run(msg: StartMsg) {
   const { project } = msg
   const { width: W, height: H, fps } = project.settings
   await loadSceneFonts(msg.fonts)
-  const prep = prepareScene(project, await loadArtMap(project), offscreenFactory)
+  const prep = prepareScene(project, await loadArtMap(project), offscreenFactory, { from: msg.firstFrame / fps, to: msg.endFrame / fps })
   const canvas = new OffscreenCanvas(W, H)
   const ctx = canvas.getContext('2d', { alpha: false }) as unknown as Ctx
   const config = await pickConfig(W, H, fps, QUALITY_BPP[project.settings.quality] ?? 0.13)

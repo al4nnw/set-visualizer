@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
 import { formatPatch, videoFormat } from '@shared/scene'
-import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
+import { DEFAULT_PROGRESS, PROGRESS_SIZE, type ProgressBar, type Project, type RenderSettings, type SwapCurve, type Theme, type Track } from '@shared/types'
 import { Trans, useTranslation } from 'react-i18next'
 import { LOCALE_NAMES, LOCALES, type Locale } from '@shared/i18n'
 import { lang } from '../i18n'
@@ -212,6 +212,9 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
   const s = project.settings
   const format = videoFormat(s)
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
+  // Projects from before the completion line have none: it shows as hidden, with the default look.
+  const pb = s.progressBar ?? { ...DEFAULT_PROGRESS, show: false }
+  const setProgress = (patch: Partial<ProgressBar>, coalesce?: string) => onChangeSettings({ progressBar: { ...pb, ...patch } }, coalesce)
   return (
     <div className="scroll">
       <Section title={t('inspector.format')}>
@@ -224,6 +227,18 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
             ))}
           </div>
         </Prop>
+        {format === 'social' && (
+          <Prop label={t('inspector.appOverlay')} title={t('inspector.appOverlayTitle')}>
+            <div className="seg">
+              {(['off', 'tiktok', 'reels'] as const).map((o) => (
+                <button key={o} className={(s.appOverlay ?? 'tiktok') === o ? 'on' : ''} onClick={() => onChangeSettings({ appOverlay: o })}>
+                  {t(`inspector.overlays.${o}`)}
+                </button>
+              ))}
+            </div>
+            <span className="muted small">{t('inspector.appOverlayNote')}</span>
+          </Prop>
+        )}
       </Section>
       <Section title={t('inspector.text')}>
         <Prop label={t('inspector.setTitle')}>
@@ -270,6 +285,50 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
             </div>
           )}
         </Prop>
+      </Section>
+      <Section title={t('inspector.progress')}>
+        <Prop label={t('inspector.progressShow')} title={t('inspector.progressTitle')}>
+          <div className="seg">
+            <button className={pb.show ? 'on' : ''} onClick={() => setProgress({ show: true })}>
+              {t('inspector.show')}
+            </button>
+            <button className={!pb.show ? 'on' : ''} onClick={() => setProgress({ show: false })}>
+              {t('inspector.hide')}
+            </button>
+          </div>
+        </Prop>
+        {pb.show && (
+          <>
+            <Prop label={t('inspector.progressStyle')}>
+              <div className="seg">
+                {(['flat', 'rounded', 'glow'] as const).map((st) => (
+                  <button key={st} className={pb.style === st ? 'on' : ''} onClick={() => setProgress({ style: st })}>
+                    {t(`inspector.progressStyles.${st}`)}
+                  </button>
+                ))}
+              </div>
+            </Prop>
+            <Prop label={t('inspector.progressSize')}>
+              <input type="range" min={PROGRESS_SIZE.min} max={PROGRESS_SIZE.max} step={1} value={pb.size} onChange={(e) => setProgress({ size: +e.target.value }, 'progressSize')} />
+              <span className="mono val">{pb.size}px</span>
+            </Prop>
+            <Prop label={t('inspector.progressPulse')} title={t('inspector.progressPulseTitle')}>
+              <input type="range" min={0} max={1} step={0.05} value={pb.pulse} onChange={(e) => setProgress({ pulse: +e.target.value }, 'progressPulse')} />
+              <span className="mono val">{Math.round(pb.pulse * 100)}%</span>
+            </Prop>
+            <Prop label={t('inspector.progressColor')}>
+              <div className="seg">
+                <button className={pb.color === 'deck' ? 'on' : ''} onClick={() => setProgress({ color: 'deck' })}>
+                  {t('inspector.progressDeck')}
+                </button>
+                <button className={pb.color !== 'deck' ? 'on' : ''} onClick={() => pb.color === 'deck' && setProgress({ color: s.theme.text })}>
+                  {t('inspector.progressCustom')}
+                </button>
+              </div>
+              {pb.color !== 'deck' && <input type="color" value={pb.color} onChange={(e) => setProgress({ color: e.target.value }, 'progressColor')} />}
+            </Prop>
+          </>
+        )}
       </Section>
       <Section title={t('inspector.colors')}>
         <Prop label={t('timeline.deckA')}>

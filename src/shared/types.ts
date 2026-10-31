@@ -69,6 +69,10 @@ export interface RenderSettings {
    * and the waveform sits at the top. Only applies when the video is portrait.
    */
   social?: boolean
+  /** Preview-only stand-in for the TikTok or Reels buttons over a social video; never exported. */
+  appOverlay?: AppOverlay
+  /** The line along the bottom that fills up as the video plays. Missing means hidden. */
+  progressBar?: ProgressBar
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
@@ -80,6 +84,26 @@ export interface RenderSettings {
 
 /** 16:9 for YouTube, 9:16 for phones, or 9:16 laid out for TikTok and Reels. */
 export type VideoFormat = 'landscape' | 'portrait' | 'social'
+
+export type AppOverlay = 'off' | 'tiktok' | 'reels'
+
+/** How the completion line looks. */
+export interface ProgressBar {
+  show: boolean
+  style: ProgressStyle
+  /** Thickness in pixels of a 1080 px short side. */
+  size: number
+  /** How much it swells on each kick, 0..1. */
+  pulse: number
+  /** A colour, or 'deck' to follow the colour of the deck that's playing. */
+  color: string
+}
+
+export type ProgressStyle = 'flat' | 'rounded' | 'glow'
+
+export const PROGRESS_SIZE = { min: 2, max: 24 }
+
+export const DEFAULT_PROGRESS: ProgressBar = { show: true, style: 'rounded', size: 8, pulse: 0.5, color: 'deck' }
 
 export type WavePosition = 'top' | 'middle' | 'bottom'
 
@@ -198,6 +222,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   swapCurve: 'auto',
   showTimestamps: true,
   showDeckWave: true,
+  progressBar: DEFAULT_PROGRESS,
   setTitle: '',
   djName: BRAND,
   theme: DEFAULT_THEME,

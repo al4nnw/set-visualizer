@@ -2,7 +2,7 @@
  * Draws one frame of the visualizer. The same code runs in the app's live preview (browser
  * canvas) and in the exporter (OffscreenCanvas in a Web Worker), so what you see is what gets rendered.
  */
-import type { Project, RenderSettings, Track, VideoFormat, WavePosition, Waveform } from './types'
+import type { AppOverlay, Project, RenderSettings, Track, VideoFormat, WavePosition, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, stageShare, type CardState } from './layout'
 import { buildMotion, motionAt, type Motion } from './motion'
 import { planSwaps, type SwapPlan } from './swapPlan'
@@ -38,6 +38,8 @@ export interface PreparedScene {
   /** Scale for text: larger than `scale` in 9:16, where the video is watched on a phone. */
   textScale: number
   font: string
+  /** The stretch of the set this video covers (a clip, or the whole set): the completion line fills over it. */
+  range: { from: number; to: number }
 }
 
 export const FONT = 'Inter'
@@ -139,7 +141,7 @@ function trackAtTime(sorted: Track[], t: number): Track | undefined {
   return i >= 0 ? sorted[i] : undefined
 }
 
-export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory): PreparedScene {
+export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory, range?: { from: number; to: number }): PreparedScene {
   const { width: W, height: H } = project.settings
   // Sizes are designed for 1080 on the short side, so a 9:16 video uses the same scale as 16:9.
   const s = Math.min(W, H) / 1080
@@ -155,7 +157,8 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   return {
     ...base,
     bg: factory(BG_W, Math.round((BG_W * H) / W)),
-    glow
+    glow,
+    range: range ?? { from: 0, to: project.duration }
   }
 }
 
@@ -200,11 +203,14 @@ function sideMargins(settings: Size, s: number): { left: number; right: number }
 /** Top of the waveform in each lane of the bottom area, measured up from the bottom edge. */
 const WAVE_LANES = { top: 250, middle: 182, bottom: 114 }
 const WAVE_H = 64
+const PROGRESS_ROOM = 24
 
 /** Where the close-up waveform goes: a lane of the bottom area, or under the header in social. */
-export function waveRect(settings: Size & { wavePosition?: WavePosition }, s: number): { x: number; y: number; w: number; h: number } {
+export function waveRect(settings: Size & { wavePosition?: WavePosition; progressBar?: { show: boolean } }, s: number): { x: number; y: number; w: number; h: number } {
   const { left, right } = sideMargins(settings, s)
-  const y = isSocial(settings) ? SOCIAL_SAFE.top * s + 190 * s : settings.height - WAVE_LANES[settings.wavePosition ?? 'bottom'] * s
+  // The lanes move up a little to leave the completion line its own room along the bottom.
+  const lift = settings.progressBar?.show ? PROGRESS_ROOM : 0
+  const y = isSocial(settings) ? SOCIAL_SAFE.top * s + 190 * s : settings.height - (WAVE_LANES[settings.wavePosition ?? 'bottom'] + lift) * s
   return { x: left, y, w: right - left, h: WAVE_H * s }
 }
 const GLOW_BASE = 200
@@ -458,5 +464,142 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   for (const c of order) drawCard(ctx, prep, c, mo, share)
   // `!== false` so projects saved before this setting existed keep the waveform.
   if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t, mo.beat)
+  drawProgress(ctx, prep, t, mo.beat)
+  ctx.restore()
+}
+
+/**
+ * The completion line: fills from left to right over the video, so viewers see how much is left
+ * (it keeps people watching). Along the bottom edge, or just above the apps' captions in social.
+ */
+function drawProgress(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
+  const { project, sorted, scale: s, range } = prep
+  const settings = project.settings
+  const pb = settings.progressBar
+  if (!pb?.show) return
+  const done = Math.min(1, Math.max(0, (t - range.from) / Math.max(1e-6, range.to - range.from)))
+  const color = pb.color === 'deck' ? deckColor(project, trackAtTime(sorted, t)) : pb.color
+  const size = pb.size * s * (1 + 0.8 * pb.pulse * beat)
+  const social = isSocial(settings)
+  const bottom = social ? settings.height - SOCIAL_SAFE.bottom * s : settings.height
+  const inset = pb.style !== 'flat' || social
+  const { left, right } = inset ? sideMargins(settings, s) : { left: 0, right: settings.width }
+  const w = right - left
+  // Flat sits on the edge; the others float a little above it.
+  const cy = pb.style === 'flat' ? bottom - size / 2 : bottom - 24 * s
+  const head = left + w * done
+  ctx.save()
+  if (pb.style === 'flat') {
+    ctx.fillStyle = color
+    ctx.fillRect(left, cy - size / 2, head - left, size)
+  } else {
+    ctx.fillStyle = hexToRgba(settings.theme.text, 0.14)
+    roundRectPath(ctx, left, cy - size / 2, w, size, size / 2)
+    ctx.fill()
+    if (pb.style === 'glow') {
+      // Wider, fainter copies instead of shadowBlur, which is slow without a GPU.
+      for (const [k, a] of [[4, 0.1], [2.4, 0.2]] as const) {
+        ctx.fillStyle = hexToRgba(color, a * (0.7 + 0.6 * pb.pulse * beat))
+        roundRectPath(ctx, left - (k - 1) * size * 0.5, cy - (size * k) / 2, head - left + (k - 1) * size, size * k, (size * k) / 2)
+        ctx.fill()
+      }
+    }
+    ctx.fillStyle = color
+    roundRectPath(ctx, left, cy - size / 2, Math.max(size, head - left), size, size / 2)
+    ctx.fill()
+    if (pb.style === 'glow') {
+      ctx.fillStyle = settings.theme.text
+      ctx.beginPath()
+      ctx.arc(head, cy, size * 0.9, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.restore()
+}
+
+/**
+ * Grey stand-ins for the buttons, captions and tabs TikTok or Reels draw over a video, so a social
+ * layout can be checked in the preview. Only the preview calls this: it's never in an export.
+ */
+export function drawAppOverlay(ctx: Ctx, settings: { width: number; height: number }, kind: AppOverlay) {
+  if (kind === 'off') return
+  const W = settings.width
+  const H = settings.height
+  const s = Math.min(W, H) / 1080
+  const ink = 'rgba(255,255,255,0.78)'
+  const faint = 'rgba(255,255,255,0.45)'
+  ctx.save()
+  ctx.textBaseline = 'middle'
+  // Shade where the app draws, so the stand-ins read as UI over the video.
+  const top = ctx.createLinearGradient(0, 0, 0, 240 * s)
+  top.addColorStop(0, 'rgba(0,0,0,0.45)')
+  top.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = top
+  ctx.fillRect(0, 0, W, 240 * s)
+  const bot = ctx.createLinearGradient(0, H - 520 * s, 0, H)
+  bot.addColorStop(0, 'rgba(0,0,0,0)')
+  bot.addColorStop(1, 'rgba(0,0,0,0.55)')
+  ctx.fillStyle = bot
+  ctx.fillRect(0, H - 520 * s, W, 520 * s)
+
+  const pill = (x: number, y: number, w: number, h: number, color = faint) => {
+    ctx.fillStyle = color
+    roundRectPath(ctx, x, y, w, h, h / 2)
+    ctx.fill()
+  }
+  const dot = (x: number, y: number, r: number, color = ink) => {
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const label = (text: string, x: number, y: number, size: number, weight = 600, color = ink, align: CanvasTextAlign = 'left') => {
+    ctx.fillStyle = color
+    ctx.textAlign = align
+    ctx.font = `${weight} ${size * s}px ${FONT}`
+    ctx.fillText(text, x, y)
+  }
+  // The right-hand column of round buttons with counts under them.
+  const column = (x: number, y0: number, n: number, gap: number, first: 'avatar' | 'button') => {
+    for (let i = 0; i < n; i++) {
+      const y = y0 + i * gap
+      if (i === 0 && first === 'avatar') {
+        dot(x, y, 46 * s, faint)
+        dot(x, y + 46 * s, 14 * s, 'rgba(255,60,100,0.8)')
+      } else {
+        dot(x, y, 34 * s)
+        label('12.3K', x, y + 58 * s, 24, 600, ink, 'center')
+      }
+    }
+  }
+
+  if (kind === 'tiktok') {
+    label('Following', W / 2 - 30 * s, 110 * s, 34, 600, faint, 'right')
+    label('For You', W / 2 + 30 * s, 110 * s, 34, 800, ink, 'left')
+    pill(W / 2 + 60 * s, 140 * s, 90 * s, 6 * s, ink)
+    dot(W - 70 * s, 110 * s, 24 * s, faint)
+    column(W - 80 * s, 940 * s, 5, 160 * s, 'avatar')
+    dot(W - 80 * s, 1720 * s, 44 * s, faint)
+    label('@username', 40 * s, 1610 * s, 34, 800)
+    pill(40 * s, 1660 * s, 780 * s, 26 * s)
+    pill(40 * s, 1706 * s, 560 * s, 26 * s)
+    label('♫  original sound', 40 * s, 1776 * s, 28, 500)
+    pill(0, H - 8 * s, W, 4 * s, faint)
+  } else {
+    label('Reels', 40 * s, 110 * s, 44, 800)
+    dot(W - 70 * s, 110 * s, 26 * s, faint)
+    column(W - 70 * s, 1160 * s, 4, 150 * s, 'button')
+    dot(W - 70 * s, 1760 * s, 20 * s, faint)
+    pill(W - 110 * s, 1810 * s, 80 * s, 80 * s, faint)
+    dot(80 * s, 1620 * s, 34 * s, faint)
+    label('username', 134 * s, 1620 * s, 32, 800)
+    ctx.strokeStyle = ink
+    ctx.lineWidth = 2 * s
+    roundRectPath(ctx, 300 * s, 1596 * s, 130 * s, 48 * s, 12 * s)
+    ctx.stroke()
+    label('Follow', 365 * s, 1620 * s, 26, 700, ink, 'center')
+    pill(46 * s, 1686 * s, 720 * s, 26 * s)
+    label('♫  username · Original audio', 46 * s, 1760 * s, 28, 500)
+  }
   ctx.restore()
 }
