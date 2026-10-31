@@ -1243,9 +1243,7 @@ kbd {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(240, 165, 48, 0.06), transparent 60%),
-    var(--bg-2);
+  background: var(--bg-2);
 }
 
 .step-art svg {
@@ -1273,9 +1271,7 @@ kbd {
 .sa-wave-off { stroke: rgba(255, 255, 255, 0.12); stroke-width: 2; stroke-linecap: round; }
 
 /* 01: the booth */
-.sa-beam { opacity: 0.07; }
-.sa-beam-a { fill: var(--deck-a); }
-.sa-beam-b { fill: var(--deck-b); }
+.sa-beam { fill: #fff; opacity: 0.03; }
 .sa-figure { fill: #2a2a2f; }
 .sa-limb { stroke: #2a2a2f; stroke-width: 13; stroke-linecap: round; }
 .sa-rim { stroke: var(--amber); stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
@@ -1287,7 +1283,7 @@ kbd {
 .sa-platter-b { stroke: var(--deck-b); }
 .sa-fader { stroke: var(--bg); stroke-width: 2; stroke-linecap: round; }
 .sa-fader-on { stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; }
-.sa-rec { fill: var(--amber); animation: sa-blink 1.6s steps(1) infinite; }
+.sa-rec { fill: var(--amber); }
 .sa-head { stroke: var(--text); stroke-width: 1.5; stroke-linecap: round; }
 
 /* 02: the files */
@@ -1298,7 +1294,6 @@ kbd {
 .sa-file-lift { filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.55)); }
 .sa-fold { fill: var(--panel-2); stroke: var(--line-strong); }
 .sa-cursor { fill: #fff; stroke: #000; stroke-width: 1; stroke-linejoin: round; }
-.sa-float { animation: sa-float 3.2s ease-in-out infinite; }
 
 /* 03: the laptop */
 .sa-lid { fill: #09090a; stroke: var(--line-strong); }
@@ -1325,24 +1320,16 @@ kbd {
 .sa-hand path { fill: none; stroke: #3a3a41; stroke-width: 8.5; stroke-linecap: round; }
 
 /* the A, S and D presses light their key and their mark on the timeline in turn */
-.sa-key-1, .sa-mark-1 { animation: sa-press 3s infinite; }
-.sa-key-2, .sa-mark-2 { animation: sa-press 3s 1s infinite; }
-.sa-key-3, .sa-mark-3 { animation: sa-press 3s 2s infinite; }
-.sa-key-on { animation-name: sa-key; }
+.sa-key-on { animation: sa-key 3s infinite; }
+.sa-mark { animation: sa-press 3s infinite; }
+.sa-key-2, .sa-mark-2 { animation-delay: 1s; }
+.sa-key-3, .sa-mark-3 { animation-delay: 2s; }
 
 /* 04: the export */
 .sa-frame { stroke: var(--line-strong); }
 .sa-progress { fill: var(--amber); transform-origin: 22px 0; animation: sa-progress 6s var(--ease) infinite; }
 .sa-button { fill: var(--amber); }
 .sa-button-icon { stroke: var(--amber-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-@keyframes sa-blink {
-  50% { opacity: 0.25; }
-}
-
-@keyframes sa-float {
-  50% { transform: translate(-2px, -4px); }
-}
 
 @keyframes sa-key {
   0%, 30%, 100% { fill: rgba(240, 165, 48, 0.35); }
