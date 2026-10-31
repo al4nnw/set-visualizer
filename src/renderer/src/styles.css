@@ -2414,3 +2414,31 @@ input[type='text'].admin-search {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Laptop screens (1366x768 and similar): slightly smaller text so more fits beside the preview. */
+@media (max-width: 1400px) and (max-height: 800px) {
+  body {
+    font-size: 11px;
+  }
+  .timecode {
+    font-size: 13px;
+  }
+  .tr-artist,
+  .th,
+  .tb-title,
+  .panel-meta,
+  .prop-label,
+  .section-head,
+  .save-state,
+  .btn.small {
+    font-size: 10px;
+  }
+  .tb-artist,
+  .tr-num,
+  .tab-count {
+    font-size: 9px;
+  }
+  .tb-title b {
+    font-size: 9px;
+  }
+}
