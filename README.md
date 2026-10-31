@@ -9,7 +9,7 @@ Web app that turns a recorded DJ set into a YouTube-ready video, right in the br
 - **App buttons preview** in Social: grey stand-ins for the TikTok or Reels buttons and captions over the preview, to check the layout. They're never in the export.
 - **Track A / Track B cards**: the main track sits on the left, the next track fades in on the right while you mix it in, and when it takes over it slides smoothly to the left while the old one slides out.
 - **Track art and titles**: looked up on Deezer and Apple Music automatically (and YouTube once you're signed in), or paste an image URL or choose your own image. Everything is editable.
-- **Editor layout** like a video editor: program monitor top-left, inspector on the right (Tracks, Style, Project), timeline along the bottom with Set audio / Deck A / Deck B lanes. Panels resize by dragging the gaps between them.
+- **Editor layout** like a video editor: program monitor top-left, inspector on the right (Tracks, Style, Project), timeline along the bottom with Set audio / Deck A / Deck B lanes. Panels resize by dragging the gaps between them. On short (laptop) screens the timeline starts shorter so the preview gets more room; **View ▸ Reset Panel Layout** goes back to that automatic size.
 - **Timeline** with deck A/B lanes. Drag a track to move where it takes over, drag the striped mix-in area to change when it appears on the right.
 - **Rekordbox .cue import**: the cue sheet Rekordbox writes next to a recording places every track.
 - **Projects with autosave**: opening a recording creates its project in the browser straight away, and every change (including the imported .cue) is saved into it.

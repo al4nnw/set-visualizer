@@ -37,6 +37,30 @@ const PROJECT = /\.djvis$/i
 const AUTOSAVE_DELAY = 800
 const INSPECTOR_W = 360
 const TIMELINE_H = 250
+/** The shortest the timeline gets: its deck lanes and waveform at their smallest. */
+const TIMELINE_MIN = 196
+const TIMELINE_MAX = 520
+
+/**
+ * The timeline's height when the user hasn't dragged it: full size on tall screens, shorter on
+ * laptop screens so the preview gets the room (250 px from a 900 px tall window up, TIMELINE_MIN
+ * at 700 px and below).
+ */
+function autoTimelineHeight(windowH: number) {
+  const k = Math.max(0, Math.min(1, (windowH - 700) / 200))
+  return Math.round(TIMELINE_MIN + k * (TIMELINE_H - TIMELINE_MIN))
+}
+
+/** Tracks the window's inner height. */
+function useWindowHeight() {
+  const [h, setH] = useState(() => window.innerHeight)
+  useEffect(() => {
+    const on = () => setH(window.innerHeight)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  return h
+}
 
 type CmdId = keyof typeof en.cmd
 
@@ -67,7 +91,13 @@ export function App() {
   // A clip belongs to the set it came from.
   useEffect(() => setLoopId(null), [project?.audioPath])
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
-  const [timelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', TIMELINE_H)
+  // 0 means the user hasn't dragged the timeline, so its height follows the window.
+  const [storedTimelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', 0)
+  const windowH = useWindowHeight()
+  // A height dragged on a big monitor never leaves less than about half the window to the editor.
+  const timelineH = storedTimelineH
+    ? Math.max(TIMELINE_MIN, Math.min(storedTimelineH, Math.round(windowH * 0.45)))
+    : autoTimelineHeight(windowH)
   // Preview loudness only; exports always carry the set's own audio.
   const [volume, setVolume] = useStoredNumber('preview.volume', 1)
   const [muted, setMuted] = useStoredNumber('preview.muted', 0)
@@ -685,7 +715,7 @@ export function App() {
           ...cmd('resetLayout'),
           run: () => {
             setInspectorW(INSPECTOR_W)
-            setTimelineH(TIMELINE_H)
+            setTimelineH(0)
           }
         }
       ]
@@ -895,7 +925,7 @@ export function App() {
         />
       </main>
 
-      <Splitter dir="row" value={timelineH} min={170} max={520} sign={-1} onChange={setTimelineH} onReset={() => setTimelineH(TIMELINE_H)} />
+      <Splitter dir="row" value={timelineH} min={TIMELINE_MIN} max={TIMELINE_MAX} sign={-1} onChange={setTimelineH} onReset={() => setTimelineH(0)} />
 
       <footer className="timeline-wrap">
         {project ? (

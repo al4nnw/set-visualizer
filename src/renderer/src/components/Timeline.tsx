@@ -26,17 +26,25 @@ interface Props {
 }
 
 const RULER = 24
-const LANE_H = 48
 const LANE_GAP = 4
-const MIN_WAVE = 48
+/** Deck lanes are this tall when there is room, and shrink to LANE_MIN on short (laptop) screens. */
+const LANE_MAX = 48
+const LANE_MIN = 34
+const WAVE_MIN = 36
+const WAVE_MAX = 160
 const PLAYHEAD = '#f0a530'
 
-/** Lane positions for a timeline body of the given height; the master waveform takes the slack. */
+/**
+ * Lane positions for a timeline body of the given height. The master waveform takes the slack;
+ * when there is too little, it shrinks to WAVE_MIN first and then the deck lanes get shorter.
+ */
 function lanes(height: number) {
-  const WAVE_H = Math.max(MIN_WAVE, Math.min(160, height - RULER - 2 * LANE_H - 3 * LANE_GAP - 14))
+  const spare = height - RULER - 3 * LANE_GAP - 14
+  const LANE_H = Math.max(LANE_MIN, Math.min(LANE_MAX, Math.floor((spare - WAVE_MIN) / 2)))
+  const WAVE_H = Math.max(WAVE_MIN, Math.min(WAVE_MAX, spare - 2 * LANE_H))
   const LANE_A = RULER + WAVE_H + LANE_GAP + 4
   const LANE_B = LANE_A + LANE_H + LANE_GAP
-  return { WAVE_H, LANE_A, LANE_B, total: LANE_B + LANE_H + 8 }
+  return { WAVE_H, LANE_H, LANE_A, LANE_B, total: LANE_B + LANE_H + 8 }
 }
 
 function TrackHeaders({ geo, theme }: { geo: ReturnType<typeof lanes>; theme?: { accent: string; accentB: string } }) {
@@ -48,11 +56,11 @@ function TrackHeaders({ geo, theme }: { geo: ReturnType<typeof lanes>; theme?: {
         <Icon name="speaker" size={13} />
         <span>{t('timeline.setAudio')}</span>
       </div>
-      <div className="th" style={{ top: geo.LANE_A, height: LANE_H }}>
+      <div className="th" style={{ top: geo.LANE_A, height: geo.LANE_H }}>
         <span className="th-swatch" style={{ background: theme?.accent }} />
         <span>{t('timeline.deckA')}</span>
       </div>
-      <div className="th" style={{ top: geo.LANE_B, height: LANE_H }}>
+      <div className="th" style={{ top: geo.LANE_B, height: geo.LANE_H }}>
         <span className="th-swatch" style={{ background: theme?.accentB }} />
         <span>{t('timeline.deckB')}</span>
       </div>
@@ -90,8 +98,8 @@ export function EmptyTimeline() {
         <div className="timeline-scroll empty-lanes">
           <div className="ruler-empty" style={{ height: RULER }} />
           <div className="lane-bg" style={{ top: RULER, height: geo.WAVE_H }} />
-          <div className="lane-bg" style={{ top: geo.LANE_A, height: LANE_H }} />
-          <div className="lane-bg" style={{ top: geo.LANE_B, height: LANE_H }} />
+          <div className="lane-bg" style={{ top: geo.LANE_A, height: geo.LANE_H }} />
+          <div className="lane-bg" style={{ top: geo.LANE_B, height: geo.LANE_H }} />
           <div className="timeline-hint" style={{ top: RULER, height: geo.WAVE_H }}>
             {t('timeline.emptyHint')}
           </div>
@@ -109,7 +117,7 @@ function tickStep(pps: number) {
 export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack }: Props) {
   const { t } = useTranslation()
   const [bodyRef, bodyH] = useBodyHeight()
-  const { WAVE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT } = lanes(bodyH - 12)
+  const { WAVE_H, LANE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT } = lanes(bodyH - 12)
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [viewW, setViewW] = useState(800)
@@ -329,7 +337,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
         </button>
       </div>
       <div className="timeline-body" ref={bodyRef}>
-        <TrackHeaders geo={{ WAVE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT }} theme={theme} />
+        <TrackHeaders geo={{ WAVE_H, LANE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT }} theme={theme} />
         <div
           className="timeline-scroll"
           ref={scrollRef}
