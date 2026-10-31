@@ -693,6 +693,47 @@ kbd {
   color: var(--accent);
 }
 
+/* Program in browser full screen: just the video, with the transport bar over its bottom edge
+   that fades away while playing and the pointer rests. */
+.viewer.fullscreen {
+  position: relative;
+  background: #000;
+  border: none;
+  border-radius: 0;
+}
+.viewer.fullscreen .panel-tabs {
+  display: none;
+}
+.viewer.fullscreen .viewer-body {
+  background: #000;
+}
+.viewer.fullscreen .preview {
+  padding: 0;
+}
+.viewer.fullscreen .preview canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  box-shadow: none;
+}
+.viewer.fullscreen .transport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: rgba(20, 20, 22, 0.86);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  transition: opacity 0.3s ease;
+}
+.viewer.fullscreen.idle {
+  cursor: none;
+}
+.viewer.fullscreen.idle .transport {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* start panel (no project yet) */
 .start-panel {
   flex: 1;

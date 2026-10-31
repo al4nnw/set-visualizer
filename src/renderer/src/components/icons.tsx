@@ -28,7 +28,9 @@ const paths: Record<string, string> = {
   image: 'M2 3h12v10H2zM2 11l3.5-3.5L8 10l2-2 4 4M10.5 5.5h.01',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 9h6l.5-9',
   chevron: 'M6 4l4 4-4 4',
-  close: 'M4 4l8 8M12 4l-8 8'
+  close: 'M4 4l8 8M12 4l-8 8',
+  fullscreen: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
+  fullscreenExit: 'M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5'
 }
 
 const filled = new Set(['play', 'prev', 'next', 'start', 'end', 'dot'])
