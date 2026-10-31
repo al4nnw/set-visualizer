@@ -1268,23 +1268,34 @@ kbd {
 .sa-pill { fill: var(--bg); stroke: var(--line-strong); }
 .sa-tag { fill: var(--amber); }
 .sa-wave-on { stroke: var(--amber); stroke-width: 2; stroke-linecap: round; }
-.sa-wave-off { stroke: rgba(255, 255, 255, 0.12); stroke-width: 2; stroke-linecap: round; }
 
-/* 01: the booth */
-.sa-beam { fill: #fff; opacity: 0.03; }
+/* 01: a two-deck controller and a laptop, seen over the DJ's shoulder */
 .sa-figure { fill: #2a2a2f; }
-.sa-limb { stroke: #2a2a2f; stroke-width: 13; stroke-linecap: round; }
-.sa-rim { stroke: var(--amber); stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
+.sa-limb { stroke: #2a2a2f; stroke-width: 12; stroke-linecap: round; }
 .sa-phones { stroke: #4a4a52; stroke-width: 3.5; }
 .sa-cup { fill: #4a4a52; }
-.sa-deck { fill: var(--panel-2); stroke: var(--line-strong); }
-.sa-platter { fill: var(--bg); stroke-width: 1.5; }
-.sa-platter-a { stroke: var(--deck-a); }
-.sa-platter-b { stroke: var(--deck-b); }
-.sa-fader { stroke: var(--bg); stroke-width: 2; stroke-linecap: round; }
-.sa-fader-on { stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; }
+.sa-stand { stroke: #3a3a41; stroke-width: 3; stroke-linecap: round; }
 .sa-rec { fill: var(--amber); }
-.sa-head { stroke: var(--text); stroke-width: 1.5; stroke-linecap: round; }
+.step-art .sa-small { font-size: 7px; fill: var(--text); }
+.sa-wave-a { stroke: var(--deck-a); stroke-width: 1.2; }
+.sa-wave-b { stroke: var(--deck-b); stroke-width: 1.2; }
+.sa-playhead-thin { stroke: var(--amber); stroke-width: 1; }
+.sa-thin { stroke-width: 2; }
+.sa-ctrl { fill: #1b1b1e; stroke: var(--line-strong); }
+.sa-ctrl-edge { fill: #0f0f11; }
+.sa-slot { fill: #050506; }
+.sa-fadercap { fill: var(--text-2); }
+.sa-jog { fill: #0b0b0c; }
+.sa-jog-ring { stroke-width: 1.5; }
+.sa-ring-a { stroke: var(--deck-a); }
+.sa-ring-b { stroke: var(--deck-b); }
+.sa-jog-hub { fill: #2a2a2f; }
+.sa-pad { fill: #26262a; }
+.sa-pad-a { fill: var(--deck-a); opacity: 0.8; }
+.sa-pad-b { fill: var(--deck-b); opacity: 0.8; }
+.sa-btn { fill: #2c2c31; }
+.sa-btn-play { fill: #3d3d44; }
+.sa-knob { fill: #2c2c31; stroke: #0b0b0c; }
 
 /* 02: the files */
 .sa-drop { fill: var(--panel); stroke: var(--amber); stroke-dasharray: 5 4; stroke-width: 1.2; }
@@ -1293,6 +1304,7 @@ kbd {
 .sa-file { fill: var(--raised); stroke: var(--line-strong); }
 .sa-file-lift { filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.55)); }
 .sa-fold { fill: var(--panel-2); stroke: var(--line-strong); }
+.step-art .sa-ext { font-size: 14px; font-weight: 700; fill: var(--amber-ink); }
 .sa-cursor { fill: #fff; stroke: #000; stroke-width: 1; stroke-linejoin: round; }
 
 /* 03: the laptop */
