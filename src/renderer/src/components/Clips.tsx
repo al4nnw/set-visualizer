@@ -33,15 +33,15 @@ const THUMB_SHORT = 180
 const LENGTHS = [15, 30, 60]
 
 /**
- * The project as a clip renders it: 9:16 at the project's resolution with only the close-up
- * waveform (the full-set one means little in 15 s), or 16:9 as the project is set up.
+ * The project as a clip renders it: 9:16 at the project's resolution, or 16:9 as the project is
+ * set up.
  */
 export function clipProject(project: Project, format: ClipFormat): Project {
   const s = project.settings
   const short = Math.min(s.width, s.height)
   const long = Math.max(s.width, s.height)
   return format === 'portrait'
-    ? { ...project, settings: { ...s, width: short, height: long, showSetWave: false } }
+    ? { ...project, settings: { ...s, width: short, height: long } }
     : { ...project, settings: { ...s, width: long, height: short } }
 }
 

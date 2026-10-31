@@ -30,7 +30,7 @@ It is not a screen recorder, and it is not a generative-AI video tool. Clip sugg
 - **Rekordbox `.cue` import.** Titles, artists and track positions are filled in automatically. The tracklist can still be edited, added to or removed by hand.
 - **A/B track cards.** The current and next track, with a handover that can be smooth, quick or matched to the energy of the mix.
 - **Timeline editing.** Drag a track to change when it takes over, drag the mix-in area, or press A, S and D at the playhead.
-- **Waveforms.** A full-set waveform with track numbers and a closer view that scrolls under the playhead. Place the close-up at the top, middle or bottom, or hide it.
+- **Waveform.** A close-up waveform that scrolls under the playhead, coloured by deck. It can be hidden.
 - **Artwork and track details.** Looked up automatically, with the option to paste an image link, choose a local image, or search and use the result's title and artist.
 - **Clip suggestions.** Transitions, drops and the strongest part of each track, ranked best first, each with a score and a short reason.
 - **Clip editing.** Loop a suggestion, trim either end, use 15/30/60 second lengths, or set any length from 5 to 180 seconds.

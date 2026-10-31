@@ -27,7 +27,6 @@ export interface PreparedScene {
   project: Project
   sorted: Track[]
   art: Map<string, ArtAsset>
-  wave: { x: number; y: number; w: number; h: number; unplayed: CanvasLike; played: CanvasLike }
   /** Low-res scratch canvas for the background (it's all blur and gradients, so it upscales cleanly). */
   bg: CanvasLike
   /** Pre-blurred glow sprite per deck colour; real-time shadowBlur is very slow without a GPU. */
@@ -140,52 +139,6 @@ function trackAtTime(sorted: Track[], t: number): Track | undefined {
   return i >= 0 ? sorted[i] : undefined
 }
 
-function renderWaveLayer(
-  prep: Omit<PreparedScene, "wave">,
-  factory: CanvasFactory,
-  w: number,
-  h: number,
-  played: boolean
-): CanvasLike {
-  const c = factory(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)))
-  const ctx = ctxOf(c)
-  const { project, sorted } = prep
-  const wf = project.waveform
-  const n = wf.peaks.length
-  const mid = h / 2
-  const bar = Math.max(2, Math.round(3 * prep.scale))
-  const gap = Math.max(1, Math.round(prep.scale))
-  const cols = Math.floor(w / (bar + gap))
-  for (let col = 0; col < cols; col++) {
-    const a = Math.floor((col / cols) * n)
-    const b = Math.max(a + 1, Math.floor(((col + 1) / cols) * n))
-    let pk = 0
-    let rms = 0
-    for (let i = a; i < b && i < n; i++) {
-      if (wf.peaks[i] > pk) pk = wf.peaks[i]
-      rms += wf.rms[i] ?? 0
-    }
-    rms /= b - a
-    const x = col * (bar + gap)
-    const ph = Math.max(1, pk * mid * 0.96)
-    const rh = Math.max(1, Math.min(ph, rms * 1.6 * mid))
-    if (played) {
-      const tr = trackAtTime(sorted, (a / wf.rate + b / wf.rate) / 2)
-      const col1 = deckColor(project, tr)
-      ctx.fillStyle = hexToRgba(col1, 0.55)
-      ctx.fillRect(x, mid - ph, bar, ph * 2)
-      ctx.fillStyle = col1
-      ctx.fillRect(x, mid - rh, bar, rh * 2)
-    } else {
-      ctx.fillStyle = project.settings.theme.waveUnplayed
-      ctx.fillRect(x, mid - ph, bar, ph * 2)
-      ctx.fillStyle = 'rgba(255,255,255,0.18)'
-      ctx.fillRect(x, mid - rh, bar, rh * 2)
-    }
-  }
-  return c
-}
-
 export function prepareScene(project: Project, art: Map<string, ArtAsset>, factory: CanvasFactory): PreparedScene {
   const { width: W, height: H } = project.settings
   // Sizes are designed for 1080 on the short side, so a 9:16 video uses the same scale as 16:9.
@@ -193,10 +146,6 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   const sorted = mainTracks(project.tracks)
   const motion = buildMotion(project.waveform)
   const base = { project, sorted, art, motion, swaps: planSwaps(sorted, motion), scale: s, textScale: isPortrait(project.settings) ? s * PORTRAIT_TEXT : s, font: FONT, bg: factory(1, 1), glow: new Map<string, CanvasLike>() }
-  const x = 60 * s
-  const w = W - 120 * s
-  const h = 110 * s
-  const y = H - 170 * s
   const cardSize = Math.ceil(cardMain(project.settings) * s * 1.06)
   const cards = new Map<string, ArtAsset>()
   for (const [id, a] of art) cards.set(id, { ...a, image: cardImage(a.image, cardSize, factory) })
@@ -206,15 +155,7 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   return {
     ...base,
     bg: factory(BG_W, Math.round((BG_W * H) / W)),
-    glow,
-    wave: {
-      x,
-      y,
-      w,
-      h,
-      unplayed: renderWaveLayer(base, factory, w, h, false),
-      played: renderWaveLayer(base, factory, w, h, true)
-    }
+    glow
   }
 }
 
@@ -415,13 +356,12 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
 
 function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const { project, sorted, scale: s } = prep
-  const { width: W, theme } = project.settings
+  const { width: W, height: H, theme } = project.settings
   const wf = project.waveform
   const x0 = 60 * s
   const w = W - 120 * s
   const h = 64 * s
-  // Above the set waveform, or down in its place when that one is hidden.
-  const y0 = project.settings.showSetWave !== false ? prep.wave.y - h - 26 * s : prep.wave.y + prep.wave.h + 10 * s - h
+  const y0 = H - 50 * s - h
   const mid = y0 + h / 2
   const windowSec = 10
   const pxPerSec = w / (windowSec * 2)
@@ -462,53 +402,6 @@ function drawZoomStrip(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   ctx.fillRect(cx - 1.5 * s, mid - ph / 2, 3 * s, ph)
 }
 
-function drawWaveform(ctx: Ctx, prep: PreparedScene, t: number) {
-  const { project, sorted, wave, scale: s, font: f } = prep
-  const { theme } = project.settings
-  const dur = Math.max(1e-6, project.duration)
-  const px = (sec: number) => wave.x + (sec / dur) * wave.w
-  const head = px(Math.min(t, dur))
-
-  // Highlight current segment
-  const ci = currentIndex(sorted, t)
-  if (ci >= 0) {
-    const a = px(ci === 0 ? 0 : sorted[ci].start)
-    const b = ci + 1 < sorted.length ? px(sorted[ci + 1].start) : wave.x + wave.w
-    ctx.fillStyle = hexToRgba(deckColor(project, sorted[ci]), 0.09)
-    ctx.fillRect(a, wave.y - 4 * s, b - a, wave.h + 8 * s)
-  }
-
-  ctx.drawImage(wave.unplayed as unknown as ImageLike, wave.x, wave.y, wave.w, wave.h)
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(wave.x, wave.y - 2, head - wave.x, wave.h + 4)
-  ctx.clip()
-  ctx.drawImage(wave.played as unknown as ImageLike, wave.x, wave.y, wave.w, wave.h)
-  ctx.restore()
-
-  // Track markers + numbers
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = `700 ${14 * s}px ${f}`
-  sorted.forEach((tr, i) => {
-    const x = px(i === 0 ? 0 : tr.start)
-    const color = deckColor(project, tr)
-    ctx.fillStyle = hexToRgba(color, i === ci ? 1 : 0.55)
-    if (i > 0) ctx.fillRect(x - 1 * s, wave.y - 6 * s, 2 * s, wave.h + 12 * s)
-    const label = String(i + 1)
-    const bw = Math.max(22 * s, ctx.measureText(label).width + 10 * s)
-    ctx.fillRect(x, wave.y + wave.h + 10 * s, bw, 20 * s)
-    ctx.fillStyle = '#0b0b10'
-    ctx.fillText(label, x + bw / 2, wave.y + wave.h + 20.5 * s)
-  })
-
-  // Playhead
-  ctx.fillStyle = hexToRgba(theme.text, 0.18)
-  ctx.fillRect(head - 6 * s, wave.y - 10 * s, 12 * s, wave.h + 20 * s)
-  ctx.fillStyle = theme.text
-  ctx.fillRect(head - 1.5 * s, wave.y - 10 * s, 3 * s, wave.h + 20 * s)
-}
-
 export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   const settings = prep.project.settings
   const cards = cardStates(prep.sorted, t, settings, prep.swaps)
@@ -522,8 +415,7 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
   const order = [...cards].sort((a, b) => a.mainness - b.mainness)
   const share = stageShare(cards)
   for (const c of order) drawCard(ctx, prep, c, mo, share)
-  // `!== false` so projects saved before these settings existed keep both.
+  // `!== false` so projects saved before this setting existed keep the waveform.
   if (settings.showDeckWave !== false) drawZoomStrip(ctx, prep, t, mo.beat)
-  if (settings.showSetWave !== false) drawWaveform(ctx, prep, t)
   ctx.restore()
 }

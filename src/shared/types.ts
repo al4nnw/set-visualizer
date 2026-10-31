@@ -49,7 +49,6 @@ export interface Theme {
   accent: string
   accentB: string
   text: string
-  waveUnplayed: string
 }
 
 export interface RenderSettings {
@@ -61,10 +60,8 @@ export interface RenderSettings {
   /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
   swapCurve?: SwapCurve
   showTimestamps: boolean
-  /** The scrolling close-up waveform above the full-set one. */
+  /** The scrolling close-up waveform along the bottom. */
   showDeckWave: boolean
-  /** The full-set waveform along the bottom, with track numbers. */
-  showSetWave: boolean
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
@@ -175,8 +172,7 @@ export const DEFAULT_THEME: Theme = {
   background: '#07070c',
   accent: '#ff3d7f',
   accentB: '#3dd6ff',
-  text: '#ffffff',
-  waveUnplayed: 'rgba(255,255,255,0.22)'
+  text: '#ffffff'
 }
 
 /** The name drawn top-left in every video (the app's watermark); not editable. */
@@ -190,7 +186,6 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   swapCurve: 'auto',
   showTimestamps: true,
   showDeckWave: true,
-  showSetWave: true,
   setTitle: '',
   djName: BRAND,
   theme: DEFAULT_THEME,

@@ -1,6 +1,6 @@
 # Set Visualizer: guide for contributors and coding agents
 
-Set Visualizer turns a recorded DJ set (the audio plus the `.cue` sheet Rekordbox writes next to it) into a YouTube-ready video: two track cards (A/B) that swap as the mix moves on, the set's waveform, artwork and titles. It is a **web app only**. Everything heavy happens in the user's browser: decoding, analysis, rendering and H.264 encoding. The backend is a few Firebase Cloud Functions for sign-in-gated YouTube search and export accounting.
+Set Visualizer turns a recorded DJ set (the audio plus the `.cue` sheet Rekordbox writes next to it) into a YouTube-ready video: two track cards (A/B) that swap as the mix moves on, a scrolling waveform, artwork and titles. It is a **web app only**. Everything heavy happens in the user's browser: decoding, analysis, rendering and H.264 encoding. The backend is a few Firebase Cloud Functions for sign-in-gated YouTube search and export accounting.
 
 The [README](README.md) explains what the app does for a user. This file is about the code.
 

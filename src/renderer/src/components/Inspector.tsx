@@ -244,8 +244,8 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
           </label>
         </Prop>
       </Section>
-      <Section title={t('inspector.waveforms')}>
-        <Prop label={t('inspector.top')} title={t('inspector.topTitle')}>
+      <Section title={t('inspector.waveform')}>
+        <Prop label={t('inspector.closeUp')} title={t('inspector.closeUpTitle')}>
           <div className="seg">
             <button className={s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: true })}>
               {t('inspector.show')}
@@ -254,18 +254,7 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
               {t('inspector.hide')}
             </button>
           </div>
-          <span className="muted small">{t('inspector.topNote')}</span>
-        </Prop>
-        <Prop label={t('inspector.bottom')} title={t('inspector.bottomTitle')}>
-          <div className="seg">
-            <button className={s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: true })}>
-              {t('inspector.show')}
-            </button>
-            <button className={!s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: false })}>
-              {t('inspector.hide')}
-            </button>
-          </div>
-          <span className="muted small">{t('inspector.bottomNote')}</span>
+          <span className="muted small">{t('inspector.closeUpNote')}</span>
         </Prop>
       </Section>
       <Section title={t('inspector.colors')}>
