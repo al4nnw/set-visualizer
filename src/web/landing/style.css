@@ -1253,13 +1253,13 @@ kbd {
 }
 
 .step-art text {
-  font: 500 8px/1 var(--mono);
+  font: 500 11px/1 var(--mono);
   fill: var(--text-2);
   letter-spacing: 0.02em;
 }
 
 .step-art .sa-ink { fill: var(--amber-ink); font-weight: 600; }
-.step-art .sa-faint { fill: var(--text-3); font-size: 6px; }
+.step-art .sa-faint { fill: var(--text-3); font-size: 9px; }
 .sa-panel { fill: var(--panel); }
 .sa-raised { fill: var(--raised); }
 .sa-amber { fill: var(--amber); }
@@ -1287,7 +1287,7 @@ kbd {
 .sa-head { stroke: var(--text); stroke-width: 1.5; stroke-linecap: round; }
 
 /* 02: the files */
-.sa-drop { fill: rgba(240, 165, 48, 0.04); stroke: var(--amber); stroke-dasharray: 5 4; stroke-width: 1.2; }
+.sa-drop { fill: var(--panel); stroke: var(--amber); stroke-dasharray: 5 4; stroke-width: 1.2; }
 .sa-drop-icon { stroke: var(--amber); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .sa-trail { stroke: rgba(255, 255, 255, 0.16); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
 .sa-file { fill: var(--raised); stroke: var(--line-strong); }
@@ -1328,8 +1328,8 @@ kbd {
 /* 04: the export */
 .sa-frame { stroke: var(--line-strong); }
 .sa-progress { fill: var(--amber); transform-origin: 22px 0; animation: sa-progress 6s var(--ease) infinite; }
-.sa-button { fill: var(--amber); }
-.sa-button-icon { stroke: var(--amber-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sa-button { fill: var(--text); }
+.sa-button-icon { stroke: var(--bg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 @keyframes sa-key {
   0%, 30%, 100% { fill: rgba(240, 165, 48, 0.35); }
