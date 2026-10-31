@@ -18,7 +18,7 @@ import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
 import { detectLocale, type Locale } from '../src/shared/i18n'
 import { LANDING_CATALOGS, type LandingCatalog } from '../src/web/landing/translations'
-import { LEGAL } from '../src/web/landing/legal'
+import { LEGAL, OPTIONAL_LEGAL } from '../src/web/landing/legal'
 
 const SITE = 'https://set-visualizer-app.web.app/'
 const OG_LOCALE: Record<Locale, string> = { en: 'en_US', 'pt-BR': 'pt_BR', es: 'es_ES' }
@@ -49,8 +49,8 @@ export function withSiteChrome(html: string, page: SitePage, home: string): stri
 }
 
 /**
- * Puts the seller's details from legal.ts into the page. A detail that isn't filled in yet shows as
- * a highlighted placeholder, so a missing one is easy to spot on the page.
+ * Puts the seller's details from legal.ts into the page. A required detail that isn't filled in yet
+ * shows as a highlighted placeholder, so a missing one is easy to spot; an optional one is left out.
  */
 export function fillLegal(html: string, legal: Record<string, string> = LEGAL): string {
   const value = (token: string, field: string) => {
@@ -63,7 +63,9 @@ export function fillLegal(html: string, legal: Record<string, string> = LEGAL): 
     prev = out
     out = out.replace(/(="[^"<>]*?)%legal\.([a-zA-Z]+)%/, (_, before: string, field: string) => before + escapeAttr(value(`%legal.${field}%`, field)))
   }
-  return out.replace(/%legal\.([a-zA-Z]+)%/g, (token, field: string) => value(token, field) || `<mark class="legal-todo">[${field}]</mark>`)
+  return out.replace(/%legal\.([a-zA-Z]+)%/g, (token, field: string) =>
+    value(token, field) || (OPTIONAL_LEGAL.includes(field) ? '' : `<mark class="legal-todo">[${field}]</mark>`)
+  )
 }
 
 const escapeAttr = (s: string) => s.replace(/&(?![a-z]+;|#\d+;)/g, '&amp;').replace(/"/g, '&quot;')

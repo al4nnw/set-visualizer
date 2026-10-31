@@ -47,6 +47,7 @@ describe('site page translations', () => {
     expect(fillLegal(page, { ...LEGAL, name: '', email: '' })).toBe(
       '<p><mark class="legal-todo">[name]</mark></p><a href="mailto:"><mark class="legal-todo">[email]</mark></a>'
     )
+    expect(fillLegal('<p>%legal.taxId%</p>', { ...LEGAL, taxId: '' })).toBe('<p></p>')
     expect(() => fillLegal('%legal.nope%')).toThrow()
     for (const [page, source] of pages) expect(() => fillLegal(source), page).not.toThrow()
   })

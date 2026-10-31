@@ -150,8 +150,8 @@ export const PAGES_PT_BR: LandingCatalog = {
   'pv.h9': 'Crianças',
   // Changes
   'pv.h10': 'Mudanças',
-  // %legal.name% (%legal.taxId%) is responsible for the personal data described here. For anything about your data, write to <a href="mailto:%legal.email%">%legal.email%</a>.
-  'pv.1': '%legal.name% (%legal.taxId%) é o controlador dos dados pessoais descritos aqui. Para qualquer assunto sobre os seus dados, escreva para <a href="mailto:%legal.email%">%legal.email%</a>.',
+  // %legal.name% is responsible for the personal data described here. For anything about your data, write to <a href="mailto:%legal.email%">%legal.email%</a>.
+  'pv.1': '%legal.name% é o controlador dos dados pessoais descritos aqui. Para qualquer assunto sobre os seus dados, escreva para <a href="mailto:%legal.email%">%legal.email%</a>.',
   // Your recordings, cue sheets, tracklists, file names, artwork, projects and videos. Analysis, rendering and encoding happen in your browser, and projects are saved in your browser or in the <code>.djvis</code> files you keep.
   'pv.2': 'Suas gravações, arquivos cue, tracklists, nomes de arquivo, capas, projetos e vídeos. A análise, o desenho e a codificação acontecem no seu navegador, e os projetos ficam salvos no navegador ou nos arquivos <code>.djvis</code> que você guarda.',
   // <strong>Your Google account</strong>, when you sign in: your name, email address, profile picture and account id, through Firebase Authentication.
@@ -354,8 +354,8 @@ export const PAGES_ES: LandingCatalog = {
   'pv.h9': 'Menores',
   // Changes
   'pv.h10': 'Cambios',
-  // %legal.name% (%legal.taxId%) is responsible for the personal data described here. For anything about your data, write to <a href="mailto:%legal.email%">%legal.email%</a>.
-  'pv.1': '%legal.name% (%legal.taxId%) es el responsable de los datos personales descritos aquí. Para cualquier asunto sobre tus datos, escribe a <a href="mailto:%legal.email%">%legal.email%</a>.',
+  // %legal.name% is responsible for the personal data described here. For anything about your data, write to <a href="mailto:%legal.email%">%legal.email%</a>.
+  'pv.1': '%legal.name% es el responsable de los datos personales descritos aquí. Para cualquier asunto sobre tus datos, escribe a <a href="mailto:%legal.email%">%legal.email%</a>.',
   // Your recordings, cue sheets, tracklists, file names, artwork, projects and videos. Analysis, rendering and encoding happen in your browser, and projects are saved in your browser or in the <code>.djvis</code> files you keep.
   'pv.2': 'Tus grabaciones, archivos cue, tracklists, nombres de archivo, portadas, proyectos y videos. El análisis, el dibujo y la codificación ocurren en tu navegador, y los proyectos se guardan en el navegador o en los archivos <code>.djvis</code> que conservas.',
   // <strong>Your Google account</strong>, when you sign in: your name, email address, profile picture and account id, through Firebase Authentication.

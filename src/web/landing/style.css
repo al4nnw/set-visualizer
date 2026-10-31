@@ -2165,6 +2165,10 @@ kbd {
   font-size: 12px;
 }
 
+.seller-card p:empty {
+  display: none;
+}
+
 .legal-text .seller-card p + p {
   margin-top: 2px;
 }

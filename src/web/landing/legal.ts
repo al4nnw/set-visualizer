@@ -4,12 +4,18 @@
  * An empty field shows as a highlighted placeholder on the page, so fill every one before the
  * pages go live (Paddle's site review asks for the seller's legal name in the terms).
  */
+/** Details that may stay empty: the page then leaves them out instead of showing a placeholder. */
+export const OPTIONAL_LEGAL = ['taxId', 'address']
+
 export const LEGAL = {
   /** The seller's legal name: the company, or the sole proprietor's full name. */
   name: '',
-  /** CNPJ (company) or CPF (sole proprietor), as it should appear on the page. */
+  /**
+   * Optional: a CNPJ, if the business has one. Paddle doesn't ask for it (it is the Merchant of
+   * Record), so leave it empty rather than publish a personal CPF.
+   */
   taxId: '',
-  /** Postal address for legal notices. */
+  /** Optional: a postal address for legal notices. Paddle doesn't ask for it either. */
   address: '',
   /** Where customers write for support, refunds and privacy requests. */
   email: '',
