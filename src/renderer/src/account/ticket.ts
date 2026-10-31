@@ -11,6 +11,8 @@ export interface Ticket {
   id: string
   uid: string
   kind: 'set' | 'clip'
+  /** On a paid plan: no watermark. Signed, so the app can't be talked into dropping it. */
+  paid?: boolean
   exp: number
 }
 

@@ -3,8 +3,9 @@
 Web app that turns a recorded DJ set into a YouTube-ready video, right in the browser (the recording never leaves the computer):
 
 - **Close-up waveform** that scrolls under the playhead, coloured by deck, with track boundaries. It sits in the top, middle or bottom lane of the area under the cards (Style ▸ Waveform ▸ Position).
-- **Three formats** (Style ▸ Format): 16:9 for YouTube, 9:16 for phones, and **Social** for TikTok and Reels, a 9:16 layout that keeps the title, cards and waveform clear of the apps' buttons and captions, with the waveform at the top.
-- **Completion line** along the bottom that fills up as the video (or clip) plays, which helps people keep watching. Style ▸ Completion line sets its look (flat, rounded or glow), size, how much it pulses on the kicks, and its colour (the playing deck's, or your own).
+- **Three formats** (Style ▸ Format): 16:9 for YouTube, 9:16 for phones, and **Social** for TikTok and Reels, a 9:16 layout that keeps the title, cards and waveform clear of the apps' buttons and captions, with the waveform on the first line, right of the REKCUT name (across the whole line on a paid plan).
+- **No watermark on paid plans**: free exports carry the REKCUT name; Monthly and Lifetime exports don't.
+- **Completion line** along the very bottom that fills up as the video (or clip) plays, which helps people keep watching. Style ▸ Completion line sets its look (flat, rounded or glow), size, how much it pulses on the kicks, and its colour (the playing deck's, or your own).
 - **App buttons preview** in Social: grey stand-ins for the TikTok or Reels buttons and captions over the preview, to check the layout. They're never in the export.
 - **Track A / Track B cards**: the main track sits on the left, the next track fades in on the right while you mix it in, and when it takes over it slides smoothly to the left while the old one slides out.
 - **Track art and titles**: looked up on Deezer and Apple Music automatically (and YouTube once you're signed in), or paste an image URL or choose your own image. Everything is editable.

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { drawAppOverlay, drawFrame, isSocial, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { Project } from '@shared/types'
 import { platform } from '../platform'
+import { useAccount } from '../account/account'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 
 interface Props {
@@ -40,12 +41,14 @@ export function Preview({ project, audio, time, range }: Props) {
   const k = PREVIEW_SHORT / Math.min(width, height)
   const pw = Math.round(width * k)
   const ph = Math.round(height * k)
+  // Paid plans export without the watermark (the export ticket decides), so the preview matches.
+  const paid = useAccount().entitlement?.unlimited ?? false
   const prep = useMemo(() => {
-    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: ph } }
+    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: ph, ...(paid ? { djName: '' } : {}) } }
     return prepareScene(p, art, offscreenFactory, range)
     // fontsReady forces a redraw once Inter has loaded
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, ph, fontsReady, range?.from, range?.to])
+  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, ph, fontsReady, range?.from, range?.to, paid])
 
   const timeRef = useRef(time)
   timeRef.current = time

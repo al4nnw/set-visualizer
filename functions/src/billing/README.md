@@ -25,7 +25,8 @@ plans), and `settleExport` when it ends. A failed or cancelled export gives its 
 
 `claimExport` also returns a **ticket** signed with the EXPORT_TICKET_KEY secret (`ticket.ts`). The
 app checks it with the public key it ships with (`src/renderer/src/account/ticket.ts`) and won't
-render without a valid one; the ticket id goes into the MP4's comment tag. This can't make the
+render without a valid one; the ticket id goes into the MP4's comment tag. Its `paid` flag (set on
+Monthly and Lifetime) makes the export render without the REKCUT watermark. This can't make the
 browser tamper-proof, but skipping the payment check means rewriting the app's code.
 
 ## Adding a payment provider (Paddle, Stripe, ...)

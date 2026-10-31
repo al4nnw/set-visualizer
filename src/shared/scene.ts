@@ -204,13 +204,24 @@ function sideMargins(settings: Size, s: number): { left: number; right: number }
 const WAVE_LANES = { top: 250, middle: 182, bottom: 114 }
 const WAVE_H = 64
 const PROGRESS_ROOM = 24
+/** Social: the waveform starts this far right of the margin when the name sits left of it. */
+const SOCIAL_WAVE_AFTER_NAME = 290
+const SOCIAL_WAVE_H = 52
+/** Social: middle of the REKCUT name's capitals, below the safe top, in text-scaled pixels. */
+const SOCIAL_NAME_MID = 71
 
 /** Where the close-up waveform goes: a lane of the bottom area, or under the header in social. */
-export function waveRect(settings: Size & { wavePosition?: WavePosition; progressBar?: { show: boolean } }, s: number): { x: number; y: number; w: number; h: number } {
+export function waveRect(settings: Size & { wavePosition?: WavePosition; progressBar?: { show: boolean }; djName?: string }, s: number): { x: number; y: number; w: number; h: number } {
   const { left, right } = sideMargins(settings, s)
   // The lanes move up a little to leave the completion line its own room along the bottom.
   const lift = settings.progressBar?.show ? PROGRESS_ROOM : 0
-  const y = isSocial(settings) ? SOCIAL_SAFE.top * s + 190 * s : settings.height - (WAVE_LANES[settings.wavePosition ?? 'bottom'] + lift) * s
+  if (isSocial(settings)) {
+    // On the header's first line: right of the REKCUT name, or all of it on a paid plan (no name).
+    const x = settings.djName ? left + SOCIAL_WAVE_AFTER_NAME * s : left
+    const h = SOCIAL_WAVE_H * s
+    return { x, y: SOCIAL_SAFE.top * s + SOCIAL_NAME_MID * SOCIAL_TEXT * s - h / 2, w: right - x, h }
+  }
+  const y = settings.height - (WAVE_LANES[settings.wavePosition ?? 'bottom'] + lift) * s
   return { x: left, y, w: right - left, h: WAVE_H * s }
 }
 const GLOW_BASE = 200
@@ -270,10 +281,15 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
   let y = top + 86 * ts
+  const social = isSocial(settings)
   if (settings.djName) {
     ctx.fillStyle = settings.theme.text
     ctx.font = `800 ${42 * ts}px ${f}`
-    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), (right - left) * 0.6), left, y)
+    const nameW = social ? (SOCIAL_WAVE_AFTER_NAME - 30) * s : (right - left) * 0.6
+    ctx.fillText(fitText(ctx, settings.djName.toLocaleUpperCase(settings.videoLanguage ?? 'en'), nameW), left, y)
+    y += 40 * ts
+  } else if (social) {
+    // The waveform has the whole first line, so the title stays on the second.
     y += 40 * ts
   }
   if (settings.setTitle) {
@@ -281,7 +297,8 @@ function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {
     ctx.font = `400 ${26 * ts}px ${f}`
     ctx.fillText(fitText(ctx, settings.setTitle, (right - left) * 0.6), left, y)
   }
-  if (settings.showTimestamps) {
+  // Social has the waveform where the clock would be, and the completion line shows what's left.
+  if (settings.showTimestamps && !social) {
     ctx.textAlign = 'right'
     ctx.font = `600 ${26 * ts}px ${f}`
     ctx.fillStyle = hexToRgba(settings.theme.text, 0.85)
@@ -313,7 +330,7 @@ function drawCard(ctx: Ctx, prep: PreparedScene, c: CardState, mo: { beat: numbe
   const social = isSocial(settings)
   const { left, right } = sideMargins(settings, s)
   const cx = portrait ? (left + right) / 2 : slotPos(c.slot, share, W * 0.5, W * 0.3, W * 0.71)
-  const cy = social ? slotPos(c.slot, share, 880 * s, 664 * s, 1165 * s) : portrait ? slotPos(c.slot, share, 880 * s, 520 * s, 1240 * s) : 395 * s
+  const cy = social ? slotPos(c.slot, share, 840 * s, 624 * s, 1125 * s) : portrait ? slotPos(c.slot, share, 880 * s, 520 * s, 1240 * s) : 395 * s
   // How much the card moves with the bass: fully for the main card, less for one playing underneath.
   const energy = c.playing ? Math.max(c.mainness, LAYERED_BOUNCE) : c.mainness
   const pulse = 1 + 0.05 * mo.beat * energy
@@ -470,7 +487,7 @@ export function drawFrame(ctx: Ctx, prep: PreparedScene, t: number) {
 
 /**
  * The completion line: fills from left to right over the video, so viewers see how much is left
- * (it keeps people watching). Along the bottom edge, or just above the apps' captions in social.
+ * (it keeps people watching). Along the bottom edge in every format, social too.
  */
 function drawProgress(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const { project, sorted, scale: s, range } = prep
@@ -480,13 +497,12 @@ function drawProgress(ctx: Ctx, prep: PreparedScene, t: number, beat: number) {
   const done = Math.min(1, Math.max(0, (t - range.from) / Math.max(1e-6, range.to - range.from)))
   const color = pb.color === 'deck' ? deckColor(project, trackAtTime(sorted, t)) : pb.color
   const size = pb.size * s * (1 + 0.8 * pb.pulse * beat)
-  const social = isSocial(settings)
-  const bottom = social ? settings.height - SOCIAL_SAFE.bottom * s : settings.height
-  const inset = pb.style !== 'flat' || social
-  const { left, right } = inset ? sideMargins(settings, s) : { left: 0, right: settings.width }
+  const bottom = settings.height
+  // The apps' buttons stop above the bottom edge, so social uses the plain margins here.
+  const { left, right } = pb.style !== 'flat' ? { left: 60 * s, right: settings.width - 60 * s } : { left: 0, right: settings.width }
   const w = right - left
-  // Flat sits on the edge; the others float a little above it.
-  const cy = pb.style === 'flat' ? bottom - size / 2 : bottom - 24 * s
+  // Flat sits on the edge; the others keep a sliver of space under them so their ends stay round.
+  const cy = pb.style === 'flat' ? bottom - size / 2 : bottom - size / 2 - 10 * s
   const head = left + w * done
   ctx.save()
   if (pb.style === 'flat') {

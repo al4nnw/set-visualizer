@@ -20,6 +20,8 @@ export interface TicketPayload {
   id: string
   uid: string
   kind: 'set' | 'clip'
+  /** On a paid plan: the video renders without the REKCUT watermark. */
+  paid?: boolean
   iat: number
   exp: number
 }

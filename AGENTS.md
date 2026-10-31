@@ -12,7 +12,7 @@ The [README](README.md) explains what the app does for a user. This file is abou
 4. **Export is CPU/browser WebCodecs.** A GPU/NVENC ffmpeg path was tried and dropped (not worth it).
 5. **Sign-in is Google only.** Apple and Microsoft were dropped.
 6. **Exports need an account:** 3 free exports per account (once, not monthly), then a Monthly (~US$10) or Lifetime (~US$45) plan. Each export is authorised by a **server-signed export ticket**. The payment provider sits behind a swappable interface and none is chosen yet (`BILLING_PROVIDER=none` shows plans as "coming soon").
-7. **The watermark is REKCUT.** `BRAND` in `src/shared/types.ts`. The old editable DJ-name field was removed from the Style tab and is forced to `BRAND` when a project loads.
+7. **The watermark is REKCUT, and paid plans drop it.** `BRAND` in `src/shared/types.ts`. The old editable DJ-name field was removed from the Style tab. The signed export ticket says whether the account is on a paid plan, and `runExport.ts` sets the name from it: `BRAND` on free exports, none on paid ones. Don't take the watermark decision from anything the app could change itself.
 8. **Every user-facing string goes through i18n.** The app launches worldwide (the owner is in Brazil): English, Brazilian Portuguese and Spanish, all complete.
 9. **Two decks, A and B.** The owner mixes on two decks, so at most two tracks play at once. The model (`Deck = 'A' | 'B'`), the timeline lanes and the card layout all assume it. Don't add a third layer.
 10. **Exports are plain browser downloads** in every browser (no save picker, no direct disk write).

@@ -1,4 +1,4 @@
-import { forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
+import { BRAND, forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
 import { errMsg, platform } from '../platform'
 import { SCENE_FONTS } from '../fonts'
 import { i18n } from '../i18n'
@@ -64,7 +64,8 @@ export async function runExport(
       }
       worker.onerror = (e) => reject(new Error(e.message || i18n.t('errors.workerCrashed')))
       // The worker has no platform of its own: it gets the artwork as URLs it can fetch.
-      const withUrls = { ...project, tracks: project.tracks.map((t) => (t.artwork ? { ...t, artwork: platform.mediaUrl(t.artwork) } : t)) }
+      // The watermark comes from the signed ticket: REKCUT on free exports, none on a paid plan.
+      const withUrls = { ...project, settings: { ...project.settings, djName: t.paid ? '' : BRAND }, tracks: project.tracks.map((t) => (t.artwork ? { ...t, artwork: platform.mediaUrl(t.artwork) } : t)) }
       worker.postMessage({ type: 'start', project: withUrls, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')
