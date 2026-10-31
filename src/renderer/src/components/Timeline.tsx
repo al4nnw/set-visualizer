@@ -29,7 +29,9 @@ const RULER = 24
 const LANE_GAP = 4
 /** Deck lanes are this tall when there is room, and shrink to LANE_MIN on short (laptop) screens. */
 const LANE_MAX = 48
-const LANE_MIN = 34
+const LANE_MIN = 24
+/** Below this lane height the blocks show only the title, not the artist. */
+const LANE_ARTIST = 34
 const WAVE_MIN = 36
 const WAVE_MAX = 160
 const PLAYHEAD = '#f0a530'
@@ -393,7 +395,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
                         <div className="tb-title">
                           <b>{i + 1}</b> {tr.title || t('common.untitled')}
                         </div>
-                        <div className="tb-artist">{tr.artist}</div>
+                        {LANE_H >= LANE_ARTIST && <div className="tb-artist">{tr.artist}</div>}
                       </div>
                     )}
                   </div>

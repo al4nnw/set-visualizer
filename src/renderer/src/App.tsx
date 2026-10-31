@@ -38,7 +38,7 @@ const AUTOSAVE_DELAY = 800
 const INSPECTOR_W = 360
 const TIMELINE_H = 250
 /** The shortest the timeline gets: its deck lanes and waveform at their smallest. */
-const TIMELINE_MIN = 196
+const TIMELINE_MIN = 176
 const TIMELINE_MAX = 520
 
 /**
