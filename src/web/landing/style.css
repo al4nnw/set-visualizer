@@ -1269,33 +1269,38 @@ kbd {
 .sa-tag { fill: var(--amber); }
 .sa-wave-on { stroke: var(--amber); stroke-width: 2; stroke-linecap: round; }
 
-/* 01: a two-deck controller and a laptop, seen over the DJ's shoulder */
-.sa-figure { fill: #2a2a2f; }
-.sa-limb { stroke: #2a2a2f; stroke-width: 12; stroke-linecap: round; }
+/* 01: a DDJ-FLX4-style controller (matte grey, orange accents) and a laptop, over the DJ's shoulder */
+.sa-figure { fill: #1c1c20; }
+.sa-limb { stroke: #1c1c20; stroke-width: 12; stroke-linecap: round; }
 .sa-phones { stroke: #4a4a52; stroke-width: 3.5; }
 .sa-cup { fill: #4a4a52; }
-.sa-stand { stroke: #3a3a41; stroke-width: 3; stroke-linecap: round; }
+.sa-stand { stroke: #55555c; stroke-width: 3; stroke-linecap: round; }
+.sa-lap-base { fill: #2e2e33; stroke: var(--line-strong); }
 .sa-rec { fill: var(--amber); }
-.step-art .sa-small { font-size: 7px; fill: var(--text); }
+.step-art .sa-small { font-size: 8px; fill: var(--text); }
 .sa-wave-a { stroke: var(--deck-a); stroke-width: 1.2; }
 .sa-wave-b { stroke: var(--deck-b); stroke-width: 1.2; }
 .sa-playhead-thin { stroke: var(--amber); stroke-width: 1; }
 .sa-thin { stroke-width: 2; }
-.sa-ctrl { fill: #1b1b1e; stroke: var(--line-strong); }
-.sa-ctrl-edge { fill: #0f0f11; }
-.sa-slot { fill: #050506; }
-.sa-fadercap { fill: var(--text-2); }
-.sa-jog { fill: #0b0b0c; }
-.sa-jog-ring { stroke-width: 1.5; }
-.sa-ring-a { stroke: var(--deck-a); }
-.sa-ring-b { stroke: var(--deck-b); }
-.sa-jog-hub { fill: #2a2a2f; }
-.sa-pad { fill: #26262a; }
-.sa-pad-a { fill: var(--deck-a); opacity: 0.8; }
-.sa-pad-b { fill: var(--deck-b); opacity: 0.8; }
-.sa-btn { fill: #2c2c31; }
-.sa-btn-play { fill: #3d3d44; }
-.sa-knob { fill: #2c2c31; stroke: #0b0b0c; }
+.sa-ctrl { fill: #4a4a50; stroke: rgba(255, 255, 255, 0.18); }
+.sa-ctrl-edge { fill: #2a2a2e; }
+.sa-ctrl-seam { fill: #424248; }
+.sa-slot { fill: #121214; }
+.sa-fadercap { fill: #d6d6da; }
+.sa-jog { fill: #141416; }
+.sa-jog-top { fill: #2c2c30; }
+.sa-jog-ring { stroke: #ff7a1a; stroke-width: 1; opacity: 0.85; }
+.sa-jog-hub { fill: #3a3a40; }
+.sa-mode { fill: #2a2a2e; }
+.sa-pad { fill: #232326; }
+.sa-pad-lit { fill: #ff7a1a; }
+.sa-cue { fill: #ff7a1a; }
+.sa-play { fill: var(--ok); }
+.sa-smart { fill: #ff7a1a; }
+.sa-knob { fill: #1e1e21; stroke: #0b0b0c; stroke-width: 0.6; }
+.sa-knob-cfx { fill: #2a2a2e; }
+.sa-meter { fill: #232326; }
+.sa-meter-on { fill: var(--ok); }
 
 /* 02: the files */
 .sa-drop { fill: var(--panel); stroke: var(--amber); stroke-dasharray: 5 4; stroke-width: 1.2; }
