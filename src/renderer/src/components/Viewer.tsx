@@ -184,7 +184,7 @@ export function Viewer(p: Props) {
             onFormat={p.onClipFormat}
           />
         ) : (
-          <Preview project={shown!} audio={p.audio} time={time} />
+          <Preview project={shown!} audio={p.audio} time={time} range={loop ? { from: loop.from, to: loop.to } : undefined} />
         )}
         {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} />}
       </div>

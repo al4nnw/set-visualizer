@@ -106,7 +106,7 @@ export function ExportDialog({ project, onClose, onChangeSettings }: Props) {
               </div>
             </label>
             <p className="muted small">
-              {s.height > s.width ? t('export.phoneFormat') : '16:9'} · {s.width}×{s.height}. {t('export.formatNote')}
+              {s.height > s.width ? (s.social ? t('export.socialFormat') : t('export.phoneFormat')) : '16:9'} · {s.width}×{s.height}. {t('export.formatNote')}
             </p>
           </div>
           <div className="col">

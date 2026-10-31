@@ -11,6 +11,7 @@ import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
 import { LOCALES, matchLocale, videoText } from '../src/shared/i18n'
+import { formatPatch, SOCIAL_SAFE, videoFormat, waveRect } from '../src/shared/scene'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -419,5 +420,36 @@ describe('youtube links', () => {
     expect(isoDuration('PT1H2M3S')).toBe(3723)
     expect(isoDuration('P0D')).toBe(0)
     expect(isoDuration(undefined)).toBeUndefined()
+  })
+})
+
+describe('video formats and the waveform', () => {
+  const land = { width: 1920, height: 1080 }
+
+  it('switches format keeping the resolution', () => {
+    const social = { ...land, ...formatPatch(land, 'social') }
+    expect(social).toMatchObject({ width: 1080, height: 1920, social: true })
+    expect(videoFormat(social)).toBe('social')
+    const portrait = { ...social, ...formatPatch(social, 'portrait') }
+    expect(portrait).toMatchObject({ width: 1080, height: 1920, social: false })
+    expect(videoFormat({ ...portrait, ...formatPatch(portrait, 'landscape') })).toBe('landscape')
+    // A landscape video with the flag left over from earlier is still landscape.
+    expect(videoFormat({ ...land, social: true })).toBe('landscape')
+  })
+
+  it('puts the waveform in the chosen lane, bottom by default', () => {
+    const y = (p?: 'top' | 'middle' | 'bottom') => waveRect({ ...land, wavePosition: p }, 1).y
+    expect(y()).toBe(y('bottom'))
+    expect(y('top')).toBeLessThan(y('middle'))
+    expect(y('middle')).toBeLessThan(y('bottom'))
+    expect(y('bottom') + waveRect(land, 1).h).toBeLessThan(land.height)
+  })
+
+  it('keeps the social waveform at the top, inside the apps\' safe area', () => {
+    const r = waveRect({ width: 1080, height: 1920, social: true, wavePosition: 'bottom' }, 1)
+    expect(r.y).toBeGreaterThan(SOCIAL_SAFE.top)
+    expect(r.y).toBeLessThan(1920 / 3)
+    expect(r.x).toBe(SOCIAL_SAFE.left)
+    expect(r.x + r.w).toBe(1080 - SOCIAL_SAFE.right)
   })
 })

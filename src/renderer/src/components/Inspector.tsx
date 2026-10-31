@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
-import type { Project, RenderSettings, SwapCurve, Theme, Track } from '@shared/types'
+import { formatPatch, videoFormat } from '@shared/scene'
+import { DEFAULT_PROGRESS, PROGRESS_SIZE, type ProgressBar, type Project, type RenderSettings, type SwapCurve, type Theme, type Track } from '@shared/types'
 import { Trans, useTranslation } from 'react-i18next'
 import { LOCALE_NAMES, LOCALES, type Locale } from '@shared/i18n'
 import { lang } from '../i18n'
@@ -209,24 +210,40 @@ function TracksTab(p: Props & { project: Project }) {
 function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
   const { t } = useTranslation()
   const s = project.settings
+  const format = videoFormat(s)
   const setTheme = (patch: Partial<Theme>) => onChangeSettings({ theme: { ...s.theme, ...patch } }, 'theme')
+  // Projects from before the completion line have none: it shows as hidden, with the default look.
+  const pb = s.progressBar ?? { ...DEFAULT_PROGRESS, show: false }
+  const setProgress = (patch: Partial<ProgressBar>, coalesce?: string) => onChangeSettings({ progressBar: { ...pb, ...patch } }, coalesce)
   return (
     <div className="scroll">
       <Section title={t('inspector.format')}>
         <Prop label={t('inspector.aspect')} title={t('inspector.aspectTitle')}>
           <div className="seg">
-            <button className={s.height <= s.width ? 'on' : ''} onClick={() => s.height > s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              {t('inspector.landscape')}
-            </button>
-            <button className={s.height > s.width ? 'on' : ''} onClick={() => s.height <= s.width && onChangeSettings({ width: s.height, height: s.width })}>
-              {t('inspector.portrait')}
-            </button>
+            {(['landscape', 'portrait', 'social'] as const).map((f) => (
+              <button key={f} className={format === f ? 'on' : ''} onClick={() => format !== f && onChangeSettings(formatPatch(s, f))}>
+                {t(`inspector.${f}`)}
+              </button>
+            ))}
           </div>
         </Prop>
+        {format === 'social' && (
+          <Prop label={t('inspector.appOverlay')} title={t('inspector.appOverlayTitle')}>
+            <div className="seg">
+              {(['off', 'tiktok', 'reels'] as const).map((o) => (
+                <button key={o} className={(s.appOverlay ?? 'tiktok') === o ? 'on' : ''} onClick={() => onChangeSettings({ appOverlay: o })}>
+                  {t(`inspector.overlays.${o}`)}
+                </button>
+              ))}
+            </div>
+            <span className="muted small">{t('inspector.appOverlayNote')}</span>
+          </Prop>
+        )}
       </Section>
       <Section title={t('inspector.text')}>
         <Prop label={t('inspector.setTitle')}>
           <input value={s.setTitle} onChange={(e) => onChangeSettings({ setTitle: e.target.value }, 'title')} placeholder={t('inspector.setTitlePlaceholder')} />
+          <span className="muted small">{t('inspector.setTitleNote')}</span>
         </Prop>
         <Prop label={t('inspector.videoLanguage')} title={t('inspector.videoLanguageTitle')}>
           <select value={s.videoLanguage ?? 'en'} onChange={(e) => onChangeSettings({ videoLanguage: e.target.value as Locale })}>
@@ -244,8 +261,8 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
           </label>
         </Prop>
       </Section>
-      <Section title={t('inspector.waveforms')}>
-        <Prop label={t('inspector.top')} title={t('inspector.topTitle')}>
+      <Section title={t('inspector.waveform')}>
+        <Prop label={t('inspector.closeUp')} title={t('inspector.closeUpTitle')}>
           <div className="seg">
             <button className={s.showDeckWave ? 'on' : ''} onClick={() => onChangeSettings({ showDeckWave: true })}>
               {t('inspector.show')}
@@ -254,19 +271,65 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
               {t('inspector.hide')}
             </button>
           </div>
-          <span className="muted small">{t('inspector.topNote')}</span>
+          <span className="muted small">{t('inspector.closeUpNote')}</span>
         </Prop>
-        <Prop label={t('inspector.bottom')} title={t('inspector.bottomTitle')}>
+        <Prop label={t('inspector.position')} title={t('inspector.positionTitle')}>
+          {format === 'social' ? (
+            <span className="muted small">{t('inspector.positionSocial')}</span>
+          ) : (
+            <div className="seg">
+              {(['top', 'middle', 'bottom'] as const).map((p) => (
+                <button key={p} className={(s.wavePosition ?? 'bottom') === p ? 'on' : ''} onClick={() => onChangeSettings({ wavePosition: p })}>
+                  {t(`inspector.lanes.${p}`)}
+                </button>
+              ))}
+            </div>
+          )}
+        </Prop>
+      </Section>
+      <Section title={t('inspector.progress')}>
+        <Prop label={t('inspector.progressShow')} title={t('inspector.progressTitle')}>
           <div className="seg">
-            <button className={s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: true })}>
+            <button className={pb.show ? 'on' : ''} onClick={() => setProgress({ show: true })}>
               {t('inspector.show')}
             </button>
-            <button className={!s.showSetWave ? 'on' : ''} onClick={() => onChangeSettings({ showSetWave: false })}>
+            <button className={!pb.show ? 'on' : ''} onClick={() => setProgress({ show: false })}>
               {t('inspector.hide')}
             </button>
           </div>
-          <span className="muted small">{t('inspector.bottomNote')}</span>
         </Prop>
+        {pb.show && (
+          <>
+            <Prop label={t('inspector.progressStyle')}>
+              <div className="seg">
+                {(['flat', 'rounded', 'glow'] as const).map((st) => (
+                  <button key={st} className={pb.style === st ? 'on' : ''} onClick={() => setProgress({ style: st })}>
+                    {t(`inspector.progressStyles.${st}`)}
+                  </button>
+                ))}
+              </div>
+            </Prop>
+            <Prop label={t('inspector.progressSize')}>
+              <input type="range" min={PROGRESS_SIZE.min} max={PROGRESS_SIZE.max} step={1} value={pb.size} onChange={(e) => setProgress({ size: +e.target.value }, 'progressSize')} />
+              <span className="mono val">{pb.size}px</span>
+            </Prop>
+            <Prop label={t('inspector.progressPulse')} title={t('inspector.progressPulseTitle')}>
+              <input type="range" min={0} max={1} step={0.05} value={pb.pulse} onChange={(e) => setProgress({ pulse: +e.target.value }, 'progressPulse')} />
+              <span className="mono val">{Math.round(pb.pulse * 100)}%</span>
+            </Prop>
+            <Prop label={t('inspector.progressColor')}>
+              <div className="seg">
+                <button className={pb.color === 'deck' ? 'on' : ''} onClick={() => setProgress({ color: 'deck' })}>
+                  {t('inspector.progressDeck')}
+                </button>
+                <button className={pb.color !== 'deck' ? 'on' : ''} onClick={() => pb.color === 'deck' && setProgress({ color: s.theme.text })}>
+                  {t('inspector.progressCustom')}
+                </button>
+              </div>
+              {pb.color !== 'deck' && <input type="color" value={pb.color} onChange={(e) => setProgress({ color: e.target.value }, 'progressColor')} />}
+            </Prop>
+          </>
+        )}
       </Section>
       <Section title={t('inspector.colors')}>
         <Prop label={t('timeline.deckA')}>

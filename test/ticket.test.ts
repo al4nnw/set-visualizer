@@ -30,3 +30,10 @@ describe('export tickets', () => {
     await expect(checkTicket(signTicket({ id: 'e1', uid: 'u1', kind: 'clip' }, Date.now() - 25 * 3600e3), { kind: 'clip' })).rejects.toThrow('expired')
   })
 })
+
+describe('watermark on export tickets', () => {
+  it('carries the paid flag the server signed', async () => {
+    expect((await checkTicket(signTicket({ id: 'e2', uid: 'u1', kind: 'set', paid: true }), { kind: 'set' })).paid).toBe(true)
+    expect((await checkTicket(signTicket({ id: 'e3', uid: 'u1', kind: 'set' }), { kind: 'set' })).paid).toBeUndefined()
+  })
+})

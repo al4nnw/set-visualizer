@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { nudgeClip, resizeClip, type ClipKind, type ClipSuggestion } from '@shared/clips'
 import { formatTime } from '@shared/layout'
-import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
-import type { Project } from '@shared/types'
+import { drawFrame, formatPatch, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
+import type { Project, VideoFormat } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, tMsg } from '../i18n'
 import { platform } from '../platform'
@@ -12,7 +12,7 @@ import { loadArtMap, offscreenFactory } from '../sceneAssets'
 import { Icon } from './icons'
 import { beforeExport, claimExport, settleExport } from '../account/account'
 
-export type ClipFormat = 'portrait' | 'landscape'
+export type ClipFormat = VideoFormat
 
 type Clip = ClipSuggestion & { edited?: boolean }
 
@@ -33,16 +33,10 @@ const THUMB_SHORT = 180
 const LENGTHS = [15, 30, 60]
 
 /**
- * The project as a clip renders it: 9:16 at the project's resolution with only the close-up
- * waveform (the full-set one means little in 15 s), or 16:9 as the project is set up.
+ * The project as a clip renders it: in the clip format, at the project's resolution.
  */
 export function clipProject(project: Project, format: ClipFormat): Project {
-  const s = project.settings
-  const short = Math.min(s.width, s.height)
-  const long = Math.max(s.width, s.height)
-  return format === 'portrait'
-    ? { ...project, settings: { ...s, width: short, height: long, showSetWave: false } }
-    : { ...project, settings: { ...s, width: long, height: short } }
+  return { ...project, settings: { ...project.settings, ...formatPatch(project.settings, format) } }
 }
 
 /** A clip's title in the UI language; untitled tracks get the "Untitled" word. */
@@ -131,6 +125,9 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
           <button className={format === 'landscape' ? 'on' : ''} onClick={() => onFormat('landscape')}>
             16:9
           </button>
+          <button className={format === 'social' ? 'on' : ''} onClick={() => onFormat('social')} title={t('clips.socialTitle')}>
+            {t('clips.social')}
+          </button>
         </div>
       </div>
       <div className={`clips-grid ${format}`}>
@@ -141,7 +138,7 @@ export function ClipsPanel({ project, clips, playingId, onPlay, onTrim, format, 
           const pct = job?.progress ? Math.min(100, (job.progress.frame / Math.max(1, job.progress.totalFrames)) * 100) : 0
           return (
             <div key={c.id} className={`clips-card ${playingId === c.id ? 'on' : ''}`}>
-              <Thumb prep={prep} t={c.focus + 1.5} w={thumbProject.settings.width} h={thumbProject.settings.height} onClick={() => onPlay(c)} />
+              <Thumb prep={{ ...prep, range: { from: c.from, to: c.to } }} t={c.focus + 1.5} w={thumbProject.settings.width} h={thumbProject.settings.height} onClick={() => onPlay(c)} />
               <div className="clips-info">
                 <div className="clips-tags">
                   <span className={`clips-kind ${c.kind}`}>{t(`clips.kind.${c.kind}`)}</span>
@@ -252,7 +249,7 @@ function Thumb({ prep, t, w, h, onClick }: { prep: ReturnType<typeof prepareScen
   useEffect(() => {
     const ctx = ref.current?.getContext('2d') as Ctx | null
     if (ctx) drawFrame(ctx, prep, t)
-  }, [prep, t])
+  }, [prep.range.from, prep.range.to, prep, t])
   return (
     <button className="clips-thumb" onClick={onClick} title={tr('clips.playInProgram')}>
       <canvas ref={ref} width={w} height={h} />

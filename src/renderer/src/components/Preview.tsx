@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { drawFrame, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
+import { drawAppOverlay, drawFrame, isSocial, prepareScene, type ArtAsset, type Ctx } from '@shared/scene'
 import type { Project } from '@shared/types'
 import { platform } from '../platform'
+import { useAccount } from '../account/account'
 import { loadArtMap, offscreenFactory } from '../sceneAssets'
 
 interface Props {
@@ -9,13 +10,15 @@ interface Props {
   audio: HTMLAudioElement | null
   /** Used while paused (e.g. scrubbing the timeline). */
   time: number
+  /** The clip looping in Program, so the completion line fills over it as it will in the export. */
+  range?: { from: number; to: number }
 }
 
 /** The preview renders with 720 px on the short side and is scaled to fit the viewer. */
 const PREVIEW_SHORT = 720
 
 /** Live preview drawn with the exact same scene code as the exported video. */
-export function Preview({ project, audio, time }: Props) {
+export function Preview({ project, audio, time, range }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [art, setArt] = useState<Map<string, ArtAsset>>(new Map())
   const [fontsReady, setFontsReady] = useState(false)
@@ -38,12 +41,14 @@ export function Preview({ project, audio, time }: Props) {
   const k = PREVIEW_SHORT / Math.min(width, height)
   const pw = Math.round(width * k)
   const ph = Math.round(height * k)
+  // Paid plans export without the watermark (the export ticket decides), so the preview matches.
+  const paid = useAccount().entitlement?.unlimited ?? false
   const prep = useMemo(() => {
-    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: ph } }
-    return prepareScene(p, art, offscreenFactory)
+    const p: Project = { ...project, settings: { ...project.settings, width: pw, height: ph, ...(paid ? { djName: '' } : {}) } }
+    return prepareScene(p, art, offscreenFactory, range)
     // fontsReady forces a redraw once Inter has loaded
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, ph, fontsReady])
+  }, [project.tracks, project.settings, project.waveform, project.duration, art, pw, ph, fontsReady, range?.from, range?.to, paid])
 
   const timeRef = useRef(time)
   timeRef.current = time
@@ -58,6 +63,9 @@ export function Preview({ project, audio, time }: Props) {
       // Only redraw when time moves, so an idle preview doesn't compete with an export for the GPU.
       if (t !== drawn) {
         drawFrame(ctx, prep, t)
+        // The apps' buttons, over the preview only, to check a social layout against them.
+        const s = prep.project.settings
+        if (isSocial(s)) drawAppOverlay(ctx, s, s.appOverlay ?? 'tiktok')
         drawn = t
       }
       raf = requestAnimationFrame(loop)

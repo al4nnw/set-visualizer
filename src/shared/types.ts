@@ -49,7 +49,6 @@ export interface Theme {
   accent: string
   accentB: string
   text: string
-  waveUnplayed: string
 }
 
 export interface RenderSettings {
@@ -61,10 +60,19 @@ export interface RenderSettings {
   /** Easing of the A/B swap; 'auto' picks curve and length per transition. Missing means auto. */
   swapCurve?: SwapCurve
   showTimestamps: boolean
-  /** The scrolling close-up waveform above the full-set one. */
+  /** The scrolling close-up waveform. */
   showDeckWave: boolean
-  /** The full-set waveform along the bottom, with track numbers. */
-  showSetWave: boolean
+  /** Which lane of the bottom area the waveform sits in. Missing means bottom. Ignored in social. */
+  wavePosition?: WavePosition
+  /**
+   * 9:16 laid out for TikTok and Reels: everything stays clear of the apps' buttons and captions,
+   * and the waveform sits at the top. Only applies when the video is portrait.
+   */
+  social?: boolean
+  /** Preview-only stand-in for the TikTok or Reels buttons over a social video; never exported. */
+  appOverlay?: AppOverlay
+  /** The line along the bottom that fills up as the video plays. Missing means hidden. */
+  progressBar?: ProgressBar
   /** Shown top-left, e.g. "Live @ Home — October 2026". */
   setTitle: string
   djName: string
@@ -73,6 +81,31 @@ export interface RenderSettings {
   theme: Theme
   quality: Quality
 }
+
+/** 16:9 for YouTube, 9:16 for phones, or 9:16 laid out for TikTok and Reels. */
+export type VideoFormat = 'landscape' | 'portrait' | 'social'
+
+export type AppOverlay = 'off' | 'tiktok' | 'reels'
+
+/** How the completion line looks. */
+export interface ProgressBar {
+  show: boolean
+  style: ProgressStyle
+  /** Thickness in pixels of a 1080 px short side. */
+  size: number
+  /** How much it swells on each kick, 0..1. */
+  pulse: number
+  /** A colour, or 'deck' to follow the colour of the deck that's playing. */
+  color: string
+}
+
+export type ProgressStyle = 'flat' | 'rounded' | 'glow'
+
+export const PROGRESS_SIZE = { min: 2, max: 24 }
+
+export const DEFAULT_PROGRESS: ProgressBar = { show: true, style: 'rounded', size: 8, pulse: 0.5, color: 'deck' }
+
+export type WavePosition = 'top' | 'middle' | 'bottom'
 
 export type SwapCurve = 'auto' | 'smooth' | 'snappy' | 'anticipate' | 'spring'
 
@@ -175,8 +208,7 @@ export const DEFAULT_THEME: Theme = {
   background: '#07070c',
   accent: '#ff3d7f',
   accentB: '#3dd6ff',
-  text: '#ffffff',
-  waveUnplayed: 'rgba(255,255,255,0.22)'
+  text: '#ffffff'
 }
 
 /** The name drawn top-left in every video (the app's watermark); not editable. */
@@ -190,7 +222,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   swapCurve: 'auto',
   showTimestamps: true,
   showDeckWave: true,
-  showSetWave: true,
+  progressBar: DEFAULT_PROGRESS,
   setTitle: '',
   djName: BRAND,
   theme: DEFAULT_THEME,

@@ -43,7 +43,9 @@ export const claimExport = onCall({ ...opts, secrets: [EXPORT_TICKET_KEY] }, asy
   const kind = (req.data as { kind?: unknown })?.kind
   if (kind !== 'set' && kind !== 'clip') throw new HttpsError('invalid-argument', 'kind is set or clip')
   const r = await claim(uid, kind as ExportKind)
-  return r ? { ok: true, id: r.id, ticket: signTicket({ id: r.id, uid, kind: kind as ExportKind }), entitlement: view(r.account) } : { ok: false, entitlement: view(await getAccount(uid)) }
+  if (!r) return { ok: false, entitlement: view(await getAccount(uid)) }
+  const ent = view(r.account)
+  return { ok: true, id: r.id, ticket: signTicket({ id: r.id, uid, kind: kind as ExportKind, paid: ent.unlimited }), entitlement: ent }
 })
 
 /** `{ id, ok }`: the export finished, or failed / was cancelled (giving a free one back). */
