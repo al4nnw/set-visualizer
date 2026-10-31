@@ -105,7 +105,7 @@ const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp']
 const TYPES = {
   audio: { description: 'Audio', accept: { 'audio/*': AUDIO_EXT } },
   cue: { description: 'Rekordbox cue sheet', accept: { 'application/x-cue': ['.cue'] } },
-  project: { description: 'Set Visualizer project', accept: { 'application/json': ['.djvis'] } },
+  project: { description: 'REKCUT project', accept: { 'application/json': ['.djvis'] } },
   image: { description: 'Image', accept: { 'image/*': IMAGE_EXT } }
 }
 type Kind = keyof typeof TYPES

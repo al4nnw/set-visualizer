@@ -156,7 +156,7 @@ export function MenuBar({ menus, center, right }: Props) {
 
   return (
     <div className={`menubar ${isMac ? 'mac' : ''}`} ref={ref}>
-      <div className="menubar-logo" title="Set Visualizer">
+      <div className="menubar-logo" title="REKCUT">
         <svg viewBox="0 0 16 16" width="14" height="14">
           <path d="M2 9v-2M5 12V4M8 14V2M11 11V5M14 9V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>

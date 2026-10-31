@@ -742,7 +742,7 @@ export function App() {
 
   useEffect(() => {
     const name = project ? fileName ?? project.audioName : null
-    document.title = name ? `${name}${dirty && !prefs?.autosave ? ' *' : ''} — Set Visualizer` : 'Set Visualizer'
+    document.title = name ? `${name}${dirty && !prefs?.autosave ? ' *' : ''} — REKCUT` : 'REKCUT'
   }, [project, fileName, dirty, prefs?.autosave])
 
   const searchTrack = dialog?.kind === 'search' && project ? project.tracks.find((t) => t.id === dialog.trackId) : undefined
