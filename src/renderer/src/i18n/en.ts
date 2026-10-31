@@ -394,7 +394,7 @@ export const en = {
     general: 'General',
     newProjects: 'New projects',
     language: 'Language',
-    languageSystem: 'Same as the system',
+    languageSystem: 'Automatic (browser language and location)',
     saving: 'Saving',
     autosave: 'Autosave: save the project after every change',
     savingNoteWeb: 'Projects are saved in this browser, on this computer only: nothing is uploaded. Opening a set recording creates its project right away. To keep a copy as a file, or open it on another computer, use File ▸ Save As. With autosave off, use File ▸ Save ({{keys}}).',

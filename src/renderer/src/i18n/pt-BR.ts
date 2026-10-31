@@ -389,7 +389,7 @@ export const ptBR: Messages = {
     general: 'Geral',
     newProjects: 'Novos projetos',
     language: 'Idioma',
-    languageSystem: 'Igual ao do sistema',
+    languageSystem: 'Automático (idioma do navegador e localização)',
     saving: 'Salvamento',
     autosave: 'Salvar automaticamente: salva o projeto depois de cada alteração',
     savingNoteWeb: 'Os projetos ficam salvos neste navegador, só neste computador: nada é enviado. Abrir uma gravação de set cria o projeto na hora. Para guardar uma cópia em arquivo, ou abrir em outro computador, use Arquivo ▸ Salvar como. Sem o salvamento automático, use Arquivo ▸ Salvar ({{keys}}).',

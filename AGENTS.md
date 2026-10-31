@@ -72,6 +72,7 @@ src/renderer/src/    the React app
   account/           account store and dialogs, export ticket check (ticket.ts), back office (BackOffice.tsx)
   i18n/              UI catalogs: en.ts is the source, pt-BR.ts and es.ts must match it
 src/web/             entry HTML and bootstrap (vite.web.config.ts roots here)
+  index.html         the front page in English; landing/translations.ts has its pt-BR and es text
 functions/src/       Cloud Functions (Node 22, region southamerica-east1)
   index.ts           youtubeSearch (signed-in only; the API key is a secret) + re-exports billing
   billing/           accounts, free exports, plans, tickets, payment providers, back office (admin.ts); has its own README
@@ -104,6 +105,8 @@ The `@shared/*` import alias points at `src/shared/` (tsconfig + Vite).
 - TypeScript strict everywhere. React function components and hooks; no state library (`useHistory.ts` gives undo/redo).
 - Comments explain *why* and what a unit is for, in plain sentences, usually a `/** */` block above exports. Match the existing tone.
 - New UI strings: add the key to `src/renderer/src/i18n/en.ts`, then the translation to `pt-BR.ts` **and** `es.ts`, with the same `{{placeholders}}` and `<0>` tags. The type check and `test/i18n.test.ts` fail otherwise. Text that is drawn into the video goes in `src/shared/i18n.ts` instead.
+- The front page is translated too. `src/web/index.html` is the English page; an element with `data-i18n="key"` (or an attribute named by `data-i18n-<attr>="key"`) gets its Portuguese and Spanish from `src/web/landing/translations.ts`, and `scripts/landingPages.ts` writes them as static pages at `/pt-BR/` and `/es/` (in the build and on the dev server). Change English copy there and change both translations; `test/landing.test.ts` fails on a missing key or different markup. Keep a translated element free of the same tag nested inside it.
+- Language detection is one function, `detectLocale` in `src/shared/i18n.ts` (browser language, else time zone, so an English browser in Brazil gets Portuguese). The editor's "Automatic" setting and the front page's inline script both use it, and a pick in the front page's language menu is saved as `language` in the editor's preferences (localStorage `setvis.prefs`). Keep `detectLocale` self-contained: it is serialised into that inline script.
 - Shared code that would return English text returns plain-data messages (see `src/shared/i18n.ts`) and the UI translates them.
 - Logic that can be pure goes in `src/shared/` and gets a vitest test (`test/shared.test.ts`, `test/billing.test.ts`).
 - Platform-specific things go behind the `Platform` interface (`platform/types.ts`), not straight into components.

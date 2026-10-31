@@ -1,6 +1,6 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { LOCALES, matchLocale, type Locale, type Msg } from '@shared/i18n'
+import { LOCALES, detectLocale, type Locale, type Msg } from '@shared/i18n'
 import type { Preferences } from '@shared/types'
 import { en } from './en'
 import { es } from './es'
@@ -14,8 +14,16 @@ declare module 'i18next' {
 
 const resources = { en: { translation: en }, 'pt-BR': { translation: ptBR }, es: { translation: es } }
 
-/** The OS/browser language, as one of ours. */
-export const systemLocale = (): Locale => matchLocale(navigator.languages?.[0] ?? navigator.language)
+/** The language for someone who hasn't picked one: browser language, else location (same rule as the front page). */
+export const systemLocale = (): Locale => {
+  let timeZone: string | undefined
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    // No Intl time zone: the browser language decides alone.
+  }
+  return detectLocale(navigator.languages?.length ? navigator.languages : [navigator.language], timeZone)
+}
 
 /** The UI language a preference asks for. */
 export const uiLocale = (pref: Preferences['language']): Locale => (pref && pref !== 'system' && LOCALES.includes(pref) ? pref : systemLocale())

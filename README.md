@@ -70,7 +70,7 @@ test/browser/          the browser analysis checked against ffmpeg's in a real b
 
 ## Languages
 
-The UI comes in English, Brazilian Portuguese and Spanish (Settings ▸ Language, following the system by default). The text drawn into the video ("NOW PLAYING", "UP NEXT"…) has its own language per project (Style ▸ Video language), so a set can be published for a different audience than the app's language. New projects start in the UI language.
+The site and the UI come in English, Brazilian Portuguese and Spanish. By default both follow the browser language, or, when the browser is in English, the country its clock is set to (so a visitor in Brazil gets Portuguese). The front page has a language menu (also at `/pt-BR/` and `/es/`), and the choice there and in Settings ▸ Language is shared. The text drawn into the video ("NOW PLAYING", "UP NEXT"…) has its own language per project (Style ▸ Video language), so a set can be published for a different audience than the app's language. New projects start in the UI language.
 
 UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and `es.ts` must have every key, which the type check and `test/i18n.test.ts` enforce). Video text is in `src/shared/i18n.ts`, since the scene renderer also runs in the export worker.
 

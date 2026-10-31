@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker</title>
+    <title data-i18n="meta.title">REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker</title>
     <meta
       name="description"
+      data-i18n-content="meta.description"
       content="REKCUT (also written RekCut) turns a recorded Rekordbox set into a YouTube-ready video or a 9:16 clip, right in your browser. It fills in the tracklist and artwork, suggests the best moments, and never uploads your recording. 3 free exports, then US$10/month or US$45 once."
     />
     <meta
@@ -17,30 +18,36 @@
     <meta name="application-name" content="REKCUT" />
     <meta name="theme-color" content="#0c0c0d" />
     <link rel="canonical" href="https://set-visualizer-app.web.app/" />
+    <link rel="alternate" hreflang="en" href="https://set-visualizer-app.web.app/" />
+    <link rel="alternate" hreflang="pt-BR" href="https://set-visualizer-app.web.app/pt-BR/" />
+    <link rel="alternate" hreflang="es" href="https://set-visualizer-app.web.app/es/" />
+    <link rel="alternate" hreflang="x-default" href="https://set-visualizer-app.web.app/" />
     <link rel="alternate" type="text/plain" href="https://set-visualizer-app.web.app/llms.txt" title="REKCUT for AI assistants" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="sitemap" href="./sitemap.xml" type="application/xml" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="REKCUT" />
-    <meta property="og:title" content="REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker" />
+    <meta property="og:title" data-i18n-content="meta.title" content="REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker" />
     <meta
       property="og:description"
+      data-i18n-content="meta.ogDescription"
       content="Turn a recorded Rekordbox set into a YouTube-ready visualizer and 9:16 clips. Automatic tracklist, artwork and transitions. Runs in your browser."
     />
     <meta property="og:url" content="https://set-visualizer-app.web.app/" />
     <meta property="og:image" content="https://set-visualizer-app.web.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="REKCUT turns a Rekordbox set into a waveform video and vertical clips." />
+    <meta property="og:image:alt" data-i18n-content="meta.ogImageAlt" content="REKCUT turns a Rekordbox set into a waveform video and vertical clips." />
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="pt_BR" />
     <meta property="og:locale:alternate" content="es_ES" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker" />
+    <meta name="twitter:title" data-i18n-content="meta.title" content="REKCUT (RekCut) — Rekordbox Set to YouTube Video &amp; Clip Maker" />
     <meta
       name="twitter:description"
+      data-i18n-content="meta.ogDescription"
       content="Turn a recorded Rekordbox set into a YouTube-ready visualizer and 9:16 clips. Automatic tracklist, artwork and transitions. Runs in your browser."
     />
     <meta name="twitter:image" content="https://set-visualizer-app.web.app/og-image.png" />
@@ -279,11 +286,11 @@
     <link rel="stylesheet" href="./landing/style.css" />
   </head>
     <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main" data-i18n="nav.skip">Skip to content</a>
 
     <header class="site-header">
       <div class="wrap header-inner">
-        <a class="brand" href="./" aria-label="REKCUT home">
+        <a class="brand" href="./" aria-label="REKCUT home" data-i18n-aria-label="nav.home">
           <span class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 20 20" width="18" height="18" fill="none">
               <path d="M4.5 2.5v15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -292,16 +299,33 @@
           </span>
           <span class="brand-name">REKCUT</span>
         </a>
-        <nav class="main-nav" aria-label="Main navigation">
-          <a href="#features">Features</a>
-          <a href="#clips">Clips</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+        <nav class="main-nav" aria-label="Main navigation" data-i18n-aria-label="nav.main">
+          <a href="#features" data-i18n="nav.1">Features</a>
+          <a href="#clips" data-i18n="nav.2">Clips</a>
+          <a href="#how-it-works" data-i18n="nav.3">How it works</a>
+          <a href="#pricing" data-i18n="nav.4">Pricing</a>
+          <a href="#faq" data-i18n="nav.5">FAQ</a>
         </nav>
         <div class="header-actions">
+          <details class="lang-menu">
+            <summary aria-label="Language: English" data-i18n-aria-label="lang.label">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.3" />
+                <path d="M1.75 8h12.5M8 1.75c1.8 1.7 2.7 3.8 2.7 6.25S9.8 12.55 8 14.25C6.2 12.55 5.3 10.45 5.3 8S6.2 3.45 8 1.75Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+              </svg>
+              <span class="lang-code" data-i18n="lang.code">EN</span>
+              <svg class="lang-caret" viewBox="0 0 10 10" width="9" height="9" fill="none" aria-hidden="true">
+                <path d="M2.5 3.75 5 6.25l2.5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </summary>
+            <ul class="lang-list">
+              <li><a href="./" hreflang="en" lang="en" data-set-lang="en" aria-current="true">English</a></li>
+              <li><a href="./pt-BR/" hreflang="pt-BR" lang="pt-BR" data-set-lang="pt-BR">Português (Brasil)</a></li>
+              <li><a href="./es/" hreflang="es" lang="es" data-set-lang="es">Español</a></li>
+            </ul>
+          </details>
           <a class="btn btn-primary" href="./app.html">
-            Open the editor
+            <span data-i18n="nav.6">Open the editor</span>
             <svg class="btn-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
             <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
@@ -314,20 +338,20 @@
       <section class="hero">
         <div class="wrap hero-grid">
           <div class="hero-copy">
-            <p class="kicker"><span class="cue" aria-hidden="true"></span>For recorded Rekordbox sets</p>
-            <h1>Turn a recorded Rekordbox set into a YouTube video and 9:16 clips</h1>
-            <p class="lede">
+            <p class="kicker"><span class="cue" aria-hidden="true"></span><span data-i18n="hero.1">For recorded Rekordbox sets</span></p>
+            <h1 data-i18n="hero.2">Turn a recorded Rekordbox set into a YouTube video and 9:16 clips</h1>
+            <p class="lede" data-i18n="hero.3">
               Drop in a set you recorded in Rekordbox. REKCUT lines up the tracks, adds the artwork and builds a
               video that moves with your mix. Pick a moment for a short clip, or export the whole set. Your music
               stays on your computer.
             </p>
             <div class="hero-cta">
-              <a class="btn btn-primary btn-large" href="./app.html">Start free with 3 exports</a>
-              <a class="btn btn-secondary btn-large" href="#how-it-works">See how it works</a>
+              <a class="btn btn-primary btn-large" href="./app.html" data-i18n="hero.4">Start free with 3 exports</a>
+              <a class="btn btn-secondary btn-large" href="#how-it-works" data-i18n="hero.5">See how it works</a>
             </div>
           </div>
 
-          <figure class="preview" aria-label="Preview of the REKCUT editor showing two tracks, decks A and B, and the set timeline">
+          <figure class="preview" data-i18n-aria-label="hero.previewLabel" aria-label="Preview of the REKCUT editor showing two tracks, decks A and B, and the set timeline">
             <div class="pv">
               <div class="pv-top">
                 <span class="pv-brand">
@@ -338,12 +362,12 @@
                   REKCUT
                 </span>
                 <span class="pv-title">Sunset Session · Live from Lisbon</span>
-                <span class="pv-export">Export</span>
+                <span class="pv-export" data-i18n="hero.6">Export</span>
               </div>
 
               <div class="pv-tabs">
-                <span class="pv-tab is-on">Program</span>
-                <span class="pv-tab">Clips</span>
+                <span class="pv-tab is-on" data-i18n="hero.7">Program</span>
+                <span class="pv-tab" data-i18n="hero.8">Clips</span>
               </div>
 
               <div class="pv-program">
@@ -356,7 +380,7 @@
                       <rect y="54" width="64" height="3" fill="#ff3d7f" opacity="0.4" />
                     </svg>
                     <div class="pv-card-text">
-                      <span class="pv-deck">Deck A · now</span>
+                      <span class="pv-deck" data-i18n="hero.9">Deck A · now</span>
                       <strong>Midnight Drive</strong>
                       <span class="pv-artist">Kessler</span>
                     </div>
@@ -369,7 +393,7 @@
                       <circle cx="13" cy="13" r="5" fill="#e8f6fb" />
                     </svg>
                     <div class="pv-card-text">
-                      <span class="pv-deck">Deck B · next</span>
+                      <span class="pv-deck" data-i18n="hero.10">Deck B · next</span>
                       <strong>Neon Rain</strong>
                       <span class="pv-artist">Alba</span>
                     </div>
@@ -402,18 +426,18 @@
 
               <div class="pv-lanes">
                 <div class="pv-lane">
-                  <span class="pv-lane-label">Set audio</span>
+                  <span class="pv-lane-label" data-i18n="hero.11">Set audio</span>
                   <span class="pv-track"><i class="pv-block set" style="left: 0%; width: 100%"></i></span>
                 </div>
                 <div class="pv-lane">
-                  <span class="pv-lane-label">Deck A</span>
+                  <span class="pv-lane-label" data-i18n="hero.12">Deck A</span>
                   <span class="pv-track">
                     <i class="pv-block a" style="left: 0%; width: 33%"></i>
                     <i class="pv-block a" style="left: 63%; width: 24%"></i>
                   </span>
                 </div>
                 <div class="pv-lane">
-                  <span class="pv-lane-label">Deck B</span>
+                  <span class="pv-lane-label" data-i18n="hero.13">Deck B</span>
                   <span class="pv-track">
                     <i class="pv-block b" style="left: 30%; width: 36%"></i>
                     <i class="pv-block b" style="left: 84%; width: 16%"></i>
@@ -426,26 +450,26 @@
         </div>
 
         <div class="wrap hero-stats">
-          <div><strong>3</strong><span>free exports</span></div>
-          <div><strong>5–180 s</strong><span>clip length</span></div>
-          <div><strong>720p–4K</strong><span>MP4 export</span></div>
-          <div><strong>EN · PT-BR · ES</strong><span>interface and video text</span></div>
+          <div><strong>3</strong><span data-i18n="hero.14">free exports</span></div>
+          <div><strong>5–180 s</strong><span data-i18n="hero.15">clip length</span></div>
+          <div><strong>720p–4K</strong><span data-i18n="hero.16">MP4 export</span></div>
+          <div><strong>EN · PT-BR · ES</strong><span data-i18n="hero.17">interface and video text</span></div>
         </div>
       </section>
 
       <section class="section answer-section" aria-labelledby="what-is">
         <div class="wrap answer">
           <div class="answer-head">
-            <h2 id="what-is">What is REKCUT?</h2>
+            <h2 id="what-is" data-i18n="about.1">What is REKCUT?</h2>
           </div>
           <div class="answer-body">
-            <p class="answer-lede">
+            <p class="answer-lede" data-i18n="about.2">
               <strong>REKCUT turns a recorded Rekordbox set into a video for YouTube, or a short clip for Shorts,
               Reels and TikTok.</strong> Drop in the recording and the <code>.cue</code> file
               Rekordbox saves with it. REKCUT fills in the tracklist, adds the artwork and builds a video that moves
               with your mix. Pick a moment for a clip or export the full set, all in your browser.
             </p>
-            <p>
+            <p data-i18n="about.3">
               It is made for DJs who already record their sets and want a good-looking video without rebuilding the
               set in Premiere, DaVinci Resolve or CapCut. You get the full set and the shareable moments from one
               project, with the set's original audio.
@@ -457,9 +481,9 @@
       <section id="features" class="section" aria-labelledby="features-title">
         <div class="wrap">
           <div class="section-head">
-            <p class="kicker"><span class="cue" aria-hidden="true"></span>What the editor does</p>
-            <h2 id="features-title">Tracklist, artwork, clips and video in one project</h2>
-            <p>
+            <p class="kicker"><span class="cue" aria-hidden="true"></span><span data-i18n="features.1">What the editor does</span></p>
+            <h2 id="features-title" data-i18n="features.2">Tracklist, artwork, clips and video in one project</h2>
+            <p data-i18n="features.3">
               No more juggling a waveform tool, a folder of covers, a notes app and a video editor. REKCUT brings the
               whole job together, and saves as you go.
             </p>
@@ -467,101 +491,101 @@
 
           <div class="feature-lead">
             <div>
-              <h3>Your Rekordbox cue does the boring part</h3>
-              <p>
+              <h3 data-i18n="features.4">Your Rekordbox cue does the boring part</h3>
+              <p data-i18n="features.5">
                 Drop in the <code>.cue</code> file Rekordbox saves next to your recording. The tracklist fills itself
                 in, and REKCUT makes a good first guess at where each track takes over. Fix anything later by ear.
               </p>
             </div>
             <ul class="facts">
-              <li>Titles and artists come straight from the cue</li>
-              <li>Every track lands on the right deck</li>
-              <li>Edit, add or remove tracks whenever you like</li>
+              <li data-i18n="features.6">Titles and artists come straight from the cue</li>
+              <li data-i18n="features.7">Every track lands on the right deck</li>
+              <li data-i18n="features.8">Edit, add or remove tracks whenever you like</li>
             </ul>
           </div>
 
           <ul class="feature-list">
             <li>
-              <h3>Transitions that look like a real mix</h3>
-              <p>
+              <h3 data-i18n="features.9">Transitions that look like a real mix</h3>
+              <p data-i18n="features.10">
                 The current track sits on the left. The next one appears on the right, then slides across when it
                 takes over. Choose a smooth blend, a quick cut, or let REKCUT match the movement to the energy of the
                 mix.
               </p>
             </li>
             <li>
-              <h3>A waveform that moves with the mix</h3>
-              <p>
+              <h3 data-i18n="features.11">A waveform that moves with the mix</h3>
+              <p data-i18n="features.12">
                 A close-up waveform scrolls under the playhead, coloured by deck, so viewers see the kicks and the
                 handovers coming. Put it at the top, middle or bottom, or hide it for a cleaner video.
               </p>
             </li>
             <li>
-              <h3>Covers and titles already filled in</h3>
-              <p>
+              <h3 data-i18n="features.13">Covers and titles already filled in</h3>
+              <p data-i18n="features.14">
                 REKCUT looks up artwork and track details for you. If a cover is missing, paste an image link or pick
                 one from your computer. You can also search and use the result's title and artist.
               </p>
             </li>
             <li>
-              <h3>The best moments, found for you</h3>
-              <p>
+              <h3 data-i18n="features.15">The best moments, found for you</h3>
+              <p data-i18n="features.16">
                 Open the Clips tab and REKCUT suggests transitions, drops and the strongest part of each track, best
                 first. No scrubbing through two hours of audio to find the one moment worth posting.
               </p>
             </li>
             <li>
-              <h3>Made for Shorts, Reels and TikTok</h3>
-              <p>
+              <h3 data-i18n="features.17">Made for Shorts, Reels and TikTok</h3>
+              <p data-i18n="features.18">
                 Turn any moment into a vertical 9:16 clip, or export the whole set in 16:9 for YouTube. Clips can be
                 anywhere from 5 to 180 seconds, with handy 15, 30 and 60 second buttons.
               </p>
             </li>
             <li>
-              <h3>Keeps clear of the app buttons</h3>
-              <p>
+              <h3 data-i18n="features.19">Keeps clear of the app buttons</h3>
+              <p data-i18n="features.20">
                 Turn on the social safe area and the titles, cards and waveform stay away from the bottom and right
                 edges, where Instagram and TikTok put their controls. Nothing important ends up hidden.
               </p>
             </li>
             <li>
-              <h3>Editing that feels like a DJ tool</h3>
-              <p>
+              <h3 data-i18n="features.21">Editing that feels like a DJ tool</h3>
+              <p data-i18n="features.22">
                 Drag a track on the timeline to change when it takes over, drag the mix-in area, or press <kbd>A</kbd>,
                 <kbd>S</kbd> and <kbd>D</kbd> at the playhead. The preview is exactly what you'll export.
               </p>
             </li>
             <li>
-              <h3>Nothing gets lost</h3>
-              <p>
+              <h3 data-i18n="features.23">Nothing gets lost</h3>
+              <p data-i18n="features.24">
                 Your project saves itself as you work, and every change can be undone. Keep a copy as a
                 <code>.djvis</code> file to open on another computer.
               </p>
             </li>
             <li>
-              <h3>Make it look like your set</h3>
-              <p>
+              <h3 data-i18n="features.25">Make it look like your set</h3>
+              <p data-i18n="features.26">
                 Change the title, colours, background and waveforms. The app and the words inside the video come in
                 English, Brazilian Portuguese and Spanish.
               </p>
             </li>
             <li>
-              <h3>Export without waiting all night</h3>
-              <p>
+              <h3 data-i18n="features.27">Export without waiting all night</h3>
+              <p data-i18n="features.28">
                 Render up to 4K and keep working while it runs. The video keeps your set's original audio and plays
                 anywhere an MP4 does.
               </p>
             </li>
             <li>
-              <h3>Chapters ready for the description</h3>
-              <p>
+              <h3 data-i18n="features.29">Chapters ready for the description</h3>
+              <p data-i18n="features.30">
                 REKCUT turns your tracklist into YouTube chapters you can paste straight into the description. One
                 less thing to do after the upload.
               </p>
             </li>
             <li>
-              <h3>Fast with long sets</h3>
-              <p>
+              <h3 data-i18n="features.31">Fast with long sets</h3>
+              <p data-i18n="features.32">
                 A two-hour set is ready to edit in seconds, not minutes. Reopen it later and the tracklist, artwork and
                 your edits are still there.
               </p>
@@ -573,14 +597,14 @@
       <section id="clips" class="section" aria-labelledby="clips-title">
         <div class="wrap">
           <div class="section-head clips-head">
-            <h2 id="clips-title">The best moments of the set, found and ranked</h2>
-            <p>
+            <h2 id="clips-title" data-i18n="clips.1">The best moments of the set, found and ranked</h2>
+            <p data-i18n="clips.2">
               REKCUT reads how the set moves and lines up the moments that stand on their own, best first: the drop,
               the takeover, the peak. Each one is scored, trimmed and exported without leaving the tab.
             </p>
           </div>
 
-          <figure class="preview preview-wide" aria-label="The Clips tab on a 45-minute set, showing four ranked suggestions with scores, reasons and trim controls">
+          <figure class="preview preview-wide" data-i18n-aria-label="clips.previewLabel" aria-label="The Clips tab on a 45-minute set, showing four ranked suggestions with scores, reasons and trim controls">
             <div class="pv">
               <div class="pv-top">
                 <span class="pv-brand">
@@ -590,18 +614,18 @@
                   </svg>
                   REKCUT
                 </span>
-                <span class="pv-title">01 crazy times · 45:41 · 15 tracks</span>
-                <span class="pv-export">Export</span>
+                <span class="pv-title" data-i18n="clips.3">01 crazy times · 45:41 · 15 tracks</span>
+                <span class="pv-export" data-i18n="clips.4">Export</span>
               </div>
 
               <div class="pv-tabs">
-                <span class="pv-tab">Program</span>
-                <span class="pv-tab is-on">Clips</span>
+                <span class="pv-tab" data-i18n="clips.5">Program</span>
+                <span class="pv-tab is-on" data-i18n="clips.6">Clips</span>
               </div>
 
               <div class="pv-toolbar">
-                <span class="pv-seg"><b class="on">All</b><b>Transitions</b><b>Drops</b><b>Peaks</b></span>
-                <span class="pv-seg"><b class="on">Best first</b><b>In set order</b></span>
+                <span class="pv-seg"><b class="on" data-i18n="clips.7">All</b><b data-i18n="clips.8">Transitions</b><b data-i18n="clips.9">Drops</b><b data-i18n="clips.10">Peaks</b></span>
+                <span class="pv-seg"><b class="on" data-i18n="clips.11">Best first</b><b data-i18n="clips.12">In set order</b></span>
                 <span class="pv-grow"></span>
                 <span class="pv-seg"><b class="on">9:16</b><b>16:9</b></span>
               </div>
@@ -622,19 +646,19 @@
                   </div>
                   <div class="pv-clip-body">
                     <div class="pv-clip-tags">
-                      <span class="pv-kind">Transition</span>
-                      <span class="pv-best">Best</span>
+                      <span class="pv-kind" data-i18n="clips.13">Transition</span>
+                      <span class="pv-best" data-i18n="clips.14">Best</span>
                       <b class="pv-score">94</b>
                     </div>
                     <strong>Caravan → Bad Boy Sounds</strong>
-                    <span class="pv-reason">the drop lands on the takeover</span>
+                    <span class="pv-reason" data-i18n="clips.15">the drop lands on the takeover</span>
                     <div class="pv-trim">
                       <span class="pv-time"><i>‹</i>08:13<i>›</i></span>
                       <span class="pv-len">30 s</span>
                       <span class="pv-time"><i>‹</i>08:43<i>›</i></span>
                       <span class="pv-lengths"><b>15 s</b><b class="on">30 s</b><b>60 s</b></span>
                     </div>
-                    <div class="pv-actions"><span class="pv-btn">Play</span><span class="pv-btn">Export</span></div>
+                    <div class="pv-actions"><span class="pv-btn" data-i18n="clips.16">Play</span><span class="pv-btn" data-i18n="clips.17">Export</span></div>
                   </div>
                 </article>
 
@@ -653,11 +677,11 @@
                   </div>
                   <div class="pv-clip-body">
                     <div class="pv-clip-tags">
-                      <span class="pv-kind">Drop</span>
+                      <span class="pv-kind" data-i18n="clips.18">Drop</span>
                       <b class="pv-score">88</b>
                     </div>
-                    <strong>Drop in This Life</strong>
-                    <span class="pv-reason">bass back after an 18 s breakdown</span>
+                    <strong data-i18n="clips.19">Drop in This Life</strong>
+                    <span class="pv-reason" data-i18n="clips.20">bass back after an 18 s breakdown</span>
                     <div class="pv-trim">
                       <span class="pv-time"><i>‹</i>22:11<i>›</i></span>
                       <span class="pv-len">42 s</span>
@@ -666,9 +690,9 @@
                     </div>
                     <div class="pv-progress">
                       <span class="pv-bar"><i style="width: 64%"></i></span>
-                      <span class="pv-progress-label">Exporting 64%</span>
+                      <span class="pv-progress-label" data-i18n="clips.21">Exporting 64%</span>
                     </div>
-                    <div class="pv-actions"><span class="pv-btn">Play</span><span class="pv-btn">Cancel</span></div>
+                    <div class="pv-actions"><span class="pv-btn" data-i18n="clips.22">Play</span><span class="pv-btn" data-i18n="clips.23">Cancel</span></div>
                   </div>
                 </article>
 
@@ -691,18 +715,18 @@
                   </div>
                   <div class="pv-clip-body">
                     <div class="pv-clip-tags">
-                      <span class="pv-kind">Peak</span>
+                      <span class="pv-kind" data-i18n="clips.24">Peak</span>
                       <b class="pv-score">81</b>
                     </div>
-                    <strong>Sonidero at full energy</strong>
-                    <span class="pv-reason">the most driving stretch of the track</span>
+                    <strong data-i18n="clips.25">Sonidero at full energy</strong>
+                    <span class="pv-reason" data-i18n="clips.26">the most driving stretch of the track</span>
                     <div class="pv-trim">
                       <span class="pv-time"><i>‹</i>27:38<i>›</i></span>
                       <span class="pv-len">15 s</span>
                       <span class="pv-time"><i>‹</i>27:53<i>›</i></span>
                       <span class="pv-lengths"><b class="on">15 s</b><b>30 s</b><b>60 s</b></span>
                     </div>
-                    <div class="pv-actions"><span class="pv-btn">Play</span><span class="pv-btn">Export</span></div>
+                    <div class="pv-actions"><span class="pv-btn" data-i18n="clips.27">Play</span><span class="pv-btn" data-i18n="clips.28">Export</span></div>
                   </div>
                 </article>
 
@@ -722,71 +746,71 @@
                   </div>
                   <div class="pv-clip-body">
                     <div class="pv-clip-tags">
-                      <span class="pv-kind">Transition</span>
+                      <span class="pv-kind" data-i18n="clips.29">Transition</span>
                       <b class="pv-score">76</b>
                     </div>
                     <strong>Suspiros → A Beautiful Morning</strong>
-                    <span class="pv-reason">24 s blend</span>
+                    <span class="pv-reason" data-i18n="clips.30">24 s blend</span>
                     <div class="pv-trim">
                       <span class="pv-time"><i>‹</i>40:58<i>›</i></span>
                       <span class="pv-len">64 s</span>
                       <span class="pv-time"><i>‹</i>42:02<i>›</i></span>
                       <span class="pv-lengths"><b>15 s</b><b>30 s</b><b>60 s</b></span>
                     </div>
-                    <div class="pv-actions"><span class="pv-btn">Play</span><span class="pv-btn">Export</span></div>
+                    <div class="pv-actions"><span class="pv-btn" data-i18n="clips.31">Play</span><span class="pv-btn" data-i18n="clips.32">Export</span></div>
                   </div>
                 </article>
               </div>
           </figure>
-          <p class="preview-caption">
+          <p class="preview-caption" data-i18n="clips.33">
             The Clips tab on a 45-minute, 15-track set. Every card carries its own start, end and length, and exports
             without leaving the tab.
           </p>
 
           <div class="clips-notes">
             <div>
-              <h3>What it looks for</h3>
+              <h3 data-i18n="clips.34">What it looks for</h3>
               <dl class="clips-list">
                 <div>
-                  <dt>Transitions</dt>
-                  <dd>Where one track hands over to the next. The reason line says when a drop lands on the takeover, how long the blend was, or that it is a quick mix.</dd>
+                  <dt data-i18n="clips.35">Transitions</dt>
+                  <dd data-i18n="clips.36">Where one track hands over to the next. The reason line says when a drop lands on the takeover, how long the blend was, or that it is a quick mix.</dd>
                 </div>
                 <div>
-                  <dt>Drops</dt>
-                  <dd>Where the bass comes back after at least six seconds without it, with the length of the breakdown that came before.</dd>
+                  <dt data-i18n="clips.37">Drops</dt>
+                  <dd data-i18n="clips.38">Where the bass comes back after at least six seconds without it, with the length of the breakdown that came before.</dd>
                 </div>
                 <div>
-                  <dt>Peaks</dt>
-                  <dd>The most driving 15 seconds of a track, for the part of the set that is already lifting off.</dd>
+                  <dt data-i18n="clips.39">Peaks</dt>
+                  <dd data-i18n="clips.40">The most driving 15 seconds of a track, for the part of the set that is already lifting off.</dd>
                 </div>
                 <div>
-                  <dt>What's left out</dt>
-                  <dd>A suggestion that overlaps a better one by more than half is dropped, so the list does not repeat itself.</dd>
+                  <dt data-i18n="clips.41">What's left out</dt>
+                  <dd data-i18n="clips.42">A suggestion that overlaps a better one by more than half is dropped, so the list does not repeat itself.</dd>
                 </div>
               </dl>
             </div>
             <div>
-              <h3>What you can do with one</h3>
+              <h3 data-i18n="clips.43">What you can do with one</h3>
               <dl class="clips-list">
                 <div>
-                  <dt>Read it</dt>
-                  <dd>Every suggestion carries its kind, a title, a score out of 100 for how well it should work on its own, and the reason it was picked. The best one in the set is marked.</dd>
+                  <dt data-i18n="clips.44">Read it</dt>
+                  <dd data-i18n="clips.45">Every suggestion carries its kind, a title, a score out of 100 for how well it should work on its own, and the reason it was picked. The best one in the set is marked.</dd>
                 </div>
                 <div>
-                  <dt>Narrow it</dt>
-                  <dd>Show only transitions, drops or peaks, and sort best first or in the order they happen in the set.</dd>
+                  <dt data-i18n="clips.46">Narrow it</dt>
+                  <dd data-i18n="clips.47">Show only transitions, drops or peaks, and sort best first or in the order they happen in the set.</dd>
                 </div>
                 <div>
-                  <dt>Trim it</dt>
-                  <dd>Arrow the start and end, or snap to 15, 30 or 60 seconds. Clips stay between 5 and 180 seconds, and the key moment keeps its place inside the clip.</dd>
+                  <dt data-i18n="clips.48">Trim it</dt>
+                  <dd data-i18n="clips.49">Arrow the start and end, or snap to 15, 30 or 60 seconds. Clips stay between 5 and 180 seconds, and the key moment keeps its place inside the clip.</dd>
                 </div>
                 <div>
-                  <dt>Frame it</dt>
-                  <dd>9:16 or 16:9 sets the frame the clip plays and exports in.</dd>
+                  <dt data-i18n="clips.50">Frame it</dt>
+                  <dd data-i18n="clips.51">9:16 or 16:9 sets the frame the clip plays and exports in.</dd>
                 </div>
                 <div>
-                  <dt>Use it</dt>
-                  <dd>Play it in Program to see the visualizer on it, or export it from the card and follow the progress there.</dd>
+                  <dt data-i18n="clips.52">Use it</dt>
+                  <dd data-i18n="clips.53">Play it in Program to see the visualizer on it, or export it from the card and follow the progress there.</dd>
                 </div>
               </dl>
             </div>
@@ -797,9 +821,9 @@
       <section id="how-it-works" class="section" aria-labelledby="how-title">
         <div class="wrap">
           <div class="section-head">
-            <p class="kicker"><span class="cue" aria-hidden="true"></span>Four steps</p>
-            <h2 id="how-title">How it works</h2>
-            <p>Five minutes from a Rekordbox recording to a clip, or a few more for a full set.</p>
+            <p class="kicker"><span class="cue" aria-hidden="true"></span><span data-i18n="how.1">Four steps</span></p>
+            <h2 id="how-title" data-i18n="how.2">How it works</h2>
+            <p data-i18n="how.3">Five minutes from a Rekordbox recording to a clip, or a few more for a full set.</p>
           </div>
           <ol class="steps">
             <li>
@@ -861,8 +885,8 @@
                 </svg>
               </figure>
               <span class="step-num">01</span>
-              <h3>Record in Rekordbox</h3>
-              <p>Use the REC panel. Rekordbox saves the audio and a <code>.cue</code> file next to it.</p>
+              <h3 data-i18n="how.4">Record in Rekordbox</h3>
+              <p data-i18n="how.5">Use the REC panel. Rekordbox saves the audio and a <code>.cue</code> file next to it.</p>
             </li>
             <li>
               <figure class="step-art" aria-hidden="true">
@@ -892,8 +916,8 @@
                 </svg>
               </figure>
               <span class="step-num">02</span>
-              <h3>Drop both files in</h3>
-              <p>The recording and the cue sheet are enough to build the tracklist and place every takeover.</p>
+              <h3 data-i18n="how.6">Drop both files in</h3>
+              <p data-i18n="how.7">The recording and the cue sheet are enough to build the tracklist and place every takeover.</p>
             </li>
             <li>
               <figure class="step-art" aria-hidden="true">
@@ -944,8 +968,8 @@
                 </svg>
               </figure>
               <span class="step-num">03</span>
-              <h3>Fix the feel</h3>
-              <p>Press A, S and D at the playhead, or drag tracks on the timeline. Artwork and titles are already filled in.</p>
+              <h3 data-i18n="how.8">Fix the feel</h3>
+              <p data-i18n="how.9">Press A, S and D at the playhead, or drag tracks on the timeline. Artwork and titles are already filled in.</p>
             </li>
             <li>
               <figure class="step-art" aria-hidden="true">
@@ -983,8 +1007,8 @@
                 </svg>
               </figure>
               <span class="step-num">04</span>
-              <h3>Pick a clip or export the set</h3>
-              <p>Choose a ranked clip in 9:16, or export the full 16:9 set from 720p to 4K. Copy the chapters and upload.</p>
+              <h3 data-i18n="how.10">Pick a clip or export the set</h3>
+              <p data-i18n="how.11">Choose a ranked clip in 9:16, or export the full 16:9 set from 720p to 4K. Copy the chapters and upload.</p>
             </li>
           </ol>
         </div>
@@ -993,20 +1017,20 @@
       <section class="section section-privacy" aria-labelledby="privacy-title">
         <div class="wrap privacy-grid">
           <div>
-            <h2 id="privacy-title">Your set never leaves your computer</h2>
-            <p class="lede-small">
+            <h2 id="privacy-title" data-i18n="privacy.1">Your set never leaves your computer</h2>
+            <p class="lede-small" data-i18n="privacy.2">
               Your recording, the editing and the final video all happen on your computer. There is no upload
               progress bar because there is no upload, so even a huge two-hour set never has to travel anywhere.
             </p>
-            <p class="muted">
+            <p class="muted" data-i18n="privacy.3">
               Your account only keeps the basics: your name, email, plan and how many videos you've exported. It never
               receives your set, its file name, the tracklist or the artwork.
             </p>
           </div>
           <ul class="privacy-list">
-            <li><strong>Your set stays yours</strong><span>It is read and rendered on your computer.</span></li>
-            <li><strong>Your projects stay local</strong><span>Saved in your browser, or as a file you can move.</span></li>
-            <li><strong>Only the basics online</strong><span>Your account and export count, nothing about the music.</span></li>
+            <li><strong data-i18n="privacy.4">Your set stays yours</strong><span data-i18n="privacy.5">It is read and rendered on your computer.</span></li>
+            <li><strong data-i18n="privacy.6">Your projects stay local</strong><span data-i18n="privacy.7">Saved in your browser, or as a file you can move.</span></li>
+            <li><strong data-i18n="privacy.8">Only the basics online</strong><span data-i18n="privacy.9">Your account and export count, nothing about the music.</span></li>
           </ul>
         </div>
       </section>
@@ -1014,8 +1038,8 @@
       <section id="pricing" class="section" aria-labelledby="pricing-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="pricing-title">Start free, pay only if you keep exporting</h2>
-            <p>
+            <h2 id="pricing-title" data-i18n="pricing.1">Start free, pay only if you keep exporting</h2>
+            <p data-i18n="pricing.2">
               An export is one finished video, a full set or a single clip. Sign in with Google so your free exports
               follow you between browsers. If an export fails or you cancel it, you get it back.
             </p>
@@ -1023,52 +1047,52 @@
 
           <div class="pricing-grid">
             <article class="price-card">
-              <h3>Free</h3>
+              <h3 data-i18n="pricing.3">Free</h3>
               <p class="price"><span class="amount">$0</span></p>
-              <p class="price-note">3 exports, once — not per month</p>
+              <p class="price-note" data-i18n="pricing.4">3 exports, once — not per month</p>
               <ul class="tick-list">
-                <li>3 set or clip exports</li>
-                <li>Every editing feature</li>
-                <li>9:16 and 16:9</li>
-                <li>720p to 4K</li>
-                <li>Local processing</li>
+                <li data-i18n="pricing.5">3 set or clip exports</li>
+                <li data-i18n="pricing.6">Every editing feature</li>
+                <li data-i18n="pricing.7">9:16 and 16:9</li>
+                <li data-i18n="pricing.8">720p to 4K</li>
+                <li data-i18n="pricing.9">Local processing</li>
               </ul>
-              <a class="btn btn-secondary btn-full" href="./app.html">Start free</a>
+              <a class="btn btn-secondary btn-full" href="./app.html" data-i18n="pricing.10">Start free</a>
             </article>
 
             <article class="price-card price-best">
-              <h3>Monthly</h3>
-              <p class="price"><span class="amount">$10</span><span class="per">/ month</span></p>
-              <p class="price-note">Unlimited exports while it runs</p>
+              <h3 data-i18n="pricing.11">Monthly</h3>
+              <p class="price"><span class="amount">$10</span><span class="per" data-i18n="pricing.12">/ month</span></p>
+              <p class="price-note" data-i18n="pricing.13">Unlimited exports while it runs</p>
               <ul class="tick-list">
-                <li>Unlimited set exports</li>
-                <li>Unlimited clip exports</li>
-                <li>Cancel anytime</li>
-                <li>Keeps working until the paid period ends</li>
-                <li>All future editor features</li>
+                <li data-i18n="pricing.14">Unlimited set exports</li>
+                <li data-i18n="pricing.15">Unlimited clip exports</li>
+                <li data-i18n="pricing.16">Cancel anytime</li>
+                <li data-i18n="pricing.17">Keeps working until the paid period ends</li>
+                <li data-i18n="pricing.18">All future editor features</li>
               </ul>
-              <a class="btn btn-primary btn-full" href="./app.html">Choose Monthly</a>
+              <a class="btn btn-primary btn-full" href="./app.html" data-i18n="pricing.19">Choose Monthly</a>
             </article>
 
             <article class="price-card">
-              <h3>Lifetime</h3>
-              <p class="price"><span class="amount">$45</span><span class="per">once</span></p>
-              <p class="price-note">Unlimited exports, forever</p>
+              <h3 data-i18n="pricing.20">Lifetime</h3>
+              <p class="price"><span class="amount">$45</span><span class="per" data-i18n="pricing.21">once</span></p>
+              <p class="price-note" data-i18n="pricing.22">Unlimited exports, forever</p>
               <ul class="tick-list">
-                <li>Pay once, no renewals</li>
-                <li>Unlimited set exports</li>
-                <li>Unlimited clip exports</li>
-                <li>All future editor features</li>
-                <li>Best value after 5 months</li>
+                <li data-i18n="pricing.23">Pay once, no renewals</li>
+                <li data-i18n="pricing.24">Unlimited set exports</li>
+                <li data-i18n="pricing.25">Unlimited clip exports</li>
+                <li data-i18n="pricing.26">All future editor features</li>
+                <li data-i18n="pricing.27">Best value after 5 months</li>
               </ul>
-              <a class="btn btn-secondary btn-full" href="./app.html">Buy Lifetime</a>
+              <a class="btn btn-secondary btn-full" href="./app.html" data-i18n="pricing.28">Buy Lifetime</a>
             </article>
           </div>
 
           <div class="pricing-notes">
-            <p><strong>How the free exports work.</strong> Everyone gets 3 exports once, not 3 per month. After that, pick Monthly or Lifetime to keep exporting. Editing, previewing and saving projects stay free.</p>
-            <p><strong>How billing works.</strong> Checkout opens in a new tab. Monthly renews until you cancel, and a cancelled plan keeps working until the end of the paid month. Lifetime is a one-time payment.</p>
-            <p><strong>If checkout says “coming soon”.</strong> Payments aren't open everywhere yet. Your 3 free exports still work, and you won't be charged until checkout is available.</p>
+            <p data-i18n="pricing.29"><strong>How the free exports work.</strong> Everyone gets 3 exports once, not 3 per month. After that, pick Monthly or Lifetime to keep exporting. Editing, previewing and saving projects stay free.</p>
+            <p data-i18n="pricing.30"><strong>How billing works.</strong> Checkout opens in a new tab. Monthly renews until you cancel, and a cancelled plan keeps working until the end of the paid month. Lifetime is a one-time payment.</p>
+            <p data-i18n="pricing.31"><strong>If checkout says “coming soon”.</strong> Payments aren't open everywhere yet. Your 3 free exports still work, and you won't be charged until checkout is available.</p>
           </div>
         </div>
       </section>
@@ -1076,29 +1100,29 @@
       <section class="section section-compare" aria-labelledby="compare-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="compare-title">What you stop doing by hand</h2>
+            <h2 id="compare-title" data-i18n="compare.1">What you stop doing by hand</h2>
           </div>
           <div class="compare-grid">
             <div class="compare-col compare-old">
-              <h3>The manual way</h3>
+              <h3 data-i18n="compare.2">The manual way</h3>
               <ul>
-                <li>Type the tracklist out by hand</li>
-                <li>Search each cover on a different site</li>
-                <li>Cut every clip in a video editor, one at a time</li>
-                <li>Re-export a second vertical version for Shorts</li>
-                <li>Type chapters into the YouTube description</li>
-                <li>Upload a multi-gigabyte set to a cloud editor</li>
+                <li data-i18n="compare.3">Type the tracklist out by hand</li>
+                <li data-i18n="compare.4">Search each cover on a different site</li>
+                <li data-i18n="compare.5">Cut every clip in a video editor, one at a time</li>
+                <li data-i18n="compare.6">Re-export a second vertical version for Shorts</li>
+                <li data-i18n="compare.7">Type chapters into the YouTube description</li>
+                <li data-i18n="compare.8">Upload a multi-gigabyte set to a cloud editor</li>
               </ul>
             </div>
             <div class="compare-col compare-new">
-              <h3>The REKCUT way</h3>
+              <h3 data-i18n="compare.9">The REKCUT way</h3>
               <ul>
-                <li>The cue fills in the tracklist for you</li>
-                <li>Artwork is looked up and attached to each track</li>
-                <li>Clips are picked from the set's own energy</li>
-                <li>One click switches between 9:16 and 16:9</li>
-                <li>Chapters are generated from the tracklist</li>
-                <li>The recording is processed locally</li>
+                <li data-i18n="compare.10">The cue fills in the tracklist for you</li>
+                <li data-i18n="compare.11">Artwork is looked up and attached to each track</li>
+                <li data-i18n="compare.12">Clips are picked from the set's own energy</li>
+                <li data-i18n="compare.13">One click switches between 9:16 and 16:9</li>
+                <li data-i18n="compare.14">Chapters are generated from the tracklist</li>
+                <li data-i18n="compare.15">The recording is processed locally</li>
               </ul>
             </div>
           </div>
@@ -1108,29 +1132,29 @@
       <section class="section section-specs" aria-labelledby="specs-title">
         <div class="wrap specs-grid">
           <div>
-            <h2 id="specs-title">What it works with</h2>
+            <h2 id="specs-title" data-i18n="specs.1">What it works with</h2>
           </div>
           <dl class="specs">
-            <div><dt>Recordings</dt><dd>WAV, AIFF, FLAC, MP3, M4A, Ogg and WebM — the formats Rekordbox and most DJ gear produce</dd></div>
-            <div><dt>Tracklist</dt><dd>Rekordbox .cue, or add tracks yourself</dd></div>
-            <div><dt>Your projects</dt><dd>Saved in your browser, or as a .djvis file you can move</dd></div>
-            <div><dt>Video</dt><dd>MP4 that works on YouTube, Shorts, Reels and TikTok</dd></div>
-            <div><dt>Quality</dt><dd>720p, 1080p, 1440p or 4K, in 16:9 or 9:16</dd></div>
-            <div><dt>Clip length</dt><dd>5 to 180 seconds, with 15, 30 and 60 second shortcuts</dd></div>
-            <div><dt>Browser</dt><dd>Chrome or Edge recommended. Firefox and Safari work too, but read fewer audio formats.</dd></div>
-            <div><dt>Languages</dt><dd>English, Brazilian Portuguese and Spanish, for the app and the text in the video</dd></div>
-            <div><dt>Account</dt><dd>Google sign-in for exports. Your set is never uploaded.</dd></div>
+            <div><dt data-i18n="specs.2">Recordings</dt><dd data-i18n="specs.3">WAV, AIFF, FLAC, MP3, M4A, Ogg and WebM — the formats Rekordbox and most DJ gear produce</dd></div>
+            <div><dt data-i18n="specs.4">Tracklist</dt><dd data-i18n="specs.5">Rekordbox .cue, or add tracks yourself</dd></div>
+            <div><dt data-i18n="specs.6">Your projects</dt><dd data-i18n="specs.7">Saved in your browser, or as a .djvis file you can move</dd></div>
+            <div><dt data-i18n="specs.8">Video</dt><dd data-i18n="specs.9">MP4 that works on YouTube, Shorts, Reels and TikTok</dd></div>
+            <div><dt data-i18n="specs.10">Quality</dt><dd data-i18n="specs.11">720p, 1080p, 1440p or 4K, in 16:9 or 9:16</dd></div>
+            <div><dt data-i18n="specs.12">Clip length</dt><dd data-i18n="specs.13">5 to 180 seconds, with 15, 30 and 60 second shortcuts</dd></div>
+            <div><dt data-i18n="specs.14">Browser</dt><dd data-i18n="specs.15">Chrome or Edge recommended. Firefox and Safari work too, but read fewer audio formats.</dd></div>
+            <div><dt data-i18n="specs.16">Languages</dt><dd data-i18n="specs.17">English, Brazilian Portuguese and Spanish, for the app and the text in the video</dd></div>
+            <div><dt data-i18n="specs.18">Account</dt><dd data-i18n="specs.19">Google sign-in for exports. Your set is never uploaded.</dd></div>
           </dl>
         </div>
       </section>
 
       <section id="faq" class="section section-faq" aria-labelledby="faq-title">
         <div class="wrap faq-grid">
-          <h2 id="faq-title">Questions</h2>
+          <h2 id="faq-title" data-i18n="faq.1">Questions</h2>
           <div class="faq-list">
             <details open>
-              <summary>What is the best way to make clips from a Rekordbox set?</summary>
-              <p>
+              <summary data-i18n="faq.2">What is the best way to make clips from a Rekordbox set?</summary>
+              <p data-i18n="faq.3">
                 REKCUT. Drop in your recording and the <code>.cue</code> file from Rekordbox, then open the Clips tab.
                 It suggests the transitions, drops and biggest moments, best first. Pick one, trim it if you like,
                 choose 9:16 or 16:9, and export. You don't have to hunt for the moment or rebuild the tracklist yourself.
@@ -1138,8 +1162,8 @@
             </details>
 
             <details>
-              <summary>What is REKCUT?</summary>
-              <p>
+              <summary data-i18n="faq.4">What is REKCUT?</summary>
+              <p data-i18n="faq.5">
                 REKCUT is a browser app that turns a recorded Rekordbox set into a video. It lines up your tracks, adds
                 artwork and builds a moving visual around your mix. Export the full set for YouTube or a short vertical
                 clip for social media. Your recording stays on your computer. Some people write it <strong>RekCut</strong>.
@@ -1147,8 +1171,8 @@
             </details>
 
             <details>
-              <summary>Is REKCUT free?</summary>
-              <p>
+              <summary data-i18n="faq.6">Is REKCUT free?</summary>
+              <p data-i18n="faq.7">
                 You get <strong>3 free exports</strong> — a full set or a clip each — once per account, after signing in
                 with Google. After that, <strong>Monthly is US$10</strong> for unlimited exports while it runs, or
                 <strong>Lifetime is US$45</strong> once for unlimited exports forever. If an export fails or you cancel
@@ -1157,48 +1181,48 @@
             </details>
 
             <details>
-              <summary>Does REKCUT upload my DJ set?</summary>
-              <p>
+              <summary data-i18n="faq.8">Does REKCUT upload my DJ set?</summary>
+              <p data-i18n="faq.9">
                 No. Your recording, the editing and the final video all happen on your computer. The only things stored
                 online are your account, your plan and how many videos you've exported — nothing about the music.
               </p>
             </details>
 
             <details>
-              <summary>Does REKCUT work without Rekordbox?</summary>
-              <p>
+              <summary data-i18n="faq.10">Does REKCUT work without Rekordbox?</summary>
+              <p data-i18n="faq.11">
                 Yes. The <code>.cue</code> file makes the tracklist automatic, but you can import a recording on its own
                 and add tracks yourself. It's simply quicker when Rekordbox has already written the cue.
               </p>
             </details>
 
             <details>
-              <summary>Which audio formats can I import?</summary>
-              <p>
+              <summary data-i18n="faq.12">Which audio formats can I import?</summary>
+              <p data-i18n="faq.13">
                 Most DJ recordings work: WAV, AIFF, FLAC, MP3, M4A, Ogg and WebM, among others. If your browser can play
                 it, REKCUT can usually read it. Chrome and Edge handle the widest range.
               </p>
             </details>
 
             <details>
-              <summary>What video can I export?</summary>
-              <p>
+              <summary data-i18n="faq.14">What video can I export?</summary>
+              <p data-i18n="faq.15">
                 An MP4 you can upload to YouTube, Shorts, Reels or TikTok. Export the whole set in 16:9 or a clip in
                 9:16, from 720p up to 4K. REKCUT also writes the YouTube chapters for you.
               </p>
             </details>
 
             <details>
-              <summary>Do I need to install anything?</summary>
-              <p>
+              <summary data-i18n="faq.16">Do I need to install anything?</summary>
+              <p data-i18n="faq.17">
                 No. It runs in your browser, and Chrome or Edge are the smoothest choice. Your project saves as you go,
                 and you can keep a copy as a <code>.djvis</code> file to open on another computer.
               </p>
             </details>
 
             <details>
-              <summary>Why does every exported video show REKCUT?</summary>
-              <p>
+              <summary data-i18n="faq.18">Why does every exported video show REKCUT?</summary>
+              <p data-i18n="faq.19">
                 REKCUT is the app's name, and it appears in the top-left of every video like a small signature. It's
                 there so viewers can find the tool that made the video. Your set title, track names, artwork and colours
                 are still yours to change.
@@ -1206,8 +1230,8 @@
             </details>
 
             <details>
-              <summary>How long does a set take to analyse and export?</summary>
-              <p>
+              <summary data-i18n="faq.20">How long does a set take to analyse and export?</summary>
+              <p data-i18n="faq.21">
                 A two-hour set is usually ready to edit in a few seconds. Export time depends on your computer and the
                 quality you choose; a modern laptop, especially one with a graphics card, will be much faster.
               </p>
@@ -1219,11 +1243,11 @@
       <section class="section final-cta">
         <div class="wrap final-inner">
           <div>
-            <h2>Your set is already recorded, now make it look like it</h2>
-            <p class="muted">Open the editor, drop in the recording and its cue, and export your first clip in minutes.</p>
+            <h2 data-i18n="cta.1">Your set is already recorded, now make it look like it</h2>
+            <p class="muted" data-i18n="cta.2">Open the editor, drop in the recording and its cue, and export your first clip in minutes.</p>
           </div>
           <a class="btn btn-primary btn-large" href="./app.html">
-            Open REKCUT
+            <span data-i18n="cta.3">Open REKCUT</span>
             <svg class="btn-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
             <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
@@ -1244,34 +1268,34 @@
             </span>
             <span class="brand-name">REKCUT</span>
           </a>
-          <p class="footer-note">
+          <p class="footer-note" data-i18n="footer.1">
             Rekordbox set visualizer and clip maker. Recorded sets stay on your computer.
           </p>
         </div>
-        <nav aria-label="Product links">
-          <h3>Product</h3>
-          <a href="./app.html">Open the editor</a>
-          <a href="#features">Features</a>
-          <a href="#clips">Clip maker</a>
-          <a href="#pricing">Pricing</a>
+        <nav aria-label="Product links" data-i18n-aria-label="footer.productLabel">
+          <h3 data-i18n="footer.2">Product</h3>
+          <a href="./app.html" data-i18n="footer.3">Open the editor</a>
+          <a href="#features" data-i18n="footer.4">Features</a>
+          <a href="#clips" data-i18n="footer.5">Clip maker</a>
+          <a href="#pricing" data-i18n="footer.6">Pricing</a>
         </nav>
-        <nav aria-label="Resources">
-          <h3>Resources</h3>
-          <a href="#how-it-works">How it works</a>
-          <a href="#faq">FAQ</a>
-          <a href="#specs-title">Formats &amp; browsers</a>
+        <nav aria-label="Resources" data-i18n-aria-label="footer.resourcesLabel">
+          <h3 data-i18n="footer.7">Resources</h3>
+          <a href="#how-it-works" data-i18n="footer.8">How it works</a>
+          <a href="#faq" data-i18n="footer.9">FAQ</a>
+          <a href="#specs-title" data-i18n="footer.10">Formats &amp; browsers</a>
           <a href="./llms.txt">llms.txt</a>
         </nav>
-        <nav aria-label="About">
-          <h3>About</h3>
-          <a href="https://github.com/al4nnw/set-visualizer">Source on GitHub</a>
-          <a href="./sitemap.xml">Sitemap</a>
+        <nav aria-label="About" data-i18n-aria-label="footer.aboutLabel">
+          <h3 data-i18n="footer.11">About</h3>
+          <a href="https://github.com/al4nnw/set-visualizer" data-i18n="footer.12">Source on GitHub</a>
+          <a href="./sitemap.xml" data-i18n="footer.13">Sitemap</a>
           <a href="./robots.txt">robots.txt</a>
         </nav>
       </div>
       <div class="wrap footer-bottom">
-        <span>© 2026 REKCUT. Exported videos carry the REKCUT mark.</span>
-        <span>Built for DJs who record their sets</span>
+        <span data-i18n="footer.14">© 2026 REKCUT. Exported videos carry the REKCUT mark.</span>
+        <span data-i18n="footer.15">Built for DJs who record their sets</span>
       </div>
     </footer>
   </body>

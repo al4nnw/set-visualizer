@@ -389,7 +389,7 @@ export const es: Messages = {
     general: 'General',
     newProjects: 'Proyectos nuevos',
     language: 'Idioma',
-    languageSystem: 'El del sistema',
+    languageSystem: 'Automático (idioma del navegador y ubicación)',
     saving: 'Guardado',
     autosave: 'Guardado automático: guarda el proyecto después de cada cambio',
     savingNoteWeb: 'Los proyectos se guardan en este navegador, solo en este ordenador: no se sube nada. Abrir una grabación de set crea su proyecto al instante. Para guardar una copia como archivo, o abrirlo en otro ordenador, usa Archivo ▸ Guardar como. Sin guardado automático, usa Archivo ▸ Guardar ({{keys}}).',
