@@ -127,3 +127,23 @@ The `@shared/*` import alias points at `src/shared/` (tsconfig + Vite).
 - **`src/shared/resampleWasm.ts` is generated.** Edit `resample.wat` and run `npm run build:wasm`.
 - **The tutorial clip isn't in the repo** (`resources/tutorial/tutorial.*` is gitignored), so Help ▸ Shortcuts Tutorial says "not installed" unless you generate it with `npm run make-tutorial -- set.wav set.cue`.
 - **Before production exports work**, Firestore must exist in `southamerica-east1` and `npm run ticket-key` must have run. Otherwise exports can't start, or the deploy fails.
+
+## Keeping these docs up to date
+
+These files are only useful while they're true, so updating them is part of the change that makes them wrong, in the same PR, not a later cleanup. Agents: do this without being asked.
+
+| File | What belongs there | Update it when |
+| --- | --- | --- |
+| `README.md` | What the app does for a user, the workflow, how to run it locally | A user-visible feature, menu, shortcut or setup step changes |
+| `AGENTS.md` | How the code works and how to work in it: rules, layout, commands, conventions, gotchas | A file or folder moves, a command or script changes, a convention is set, or something surprising cost you time |
+| `CLAUDE.md` | Only `@AGENTS.md` | Never: put the content in AGENTS.md so every agent reads the same thing |
+| `functions/src/billing/README.md` | Accounts, plans, tickets, payment providers | Billing or the provider setup changes |
+
+How to write them:
+
+- **Ground rules are the owner's decisions.** Add, change or remove one only when the owner decides it, and say so in the PR description. Don't loosen one to make a change fit.
+- **Gotchas earn their place.** Add one when something isn't obvious from the code and someone would get it wrong: say what happens and what to do instead. Remove it when the code no longer has the problem.
+- **Check before you write.** Every path, command and name in these files should exist. Run the commands you document.
+- **Keep it short and current.** Describe how things are now, not their history (that's in git). Replace a stale line instead of adding a new one under it. Plain sentences, the same tone as the rest.
+- **No secrets.** Name a secret and where it lives (Secret Manager, GitHub Actions secrets), never its value, and no private keys, tokens or personal data.
+- **English only.** The docs are for contributors; the app's own text is what gets translated.
