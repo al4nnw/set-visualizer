@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:browser": "tsx test/browser/run.ts",
     "compare-analysis": "tsx scripts/compare-analysis.ts",
+    "eval-analysis": "tsx scripts/eval-analysis.ts",
     "build:wasm": "tsx scripts/build-wasm.ts",
     "make-tutorial": "tsx scripts/make-tutorial.ts",
     "emulators": "npm --prefix functions run build && npx --yes firebase-tools@15 emulators:start --only auth,functions,firestore --project set-visualizer-app",

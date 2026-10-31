@@ -40,7 +40,7 @@ The site is hosted on Firebase (project `set-visualizer-app`, functions in `sout
 2. **Drop the recording** on the page (or File ▸ Import Set Recording, `Ctrl+I`). Drop the `.cue` with it to place the tracks in one go. This creates the project in the browser's storage, and from then on every change is autosaved.
 3. **Import the .cue** later if you didn't drop it (File ▸ Import Rekordbox Cue, `Ctrl+Shift+I`). The cue sheet is stored in the project, and the app finds where each track takes over in the audio.
 4. **Fix the timing** if needed: play the transition and press `A` where the next track mixes in, `S` where it takes over and `D` where the old one stops. Or select a track and use **Playhead** next to "Mix in", "Takes over" or "Plays until", or drag it on the timeline.
-5. **Clips** tab (next to Program): once the .cue is in, the app suggests short clips of the set's best moments, the transitions, the drops after a breakdown and the most driving stretch of each track, ranked best first. **Play** loops a clip in Program in the clip format; Make a clip longer or shorter with the ‹ › buttons next to its start and end (1 s, Shift for 5 s), the 15 / 30 / 60 s lengths, or **Start here** / **End here** at the playhead while it loops; your trims are saved in the project. **Export** renders just that clip in 9:16 (the default), 16:9 or Social. The first time a set gets clips, a note points at the tab.
+5. **Clips** tab (next to Program): once the .cue is in, the app suggests short clips of the set's best moments, the transitions, the drops after a breakdown and the most driving stretch of each track, ranked best first. Each one starts a whole phrase before its key moment and ends on a whole bar, so it starts on the one and loops cleanly. **Play** loops a clip in Program in the clip format; Make a clip longer or shorter with the ‹ › buttons next to its start and end (1 s, Shift for 5 s), the 15 / 30 / 60 s lengths, or **Start here** / **End here** at the playhead while it loops; your trims are saved in the project. **Export** renders just that clip in 9:16 (the default), 16:9 or Social. The first time a set gets clips, a note points at the tab.
 6. **Artwork**: looked up automatically (Deezer, else Apple Music, else YouTube when signed in). To change one, select the track ▸ **Find artwork…** (Deezer, Apple Music, YouTube), paste an image URL, or choose a local image.
 7. **Style** tab: format, set title (it names the exported files; it isn't drawn in the video for now), waveform position, completion line, deck colours, transition timing. Free exports carry the REKCUT name (`BRAND` in `src/shared/types.ts`), which isn't editable; paid plans export without it.
 8. **Export** (top right, `Ctrl+E`): resolution (720p–4K), fps, quality. Exporting needs a Google sign-in; the first 3 exports are free, then a Monthly or Lifetime plan (see `functions/src/billing/README.md`). The video arrives as a regular browser download. Copy the YouTube chapters into your video description.
@@ -64,7 +64,7 @@ src/shared/            scene renderer, A/B card layout, cue sheet parser, set an
 src/renderer/src/      React UI, Platform interface and its browser implementation (platform/), UI catalogs (i18n/), WebCodecs export worker, set analysis (analysis/)
 src/web/               the entry page (vite.web.config.ts)
 functions/             Firebase Cloud Functions: YouTube search, and accounts / free exports / plans (src/billing)
-scripts/               compare-analysis.ts, build-wasm.ts, make-tutorial.ts; ffmpeg/ is the reference analysis the browser's is checked against
+scripts/               compare-analysis.ts, eval-analysis.ts, build-wasm.ts, make-tutorial.ts; ffmpeg/ is the reference analysis the browser's is checked against
 test/browser/          the browser analysis checked against ffmpeg's in a real browser (npm run test:browser)
 ```
 
@@ -87,6 +87,8 @@ npm run compare-analysis -- set.wav --cue set.cue # the same math in Node agains
 ```
 
 A 2-hour set takes about 7 s as WAV, 11 s as FLAC and 17 s as MP3 on 4 cores (ffmpeg: 32, 12 and 36 s).
+
+To see how close the cue import's mix in, takes over and plays until get to timings you set by hand in a saved project: `npm run eval-analysis -- set.wav set.cue checked.djvis`.
 
 ## Notes and limits
 

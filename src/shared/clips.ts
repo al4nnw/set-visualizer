@@ -88,6 +88,90 @@ export function findDrops(motion: Motion, duration: number, minBreak = 6): Drop[
   return kept.sort((a, b) => a.at - b.at)
 }
 
+/**
+ * Seconds per beat near `at`, from how the kicks repeat in the 16 s after it (or before it when
+ * there's no beat after), looking between 90 and 160 BPM. Null when there's no steady beat.
+ */
+export function beatPeriod(motion: Motion, at: number): number | null {
+  const { rate, kick, bassy } = motion
+  const span = Math.round(16 * rate)
+  const tryFrom = (i0: number) => {
+    const a = Math.max(0, i0)
+    const z = Math.min(kick.length, a + span)
+    if (z - a < span / 2) return null
+    let beat = 0
+    for (let i = a; i < z; i++) beat += bassy[i]
+    if (beat / (z - a) < 0.5) return null
+    let avg = 0
+    for (let i = a; i < z; i++) avg += kick[i]
+    avg /= z - a
+    const lo = Math.floor((60 / 160) * rate)
+    const hi = Math.ceil((60 / 90) * rate)
+    // Autocorrelation of the kicks around their mean, against their variance.
+    const r = (lag: number) => {
+      let s = 0
+      for (let i = a; i + lag < z; i++) s += (kick[i] - avg) * (kick[i + lag] - avg)
+      return s / (z - a - lag)
+    }
+    const variance = r(0)
+    let best = lo
+    let bestR = -Infinity
+    const rs: number[] = []
+    for (let lag = lo - 1; lag <= hi + 1; lag++) rs.push(r(lag))
+    for (let lag = lo; lag <= hi; lag++) {
+      const v = rs[lag - lo + 1]
+      if (v > bestR) {
+        bestR = v
+        best = lag
+      }
+    }
+    // A clear beat repeats with at least a third of the kicks' variance; refined between samples.
+    if (!(variance > 0) || bestR < variance / 3) return null
+    const [y0, y1, y2] = [rs[best - lo], rs[best - lo + 1], rs[best - lo + 2]]
+    const den = y0 - 2 * y1 + y2
+    return (best + (den < 0 ? (0.5 * (y0 - y2)) / den : 0)) / rate
+  }
+  const i = Math.round(at * rate)
+  return tryFrom(i) ?? tryFrom(i - span)
+}
+
+/** The kick nearest to `t` (within a quarter second), so a clip's key moment lands on the beat. */
+function onBeat(motion: Motion, t: number): number {
+  const { rate, kick } = motion
+  let best = -1
+  for (let i = Math.max(1, Math.round((t - 0.25) * rate)); i <= Math.min(kick.length - 1, Math.round((t + 0.25) * rate)); i++) {
+    if (kick[i] - kick[i - 1] > 0.3 && (best < 0 || Math.abs(i / rate - t) < Math.abs(best / rate - t))) best = i
+  }
+  return best < 0 ? t : best / rate
+}
+
+/**
+ * A clip around `focus` (moved onto the nearest kick) that starts whole phrases of 4 bars before it
+ * and ends whole bars after it: about `before` and `after` seconds, rounded with the local tempo (or
+ * `setBeat` where the beat isn't clear). Starting a phrase before the key moment makes the clip start
+ * on the one, and whole bars loop cleanly. Without any beat the seconds are used as they are.
+ */
+export function barsAround(motion: Motion, focus: number, before: number, after: number, setBeat?: number | null): { from: number; to: number; focus: number } {
+  const p = beatPeriod(motion, focus) ?? setBeat
+  if (!p) return { from: focus - before, to: focus + after, focus }
+  const f = onBeat(motion, focus)
+  const bar = 4 * p
+  // The lead-in is whole phrases (4 bars), the rest whole bars.
+  const phrases = Math.max(before > 0 ? 1 : 0, Math.round(before / (4 * bar)))
+  return { from: f - phrases * 4 * bar, to: f + Math.max(after > 0 ? 1 : 0, Math.round(after / bar)) * bar, focus: f }
+}
+
+/** The set's usual beat (seconds), from the tempo every minute; DJ sets mostly stay close to one tempo. */
+export function setBeat(motion: Motion, duration: number): number | null {
+  const found: number[] = []
+  for (let t = 0; t < duration; t += 60) {
+    const p = beatPeriod(motion, t)
+    if (p) found.push(p)
+  }
+  found.sort((a, b) => a - b)
+  return found.length ? found[found.length >> 1] : null
+}
+
 /** Overlap of two ranges as a share of the shorter one. */
 const overlap = (a: ClipSuggestion, b: ClipSuggestion) => Math.max(0, Math.min(a.to, b.to) - Math.max(a.from, b.from)) / Math.min(a.to - a.from, b.to - b.from)
 
@@ -110,6 +194,12 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
     const f = Math.max(0, from)
     return { from: f, to: Math.min(duration, Math.max(to, f + 6)) }
   }
+  // Clips start and end on whole bars from their key moment, so they start on a phrase and loop cleanly.
+  const beat = setBeat(motion, duration)
+  const around = (focus: number, before: number, afterIt: number) => {
+    const b = barsAround(motion, focus, before, afterIt, beat)
+    return { ...fit(b.from, b.to), focus: b.focus }
+  }
   // A long breakdown makes the drop hit harder, so it counts more than how loud the drop is.
   const dropScore = (d: Drop) => clamp01(0.3 + d.strength * 0.25 + clamp01(d.breakdown / 45) * 0.4)
   const out: ClipSuggestion[] = []
@@ -121,7 +211,8 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
     // A drop up to 20 s after the takeover belongs to this transition.
     const drop = drops.find((d) => d.at > tr.start - 2 && d.at <= tr.start + 20)
     const onDrop = drop && Math.abs(drop.at - tr.start) < 3
-    const range = fit(tr.start - lead, drop && !onDrop ? drop.at + 4 : tr.start + after)
+    const range = around(tr.start, lead, after)
+    if (drop && !onDrop) range.to = Math.min(duration, barsAround(motion, drop.at, 0, 4, beat).to)
     const e = energy(tr.start, tr.start + 6)
     // Hearing both tracks for 15–90 s is a real blend; a 2 s cut is less of a moment.
     const blendScore = clamp01(blend / 15) * (blend > 120 ? 0.6 : 1)
@@ -131,7 +222,6 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
       id: `transition-${tr.id}`,
       kind: 'transition',
       ...range,
-      focus: tr.start,
       title: { key: 'transition', values: { from: name(prev), to: name(tr) } },
       reason: onDrop
         ? { key: 'dropOnTakeover' }
@@ -150,8 +240,7 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
     out.push({
       id: `drop-${Math.round(d.at * 10)}`,
       kind: 'drop',
-      ...fit(d.at - Math.min(12, Math.max(lead, d.breakdown * 0.5)), d.at + 6),
-      focus: d.at,
+      ...around(d.at, Math.min(12, Math.max(lead, d.breakdown * 0.5)), 6),
       title: { key: 'drop', values: { track: name(tr) } },
       reason: { key: 'bassBack', values: { seconds: Math.round(d.breakdown) } },
       score: dropScore(d)
@@ -171,7 +260,8 @@ export function suggestClips(tracks: Track[], duration: number, motion: Motion, 
       }
     }
     if (best < 0.45) return
-    out.push({ id: `peak-${tr.id}`, kind: 'peak', from: at, to: at + 15, focus: at + 2, title: { key: 'peak', values: { track: name(tr) } }, reason: { key: 'peak' }, score: clamp01(best * 0.75) })
+    const r = around(at, 0, 15)
+    out.push({ id: `peak-${tr.id}`, kind: 'peak', ...r, focus: r.from + 2, title: { key: 'peak', values: { track: name(tr) } }, reason: { key: 'peak' }, score: clamp01(best * 0.75) })
   })
 
   out.sort((a, b) => b.score - a.score || a.from - b.from)
