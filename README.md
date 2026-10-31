@@ -13,13 +13,18 @@ Web app that turns a recorded DJ set into a YouTube-ready video, right in the br
 
 ## Getting started
 
+You need Node.js 22 (what CI and the Cloud Functions use) and Chrome or Edge.
+
 ```bash
 npm install
+npm ci --prefix functions   # the functions' packages, needed by npm test
 npm run dev        # the app at http://localhost:5174 with hot reload
 npm run build      # a static site in out/web (npm run preview serves it)
 npm run typecheck  # tsc, as CI runs it
-npm test           # vitest (run `npm ci --prefix functions` once first: the billing tests import the functions' packages)
+npm test           # vitest
 ```
+
+The local app talks to the real Firebase project for sign-in, YouTube search and exports. To try sign-in and exports without it, run `npm run emulators` in one terminal and `npm run dev:emulators` in another, then call `emulatorSignIn('you@example.com')` in the browser console.
 
 Working on the code, or pointing a coding agent at it? Read [AGENTS.md](AGENTS.md) first: the architecture, the rules that aren't up for debate, and the gotchas. (`CLAUDE.md` just loads it for Claude Code.)
 

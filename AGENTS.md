@@ -19,6 +19,8 @@ The [README](README.md) explains what the app does for a user. This file is abou
 
 ## Commands
 
+Needs Node.js 22 and Chrome or Edge.
+
 ```bash
 npm install && npm ci --prefix functions   # both: the billing tests import the functions' packages
 npm run dev            # Vite dev server, http://localhost:5174
