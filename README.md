@@ -13,13 +13,22 @@ Web app that turns a recorded DJ set into a YouTube-ready video, right in the br
 
 ## Getting started
 
+You need Node.js 22 (what CI and the Cloud Functions use) and Chrome or Edge.
+
 ```bash
 npm install
+npm ci --prefix functions   # the functions' packages, needed by npm test
 npm run dev        # the app at http://localhost:5174 with hot reload
 npm run build      # a static site in out/web (npm run preview serves it)
+npm run typecheck  # tsc, as CI runs it
+npm test           # vitest
 ```
 
-The site is hosted on Firebase (project `set-visualizer-app`, `firebase deploy` builds and uploads `out/web`). YouTube search runs in a Firebase function (`functions/`) for signed-in users, so the Data API key stays server-side; nothing about the set is sent there. Chrome or Edge is recommended: they decode every format the app reads and can write the video and reopen recordings straight from disk.
+The local app talks to the real Firebase project for sign-in, YouTube search and exports. To try sign-in and exports without it, run `npm run emulators` in one terminal and `npm run dev:emulators` in another, then call `emulatorSignIn('you@example.com')` in the browser console.
+
+Working on the code, or pointing a coding agent at it? Read [AGENTS.md](AGENTS.md) first: the architecture, the rules that aren't up for debate, and the gotchas. (`CLAUDE.md` just loads it for Claude Code.)
+
+The site is hosted on Firebase (project `set-visualizer-app`, functions in `southamerica-east1`). Every push to `main` deploys it through GitHub Actions (`.github/workflows/deploy.yml`), so there's no need to deploy by hand. YouTube search runs in a Firebase function (`functions/`) for signed-in users, so the Data API key stays server-side; nothing about the set is sent there. Chrome or Edge is recommended: they decode every format the app reads and can write the video and reopen recordings straight from disk.
 
 ## Workflow
 
@@ -29,8 +38,8 @@ The site is hosted on Firebase (project `set-visualizer-app`, `firebase deploy` 
 4. **Fix the timing** if needed: play the transition and press `A` where the next track mixes in, `S` where it takes over and `D` where the old one stops. Or select a track and use **Playhead** next to "Mix in", "Takes over" or "Plays until", or drag it on the timeline.
 5. **Clips** tab (next to Program): once the .cue is in, the app suggests short clips of the set's best moments, the transitions, the drops after a breakdown and the most driving stretch of each track, ranked best first. **Play** loops a clip in Program in the clip format; Make a clip longer or shorter with the ‹ › buttons next to its start and end (1 s, Shift for 5 s), the 15 / 30 / 60 s lengths, or **Start here** / **End here** at the playhead while it loops; your trims are saved in the project. **Export** renders just that clip in 9:16 (the default, only the close-up waveform) or 16:9. The first time a set gets clips, a note points at the tab.
 6. **Artwork**: looked up automatically (Deezer, else Apple Music, else YouTube when signed in). To change one, select the track ▸ **Find artwork…** (Deezer, Apple Music, YouTube), paste an image URL, or choose a local image.
-7. **Style** tab: DJ name, set title, deck colours, transition timing.
-8. **Export** (top right, `Ctrl+E`): resolution (720p–4K), fps, quality. Copy the YouTube chapters into your video description.
+7. **Style** tab: set title, deck colours, transition timing. Every video carries the REKCUT name (`BRAND` in `src/shared/types.ts`), which isn't editable.
+8. **Export** (top right, `Ctrl+E`): resolution (720p–4K), fps, quality. Exporting needs a Google sign-in; the first 3 exports are free, then a Monthly or Lifetime plan (see `functions/src/billing/README.md`). The video arrives as a regular browser download. Copy the YouTube chapters into your video description.
 
 Menus: **File** (new, open, open recent, import, save, save as, export), **Edit** (undo/redo, tracks, Settings `Ctrl+,`), **View** (timeline zoom, panels), **Playback**, **Help ▸ Keyboard Shortcuts** (`Ctrl+/`). On macOS the shortcuts use `⌘`.
 
@@ -42,7 +51,7 @@ Keyboard: `Space` play/pause, `A`/`S`/`D` mix in / takes over / plays until at t
 
 `src/shared/scene.ts` draws one frame from `(project, time)`. The same function draws the live preview and the exported video, so the preview is exact.
 
-Export runs in a Web Worker: it draws each frame on an `OffscreenCanvas` and encodes H.264 with WebCodecs (the GPU/hardware encoder where the browser has one). The MP4 is put together in the browser (`src/renderer/src/platform/webExport.ts`, Mediabunny) with the set's audio encoded as AAC, or Opus where the browser has no AAC encoder (Chrome on Linux). Chrome and Edge write it straight to the file you pick; other browsers download it.
+Export runs in a Web Worker: it draws each frame on an `OffscreenCanvas` and encodes H.264 with WebCodecs (the GPU/hardware encoder where the browser has one). The MP4 is put together in the browser (`src/renderer/src/platform/webExport.ts`, Mediabunny) with the set's audio encoded as AAC, or Opus where the browser has no AAC encoder (Chrome on Linux). It arrives as a regular browser download in every browser.
 
 ## Project layout
 
@@ -50,7 +59,7 @@ Export runs in a Web Worker: it draws each frame on an `OffscreenCanvas` and enc
 src/shared/            scene renderer, A/B card layout, cue sheet parser, set analysis math, video text (no DOM deps)
 src/renderer/src/      React UI, Platform interface and its browser implementation (platform/), UI catalogs (i18n/), WebCodecs export worker, set analysis (analysis/)
 src/web/               the entry page (vite.web.config.ts)
-functions/             Firebase function for YouTube search (Google sign-in required)
+functions/             Firebase Cloud Functions: YouTube search, and accounts / free exports / plans (src/billing)
 scripts/               compare-analysis.ts, build-wasm.ts, make-tutorial.ts; ffmpeg/ is the reference analysis the browser's is checked against
 test/browser/          the browser analysis checked against ffmpeg's in a real browser (npm run test:browser)
 ```
@@ -59,7 +68,7 @@ test/browser/          the browser analysis checked against ffmpeg's in a real b
 
 The UI comes in English, Brazilian Portuguese and Spanish (Settings ▸ Language, following the system by default). The text drawn into the video ("NOW PLAYING", "UP NEXT"…) has its own language per project (Style ▸ Video language), so a set can be published for a different audience than the app's language. New projects start in the UI language.
 
-UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and `es.ts` must have every key, which the type check and `test/i18n.test.ts` enforce). Video text is in `src/shared/i18n.ts`, since the scene renderer runs in workers and the CLI too.
+UI text lives in `src/renderer/src/i18n/` (`en.ts` is the source; `pt-BR.ts` and `es.ts` must have every key, which the type check and `test/i18n.test.ts` enforce). Video text is in `src/shared/i18n.ts`, since the scene renderer also runs in the export worker.
 
 ## Set analysis
 

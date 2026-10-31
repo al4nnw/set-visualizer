@@ -1,6 +1,6 @@
 /**
  * Draws one frame of the visualizer. The same code runs in the app's live preview (browser
- * canvas) and in the exporter (Skia canvas in Node), so what you see is what gets rendered.
+ * canvas) and in the exporter (OffscreenCanvas in a Web Worker), so what you see is what gets rendered.
  */
 import type { Project, Track, Waveform } from './types'
 import { cardStates, currentIndex, formatTime, lerp, mainTracks, stageShare, type CardState } from './layout'
