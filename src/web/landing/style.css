@@ -1270,6 +1270,7 @@ kbd {
 .sa-wave-on { stroke: var(--amber); stroke-width: 2; stroke-linecap: round; }
 
 /* 01: a DDJ-FLX4-style controller (matte grey, orange accents) and a laptop, over the DJ's shoulder */
+.step-art { --flx-orange: #ff7a1a; }
 .sa-figure { fill: #1c1c20; }
 .sa-limb { stroke: #1c1c20; stroke-width: 12; stroke-linecap: round; }
 .sa-phones { stroke: #4a4a52; stroke-width: 3.5; }
@@ -1282,23 +1283,23 @@ kbd {
 .sa-wave-b { stroke: var(--deck-b); stroke-width: 1.2; }
 .sa-playhead-thin { stroke: var(--amber); stroke-width: 1; }
 .sa-thin { stroke-width: 2; }
-.sa-ctrl { fill: #4a4a50; stroke: rgba(255, 255, 255, 0.18); }
-.sa-ctrl-edge { fill: #2a2a2e; }
-.sa-ctrl-seam { fill: #424248; }
-.sa-slot { fill: #121214; }
-.sa-fadercap { fill: #d6d6da; }
-.sa-jog { fill: #141416; }
-.sa-jog-top { fill: #2c2c30; }
-.sa-jog-ring { stroke: #ff7a1a; stroke-width: 1; opacity: 0.85; }
-.sa-jog-hub { fill: #3a3a40; }
-.sa-mode { fill: #2a2a2e; }
-.sa-pad { fill: #232326; }
-.sa-pad-lit { fill: #ff7a1a; }
-.sa-cue { fill: #ff7a1a; }
+.sa-ctrl { fill: #3f3f45; stroke: rgba(255, 255, 255, 0.2); }
+.sa-ctrl-edge { fill: #232327; }
+.sa-ctrl-mixer { fill: #35353a; }
+.sa-slot { fill: #101012; }
+.sa-fadercap { fill: #d9d9de; }
+.sa-jog { fill: #101012; }
+.sa-jog-grip { stroke: #2c2c31; stroke-width: 1.4; stroke-dasharray: 0.6 0.6; }
+.sa-jog-ring { fill: #9c9ca3; }
+.sa-jog-top { fill: #1d1d21; stroke: var(--flx-orange); stroke-width: 0.8; }
+.sa-jog-hub { fill: #34343a; }
+.sa-btn { fill: #26262a; }
+.sa-pad { fill: #232326; stroke: #16161a; stroke-width: 0.5; }
+.sa-lit { fill: var(--flx-orange); }
+.sa-cue { fill: var(--flx-orange); }
 .sa-play { fill: var(--ok); }
-.sa-smart { fill: #ff7a1a; }
-.sa-knob { fill: #1e1e21; stroke: #0b0b0c; stroke-width: 0.6; }
-.sa-knob-cfx { fill: #2a2a2e; }
+.sa-knob { fill: #1a1a1d; stroke: #0a0a0b; stroke-width: 0.6; }
+.sa-knob-mark { stroke: #d9d9de; stroke-width: 0.8; stroke-linecap: round; }
 .sa-meter { fill: #232326; }
 .sa-meter-on { fill: var(--ok); }
 
