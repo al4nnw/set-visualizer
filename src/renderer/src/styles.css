@@ -1750,6 +1750,9 @@ kbd {
 .clips-kind.peak {
   color: #b5e48c;
 }
+.clips-kind.custom {
+  color: var(--text-hi);
+}
 .clips-best {
   background: var(--accent-soft);
   color: var(--accent);
@@ -1844,6 +1847,9 @@ kbd {
   flex: 1;
   justify-content: center;
 }
+.clips-delete {
+  align-self: center;
+}
 .clips-empty {
   flex: 1;
   display: flex;
@@ -1854,6 +1860,95 @@ kbd {
   color: var(--muted);
   padding: 20px;
   text-align: center;
+}
+/* Clip from here: a quiet button next to the timecode with a menu of the three formats above it. */
+.clip-here {
+  position: relative;
+  margin-left: 10px;
+}
+.clip-here-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.clip-here-btn:hover,
+.clip-here-btn[aria-expanded='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.clip-here-menu {
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  z-index: 30;
+  width: 250px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--raised);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.clip-here-head {
+  padding: 4px 8px 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.clip-here-item {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.clip-here-item:hover {
+  background: var(--hover);
+}
+.clip-here-item.on .clip-here-name {
+  color: var(--accent);
+}
+.clip-here-shape {
+  grid-row: span 2;
+  justify-self: center;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  width: 10px;
+  height: 17px;
+}
+.clip-here-shape.landscape {
+  width: 19px;
+  height: 11px;
+}
+.clip-here-shape.social {
+  border-style: dashed;
+}
+.clip-here-name {
+  color: var(--text-hi);
+  font-weight: 600;
+  font-size: 12px;
+}
+.clip-here-sub {
+  color: var(--muted);
+  font-size: 10.5px;
 }
 .loop-chip {
   display: flex;

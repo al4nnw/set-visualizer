@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { applyClipEdits, suggestClips, type ClipSuggestion } from '@shared/clips'
+import { applyClipEdits, customClipSuggestions, newCustomClip, suggestClips, type ClipSuggestion } from '@shared/clips'
 import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
 import { buildMotion } from '@shared/motion'
 import { clipFormatOf } from '@shared/scene'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
-import { BRAND, DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
+import { BRAND, DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track, type VideoFormat } from '@shared/types'
 import { errMsg, needsFile, platform, type NeedsFile } from './platform'
 import { ExportDialog } from './components/ExportDialog'
 import type { ViewerTab } from './components/Viewer'
@@ -492,7 +492,11 @@ export function App() {
     () => (project?.tracks.length ? suggestClips(project.tracks, project.duration, buildMotion(project.waveform)) : []),
     [project?.tracks, project?.duration, project?.waveform]
   )
-  const clips = useMemo(() => applyClipEdits(suggested, project?.clipEdits), [suggested, project?.clipEdits])
+  // The user's own clips (Clip from here) come first, newest first, then the suggestions.
+  const clips = useMemo(
+    () => [...customClipSuggestions(project?.customClips, project?.tracks ?? [], project?.duration ?? 0), ...applyClipEdits(suggested, project?.clipEdits)],
+    [suggested, project?.clipEdits, project?.customClips, project?.tracks, project?.duration]
+  )
   const loop = clips.find((c) => c.id === loopId) ?? null
   const [viewerTab, setViewerTab] = useState<ViewerTab>('program')
   const fullscreen = useFullscreen<HTMLElement>()
@@ -507,6 +511,9 @@ export function App() {
   /** Sets a clip's start and end, or back to the suggested ones with null. Nudges merge into one undo step. */
   const trimClip = (id: string, range: { from: number; to: number } | null) =>
     update((p) => {
+      // The user's own clips keep their start and end themselves; they have no suggestion to go back to.
+      if (p.customClips?.some((c) => c.id === id))
+        return range ? { ...p, customClips: p.customClips.map((c) => (c.id === id ? { id, ...range } : c)) } : p
       const edits = { ...p.clipEdits }
       if (range) edits[id] = range
       else delete edits[id]
@@ -537,6 +544,33 @@ export function App() {
     loopRef.current = c
     seek(c.from)
     audioEl?.play().catch((e) => showToast(t('app.cantPlay', { error: errMsg(e) })))
+  }
+
+  /**
+   * Clip from here: a new clip of the user's own that starts at the playhead, previewed in clip mode
+   * straight away, in `format` when one is picked (else the clip format the project already has).
+   */
+  const clipFromHere = (format?: VideoFormat) => {
+    if (!project) return
+    const c = newCustomClip(newId(), time, project.duration)
+    update(
+      (p) => ({ ...p, customClips: [...(p.customClips ?? []), c], settings: format ? { ...p.settings, clipFormat: format } : p.settings }),
+      undefined,
+      false,
+      true
+    )
+    const [shown] = customClipSuggestions([c], project.tracks, project.duration)
+    setViewerTab('program')
+    playClip(shown)
+  }
+
+  /** Takes one of the user's own clips off the list (and out of clip mode if it was playing). */
+  const deleteClip = (id: string) => {
+    if (loopId === id) setLoopId(null)
+    update((p) => {
+      const rest = (p.customClips ?? []).filter((c) => c.id !== id)
+      return { ...p, customClips: rest.length ? rest : undefined }
+    }, undefined, false, true)
   }
 
   const jumpTrack = (dir: 1 | -1) => {
@@ -738,7 +772,9 @@ export function App() {
         { ...cmd('forward30'), shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => seek(time + 30), disabled: !has },
         'sep',
         { ...cmd('goToStart'), shortcut: 'Home', run: () => seek(0), disabled: !has },
-        { ...cmd('goToEnd'), shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
+        { ...cmd('goToEnd'), shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has },
+        'sep',
+        { ...cmd('clipFromHere'), shortcut: 'C', run: () => clipFromHere(), disabled: !has || !!loop }
       ]
     },
     {
@@ -892,6 +928,8 @@ export function App() {
           previewedClips={previewed}
           onStopLoop={() => setLoopId(null)}
           onTrimClip={trimClip}
+          onClipFromHere={clipFromHere}
+          onDeleteClip={deleteClip}
           tab={viewerTab}
           onTab={setViewerTab}
           clipsHint={clipsHint}

@@ -10,7 +10,7 @@ import { isoDuration, youtubeId } from '../src/shared/youtube'
 import { cleanForSearch, searchQuery } from '../src/shared/artwork'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
-import { applyClipEdits, barsAround, beatPeriod, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
+import { applyClipEdits, barsAround, beatPeriod, CLIP_MIN, customClipSuggestions, findDrops, newCustomClip, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
 import { LOCALES, matchLocale, videoText } from '../src/shared/i18n'
 import { aspectPatch, clipFormatOf, formatPatch, SOCIAL_SAFE, videoFormat, waveRect } from '../src/shared/scene'
@@ -429,6 +429,27 @@ describe('clip trimming', () => {
     const out = applyClipEdits(clips, { b: { from: 40, to: 80 } })
     expect(out[0]).toEqual(clips[0])
     expect(out[1]).toMatchObject({ id: 'b', from: 40, to: 80, focus: 52, edited: true })
+  })
+})
+
+describe('clip from here', () => {
+  it('starts 30 s at the playhead, earlier near the end of the set', () => {
+    expect(newCustomClip('c', 125.456, 3600)).toEqual({ id: 'c', from: 125.46, to: 155.46 })
+    expect(newCustomClip('c', 3590, 3600)).toEqual({ id: 'c', from: 3570, to: 3600 })
+    expect(newCustomClip('c', 2, 12)).toEqual({ id: 'c', from: 0, to: 12 })
+  })
+  it('names the track playing at the start, newest first', () => {
+    const tracks: Track[] = [
+      { id: 'a', title: 'One', artist: '', start: 0, deck: 'A' },
+      { id: 'b', title: 'Two', artist: '', start: 100, deck: 'B' }
+    ]
+    const out = customClipSuggestions([{ id: 'x', from: 20, to: 50 }, { id: 'y', from: 130, to: 160 }], tracks, 600)
+    expect(out.map((c) => c.id)).toEqual(['y', 'x'])
+    expect(out[0]).toMatchObject({ kind: 'custom', focus: 130, title: { key: 'customTrack', values: { track: 'Two', at: '2:10' } } })
+    // Without a tracklist the clip is named by its start alone.
+    expect(customClipSuggestions([{ id: 'x', from: 20, to: 50 }], [], 600)[0].title).toEqual({ key: 'custom', values: { at: '0:20' } })
+    // Lengths keep the start where the user put it.
+    expect(resizeClip(out[0], 60, 600)).toEqual({ from: 130, to: 190 })
   })
 })
 
