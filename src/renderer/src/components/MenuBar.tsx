@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { BRAND } from '@shared/types'
 import { platform } from '../platform'
 
 export type MenuItem =
@@ -156,10 +157,12 @@ export function MenuBar({ menus, center, right }: Props) {
 
   return (
     <div className={`menubar ${isMac ? 'mac' : ''}`} ref={ref}>
-      <div className="menubar-logo" title="REKCUT">
-        <svg viewBox="0 0 16 16" width="14" height="14">
+      <div className="menubar-logo">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
           <path d="M2 9v-2M5 12V4M8 14V2M11 11V5M14 9V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
+        {/* The brand name, never translated. */}
+        <span className="menubar-brand">{BRAND}</span>
       </div>
       {menus.map((m, i) => (
         <div key={m.label} className="menubar-menu">

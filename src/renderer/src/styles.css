@@ -364,11 +364,18 @@ kbd {
   padding-left: 78px;
 }
 .menubar-logo {
-  width: 26px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
   color: var(--accent);
-  margin-right: 2px;
+  margin-right: 4px;
+}
+.menubar-brand {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-hi);
 }
 .menubar-menu {
   position: relative;
