@@ -31,7 +31,7 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [applying, setApplying] = useState<string | null>(null)
-  const [useMeta, setUseMeta] = useState(!track.title)
+  const [useMeta, setUseMeta] = useState(true)
   const [url, setUrl] = useState('')
   const reqId = useRef(0)
   const [ranFor, setRanFor] = useState<SearchResult['provider'] | null>(null)
