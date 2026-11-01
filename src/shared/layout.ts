@@ -45,9 +45,20 @@ export const SWAP_CURVES: Record<Exclude<SwapCurve, 'auto'>, (x: number) => numb
     const c2 = c * 1.525
     return x < 0.5 ? (Math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2
   },
-  /** Leaves quickly and lands with a small damped bounce, finishing exactly on the mark. */
-  spring: (x) => (x >= 1 ? 1 : 1 - Math.exp(-6 * x) * Math.cos(2.5 * Math.PI * x))
+  /**
+   * Leaves quickly and lands with a small damped bounce, finishing exactly on the mark. It's a damped
+   * spring released from rest, so the card speeds up from standing still instead of jumping off.
+   */
+  spring: (x) => (x >= 1 ? 1 : x <= 0 ? 0 : springRaw(x) / SPRING_END)
 }
+
+const SPRING_DAMP = 6
+const SPRING_FREQ = 2.5 * Math.PI
+/** Step response of an underdamped spring that starts at rest (zero speed at x = 0). */
+const springRaw = (x: number) =>
+  1 - Math.exp(-SPRING_DAMP * x) * (Math.cos(SPRING_FREQ * x) + (SPRING_DAMP / SPRING_FREQ) * Math.sin(SPRING_FREQ * x))
+/** Where the raw spring is at x = 1 (a hair short of 1), so the curve can be scaled to land exactly. */
+const SPRING_END = springRaw(1)
 
 const fixedEase = (settings: Pick<RenderSettings, 'swapCurve'>) =>
   settings.swapCurve && settings.swapCurve !== 'auto' ? SWAP_CURVES[settings.swapCurve] ?? easeInOut : easeInOut
@@ -124,17 +135,28 @@ export function cardStates(
     if (t < appear) continue
     if (t >= gone) continue
 
+    // How far the card has faded in on the right. When the mix-in is close to the takeover there's
+    // less than APPEAR_DURATION before the swap starts, so the fade gets shorter and carries on into
+    // the swap instead of being cut off (which made the card pop to full opacity and jump).
+    const lead = swapIn - appear
+    const fadeIn = Math.min(APPEAR_DURATION, Math.max(lead, 0.6 * (start - appear)))
+    // The shorter the time before the swap, the more the fade eases in too, so the cards already on
+    // stage start moving gently rather than at full speed as the swap begins.
+    const fx = clamp01((t - appear) / fadeIn)
+    const shown = lerp(easeOut(fx), easeInOut(fx), clamp01(1 - lead / APPEAR_DURATION))
+
     if (t < swapIn) {
       // Incoming on the right.
-      const p = easeOut(clamp01((t - appear) / APPEAR_DURATION))
       const playing = tr.mixIn !== undefined
-      out.push({ track: tr, index: i, slot: lerp(1.25, 1, p), opacity: p, mainness: 0, role: 'incoming', playing })
+      out.push({ track: tr, index: i, slot: lerp(1.25, 1, shown), opacity: shown, mainness: 0, role: 'incoming', playing })
     } else if (t < start && i > 0) {
       const x = clamp01((t - swapIn) / into.swap)
       const p = into.ease(x)
-      // Without a mix-in the card wasn't on the right yet, so it fades in as it slides over.
-      const opacity = tr.mixIn !== undefined ? 1 : clamp01(x * 2.5)
-      out.push({ track: tr, index: i, slot: lerp(1, 0, p), opacity, mainness: p, role: 'main', playing: true })
+      // Without a mix-in the card wasn't on the right yet, so it fades in as it slides over. With one,
+      // it picks up from wherever its fade on the right got to.
+      const opacity = tr.mixIn !== undefined ? shown : clamp01(x * 2.5)
+      const from = tr.mixIn !== undefined ? lerp(1.25, 1, shown) : 1
+      out.push({ track: tr, index: i, slot: lerp(from, 0, p), opacity, mainness: p, role: 'main', playing: true })
     } else if (t < swapOut) {
       out.push({ track: tr, index: i, slot: 0, opacity: 1, mainness: 1, role: 'main', playing: true })
     } else if (tail !== undefined) {
@@ -163,7 +185,7 @@ export function stageShare(cards: CardState[]): number {
   for (const c of cards) {
     if (c.role === 'leaving') sum += clamp01(c.mainness)
     else if (c.role === 'main' && c.track.mixIn === undefined) sum += clamp01(c.mainness)
-    else if (c.role === 'main') sum += 1
+    else if (c.role === 'main') sum += c.opacity
     else sum += c.opacity
   }
   return clamp01(sum - 1)

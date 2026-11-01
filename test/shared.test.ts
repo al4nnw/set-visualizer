@@ -102,6 +102,28 @@ describe('card layout', () => {
       expect(cardStates(tracks, 100, { ...s, swapCurve }).find((x) => x.track.id === '2')).toMatchObject({ slot: 0, mainness: 1 })
     }
   })
+  it('starts the spring swap from rest', () => {
+    expect(SWAP_CURVES.spring(0.001)).toBeLessThan(0.001)
+  })
+  it('keeps the swap smooth when the mix-in is right before the takeover', () => {
+    for (const gap of [0, 0.4, 1, 2]) {
+      const pair = [tracks[0], { ...tracks[1], mixIn: 100 - gap }]
+      for (const settings of [s, { swapDuration: 2, swapCurve: 'auto' as const }]) {
+        const plans = planSwaps(pair)
+        let last: { slot: number; opacity: number } | undefined
+        // 60 frames a second through the swap: no frame may jump in opacity or position.
+        for (let f = 0; f <= 4 * 60; f++) {
+          const two = cardStates(pair, 97 + f / 60, settings, plans).find((c) => c.track.id === '2')
+          if (!two) continue
+          if (last) {
+            expect(Math.abs(two.opacity - last.opacity)).toBeLessThan(0.1)
+            expect(Math.abs(two.slot - last.slot)).toBeLessThan(0.15)
+          } else expect(two.opacity).toBeLessThan(0.1)
+          last = two
+        }
+      }
+    }
+  })
 })
 
 describe('energy-matched swaps', () => {
