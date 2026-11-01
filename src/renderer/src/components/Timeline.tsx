@@ -351,10 +351,29 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
     window.addEventListener('pointerup', up)
   }
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (!(e.ctrlKey || e.metaKey || e.altKey)) return
-    setZoom((z) => Math.max(1, Math.min(400, z * Math.exp(-e.deltaY * 0.002))), e.clientX)
-  }
+  /**
+   * Ctrl (or ⌘ / Alt) + wheel anywhere on the timeline zooms around the pointer, and so does a
+   * trackpad pinch (Chrome sends it as a wheel with ctrlKey). React's wheel listeners are passive,
+   * so they can't stop the browser zooming the whole page; this one is added by hand for that.
+   */
+  const panelRef = useRef<HTMLDivElement>(null)
+  const setZoomRef = useRef(setZoom)
+  setZoomRef.current = setZoom
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey || e.altKey)) return
+      e.preventDefault()
+      // Lines (Firefox) and pages to pixels, so every mouse zooms at about the same speed.
+      const dy = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1)
+      const scroll = scrollRef.current?.getBoundingClientRect()
+      const x = scroll ? Math.max(scroll.left, Math.min(scroll.right, e.clientX)) : e.clientX
+      setZoomRef.current((z) => Math.max(1, Math.min(400, z * Math.exp(-Math.max(-200, Math.min(200, dy)) * 0.002))), x)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => setZoom((z) => Math.min(400, z * 1.6)),
@@ -363,7 +382,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
   }))
 
   return (
-    <div className="panel timeline">
+    <div className="panel timeline" ref={panelRef}>
       <div className="timeline-toolbar">
         <span className="panel-tab on">{t('timeline.title')}</span>
         <span className="panel-meta">
@@ -393,7 +412,6 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
             if (!autoScrolling.current) userScrolledAt.current = Date.now()
             autoScrolling.current = false
           }}
-          onWheel={onWheel}
         >
           <div className="timeline-inner" style={{ width: innerW, height: TIMELINE_HEIGHT }}>
             <canvas ref={canvasRef} className="timeline-canvas" style={{ width: viewW, height: RULER + WAVE_H }} onPointerDown={startScrub} />
