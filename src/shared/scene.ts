@@ -29,6 +29,13 @@ export interface PreparedScene {
   art: Map<string, ArtAsset>
   /** Low-res scratch canvas for the background (it's all blur and gradients, so it upscales cleanly). */
   bg: CanvasLike
+  /**
+   * The background at full size, kept from the last frame with `bgKey`. It only changes while
+   * cards swap or fade, so most frames copy it 1:1 instead of upscaling the blur again, which is
+   * over half the cost of a frame when the canvas has no GPU.
+   */
+  bgFull: CanvasLike
+  bgKey: string
   /** Pre-blurred glow sprite per deck colour; real-time shadowBlur is very slow without a GPU. */
   glow: Map<string, CanvasLike>
   motion: Motion
@@ -157,6 +164,8 @@ export function prepareScene(project: Project, art: Map<string, ArtAsset>, facto
   return {
     ...base,
     bg: factory(BG_W, Math.round((BG_W * H) / W)),
+    bgFull: factory(W, H),
+    bgKey: '',
     glow,
     range: range ?? { from: 0, to: project.duration }
   }
@@ -259,17 +268,28 @@ function makeGlow(color: string, factory: CanvasFactory): CanvasLike {
 
 function drawBackground(out: Ctx, prep: PreparedScene, cards: CardState[]) {
   const { width: OW, height: OH, theme } = prep.project.settings
+  const layers: Array<{ image: ImageLike; alpha: number }> = []
+  let key = ''
+  for (const c of cards) {
+    const a = prep.art.get(c.track.id)
+    const alpha = 0.6 * c.mainness * c.opacity
+    if (!a || alpha <= 0.001) continue
+    layers.push({ image: a.blurred, alpha })
+    key += `${c.track.id}:${alpha};`
+  }
+  // The same artwork at the same strengths as the last frame: the same pixels, already drawn.
+  if (key === prep.bgKey) {
+    out.drawImage(prep.bgFull as unknown as ImageLike, 0, 0)
+    return
+  }
   const ctx = ctxOf(prep.bg)
   const W = prep.bg.width
   const H = prep.bg.height
   ctx.fillStyle = theme.background
   ctx.fillRect(0, 0, W, H)
-  for (const c of cards) {
-    const a = prep.art.get(c.track.id)
-    const alpha = 0.6 * c.mainness * c.opacity
-    if (!a || alpha <= 0.001) continue
-    ctx.globalAlpha = alpha
-    drawCover(ctx, a.blurred, 0, 0, W, H)
+  for (const l of layers) {
+    ctx.globalAlpha = l.alpha
+    drawCover(ctx, l.image, 0, 0, W, H)
   }
   ctx.globalAlpha = 1
   const g = ctx.createLinearGradient(0, 0, 0, H)
@@ -283,9 +303,12 @@ function drawBackground(out: Ctx, prep: PreparedScene, cards: CardState[]) {
   v.addColorStop(1, 'rgba(0,0,0,0.55)')
   ctx.fillStyle = v
   ctx.fillRect(0, 0, W, H)
-  out.imageSmoothingQuality = 'medium'
-  out.drawImage(prep.bg as unknown as ImageLike, 0, 0, OW, OH)
-  out.imageSmoothingQuality = 'low'
+  const full = ctxOf(prep.bgFull)
+  full.imageSmoothingEnabled = true
+  full.imageSmoothingQuality = 'medium'
+  full.drawImage(prep.bg as unknown as ImageLike, 0, 0, OW, OH)
+  prep.bgKey = key
+  out.drawImage(prep.bgFull as unknown as ImageLike, 0, 0)
 }
 
 function drawHeader(ctx: Ctx, prep: PreparedScene, t: number) {

@@ -1,4 +1,5 @@
 import { BRAND, forDisk, type ExportProgress, type ExportRange, type Project } from '@shared/types'
+import type { ChunkInfo } from '../platform/webExport'
 import { errMsg, platform } from '../platform'
 import { SCENE_FONTS } from '../fonts'
 import { i18n } from '../i18n'
@@ -17,9 +18,22 @@ export function frameSpan(project: Project, range?: ExportRange) {
 }
 
 /**
- * Renders the project to `outPath`: a worker draws every frame with the same scene code as the
- * preview and encodes it with WebCodecs (hardware encoder when available); the main process then
- * adds the original audio. With `range`, only that stretch of the set (a clip).
+ * How many render workers an export runs: one per core, less one for the page and the audio, at
+ * most 4 (more gave nothing in tests: the encoders already use spare cores of their own).
+ */
+export const exportWorkerCount = (cores = navigator.hardwareConcurrency || 2) => Math.max(1, Math.min(4, cores - 1))
+
+/**
+ * Frames per part: three 2 s keyframe intervals. Parts start on the export's own keyframes, so
+ * splitting it doesn't change where they fall.
+ */
+const partFrames = (fps: number) => fps * 2 * 3
+
+/**
+ * Renders the project to `outPath`. Several workers draw frames with the same scene code as the
+ * preview and encode them with WebCodecs (hardware encoder when available), each taking the next
+ * part of the video when it's free; their parts are handed on in order to be put together with
+ * the original audio. With `range`, only that stretch of the set (a clip).
  */
 export async function runExport(
   project: Project,
@@ -43,30 +57,96 @@ export async function runExport(
   const t = await checkTicket(ticket, { kind: range ? 'clip' : 'set', uid: currentUid() })
   await platform.exportBegin(forDisk(project), outPath, range, t.id)
   report('preparing')
-  const worker = new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' })
-  const abort = () => worker.postMessage({ type: 'cancel' })
+  const parts = Math.ceil(totalFrames / partFrames(fps))
+  const workers = Array.from({ length: Math.min(exportWorkerCount(), parts) }, () => new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' }))
+  let rejectRun: (e: Error) => void = () => {}
+  const abort = () => {
+    for (const w of workers) w.postMessage({ type: 'cancel' })
+    rejectRun(new Error(i18n.t('errors.exportCancelled')))
+  }
   signal.addEventListener('abort', abort)
   try {
     await new Promise<void>((resolve, reject) => {
+      rejectRun = reject
+      if (signal.aborted) return abort()
       let last = 0
-      worker.onmessage = (e: MessageEvent) => {
-        const m = e.data
-        if (m.type === 'chunk') platform.exportChunk(m.data, m)
-        else if (m.type === 'progress') {
-          done += m.frames
-          if (performance.now() - last > 250) {
-            last = performance.now()
-            report('rendering')
-          }
-        } else if (m.type === 'done') resolve()
-        else if (m.type === 'cancelled') reject(new Error(i18n.t('errors.exportCancelled')))
-        else if (m.type === 'error') reject(new Error(m.message))
+      // Parts handed out, and the next one to pass on. Parts that finish early wait here, at
+      // most a couple per worker ahead, so memory stays small however long the set is.
+      let given = 0
+      let emitting = 0
+      let starting = workers.length
+      let startError = ''
+      const ready = new Set<Worker>()
+      const idle: Worker[] = []
+      const waiting = new Map<number, { chunks: Uint8Array[]; infos: ChunkInfo[]; done: boolean }>()
+      const partOf = (i: number) => {
+        let p = waiting.get(i)
+        if (!p) waiting.set(i, (p = { chunks: [], infos: [], done: false }))
+        return p
       }
-      worker.onerror = (e) => reject(new Error(e.message || i18n.t('errors.workerCrashed')))
-      // The worker has no platform of its own: it gets the artwork as URLs it can fetch.
+      const give = (w: Worker) => {
+        if (given >= parts || given >= emitting + 2 * ready.size) return void idle.push(w)
+        const from = firstFrame + given * partFrames(fps)
+        w.postMessage({ type: 'part', index: given, from, to: Math.min(endFrame, from + partFrames(fps)) })
+        given++
+      }
+      // Passes on everything of the part being emitted, and moves on while parts are complete.
+      const flush = () => {
+        for (;;) {
+          const p = waiting.get(emitting)
+          if (!p) return
+          p.chunks.forEach((c, k) => {
+            const info = p.infos[k]
+            // The very first frame in the file carries the decoder config; later copies are dropped.
+            if (info.decoderConfig && configSent) info.decoderConfig = undefined
+            else if (info.decoderConfig) configSent = true
+            platform.exportChunk(c, info)
+          })
+          p.chunks = []
+          p.infos = []
+          if (!p.done) return
+          waiting.delete(emitting)
+          if (++emitting === parts) return resolve()
+          for (const w of idle.splice(0)) give(w)
+        }
+      }
+      let configSent = false
+      for (const worker of workers) {
+        worker.onmessage = (e: MessageEvent) => {
+          const m = e.data
+          if (m.type === 'chunk') {
+            const p = partOf(m.part)
+            p.chunks.push(m.data)
+            p.infos.push(m)
+            if (m.part === emitting) flush()
+          } else if (m.type === 'progress') {
+            done += m.frames
+            if (performance.now() - last > 250) {
+              last = performance.now()
+              report('rendering')
+            }
+          } else if (m.type === 'partDone') {
+            partOf(m.index).done = true
+            flush()
+            give(worker)
+          } else if (m.type === 'ready') {
+            starting--
+            ready.add(worker)
+            give(worker)
+          } else if (m.type === 'startFailed') {
+            // Fewer workers (a hardware encoder may allow only a few at once); none at all fails.
+            starting--
+            startError ||= m.message
+            worker.terminate()
+            if (!starting && !ready.size) reject(new Error(startError))
+          } else if (m.type === 'error') reject(new Error(m.message))
+        }
+        worker.onerror = (e) => reject(new Error(e.message || i18n.t('errors.workerCrashed')))
+      }
+      // The workers have no platform of their own: they get the artwork as URLs they can fetch.
       // The watermark comes from the signed ticket: REKCUT on free exports, none on a paid plan.
       const withUrls = { ...project, settings: { ...project.settings, djName: t.paid ? '' : BRAND }, tracks: project.tracks.map((t) => (t.artwork ? { ...t, artwork: platform.mediaUrl(t.artwork) } : t)) }
-      worker.postMessage({ type: 'start', project: withUrls, fonts: SCENE_FONTS, firstFrame, endFrame })
+      for (const w of workers) w.postMessage({ type: 'start', project: withUrls, fonts: SCENE_FONTS, firstFrame, endFrame })
     })
     report('finishing')
     const out = await platform.exportFinish()
@@ -78,6 +158,6 @@ export async function runExport(
     throw new Error(errMsg(e))
   } finally {
     signal.removeEventListener('abort', abort)
-    worker.terminate()
+    for (const w of workers) w.terminate()
   }
 }
