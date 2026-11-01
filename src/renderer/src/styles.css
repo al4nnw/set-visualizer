@@ -1381,6 +1381,53 @@ kbd {
   color: var(--muted);
   font-size: 11px;
 }
+.search-current {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+.search-current-art {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #000;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  font-size: 10px;
+  text-align: center;
+}
+.search-current-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.search-current-text {
+  min-width: 0;
+}
+.search-current-label {
+  color: var(--dim);
+  font-size: 11px;
+}
+.search-current-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-current-artist {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .url-row input {
   min-width: 0;
 }

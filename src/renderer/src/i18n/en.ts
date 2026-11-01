@@ -385,6 +385,7 @@ export const en = {
   },
   search: {
     title: 'Find artwork & track info',
+    current: 'Now on this track',
     placeholder: 'Artist - Title',
     search: 'Search',
     useMeta: "Also use the result's title and artist",

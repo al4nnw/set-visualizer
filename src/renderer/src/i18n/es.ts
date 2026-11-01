@@ -380,6 +380,7 @@ export const es: Messages = {
   },
   search: {
     title: 'Buscar portada y datos del tema',
+    current: 'Ahora en este tema',
     placeholder: 'Artista - Título',
     search: 'Buscar',
     useMeta: 'Usar también el título y el artista del resultado',

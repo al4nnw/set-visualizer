@@ -380,6 +380,7 @@ export const ptBR: Messages = {
   },
   search: {
     title: 'Buscar capa e dados da faixa',
+    current: 'Agora nesta faixa',
     placeholder: 'Artista - Título',
     search: 'Buscar',
     useMeta: 'Usar também o título e o artista do resultado',

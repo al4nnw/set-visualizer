@@ -7,6 +7,7 @@ import { cardStates, stageShare, parseTime, formatTime, formatTimecode, SWAP_CUR
 import type { SwapCurve, Track } from '../src/shared/types'
 import { planSwaps, swapLength } from '../src/shared/swapPlan'
 import { isoDuration, youtubeId } from '../src/shared/youtube'
+import { cleanForSearch, searchQuery } from '../src/shared/artwork'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, barsAround, beatPeriod, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
@@ -542,5 +543,18 @@ describe('video formats and the waveform', () => {
     expect(r.y).toBeLessThan(1920 / 3)
     expect(r.x).toBe(SOCIAL_SAFE.left)
     expect(r.x + r.w).toBe(1080 - SOCIAL_SAFE.right)
+  })
+})
+
+describe('artwork search query', () => {
+  it('drops leading track numbers and file extensions', () => {
+    expect(searchQuery('', '22 - GIØ - SISTEM ERROR')).toBe('GIØ - SISTEM ERROR')
+    expect(searchQuery('Adrian Mills', '06. Track.mp3')).toBe('Adrian Mills - Track')
+    expect(cleanForSearch('3) Hydrogen')).toBe('Hydrogen')
+  })
+  it('keeps numbers that are part of the name', () => {
+    expect(cleanForSearch('99 Problems')).toBe('99 Problems')
+    expect(cleanForSearch('2024 - Song')).toBe('2024 - Song')
+    expect(cleanForSearch('22')).toBe('22')
   })
 })

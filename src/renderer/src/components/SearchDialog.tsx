@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { PROVIDER_NAME } from '@shared/artwork'
+import { PROVIDER_NAME, searchQuery } from '@shared/artwork'
 import { formatTime } from '@shared/layout'
 import type { SearchResult, Track } from '@shared/types'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +26,7 @@ interface Props {
 export function SearchDialog({ track, onClose, onApply }: Props) {
   const { t } = useTranslation()
   const [provider, setProvider] = useState<SearchResult['provider']>(PROVIDERS[0].id)
-  const [query, setQuery] = useState([track.artist, track.title].filter(Boolean).join(' - '))
+  const [query, setQuery] = useState(() => searchQuery(track.artist, track.title))
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +112,20 @@ export function SearchDialog({ track, onClose, onApply }: Props) {
           <button className="icon-btn" onClick={onClose}>
             ✕
           </button>
+        </div>
+        {/* What the track has now, to compare with the results. */}
+        <div className="search-current">
+          <div className="search-current-art">
+            {track.artwork ? <img src={platform.mediaUrl(track.artwork)} alt="" /> : <span>{t('inspector.noArtwork')}</span>}
+          </div>
+          <div className="search-current-text">
+            <div className="search-current-label">{t('search.current')}</div>
+            <div className="search-current-title">{track.title || t('common.untitled')}</div>
+            <div className="search-current-artist">
+              {track.artist || t('common.unknownArtist')}
+              {track.source ? ` · ${track.source}` : ''}
+            </div>
+          </div>
         </div>
         <div className="seg wide">
           {PROVIDERS.map((p) => (
