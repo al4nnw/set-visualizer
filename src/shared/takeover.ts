@@ -1,4 +1,5 @@
 import { sameSong } from './tracklist'
+import { stagedTransition } from './transitions'
 
 /**
  * Finding where the incoming track actually takes over.
@@ -232,7 +233,8 @@ function takeoverAt(s: SpectralFrames, cue: number, prev: number, end: number): 
 
 /**
  * For each cue (seconds, sorted), the crossfade that brings that track in. The first track keeps its
- * cue. `duration` is the length of the set.
+ * cue. `duration` is the length of the set. Uses the four-stage fit (transitions.ts) where the set has
+ * power spectra and the two tracks can be told apart, and the single step below otherwise.
  */
 export function stepTakeovers(s: SpectralFrames, cues: number[], duration: number): Transition[] {
   const out: Transition[] = []
@@ -242,10 +244,16 @@ export function stepTakeovers(s: SpectralFrames, cues: number[], duration: numbe
       return
     }
     const next = k + 1 < cues.length ? cues[k + 1] : duration
+    const before = out[k - 1]
+    const outgoingFrom = Math.max(before.start, before.tailEnd)
+    const staged = stagedTransition(s, cue, next, outgoingFrom)
+    if (staged) {
+      out.push(staged)
+      return
+    }
     const end = Math.min(next, cue + TAKEOVER_WINDOW)
     const start = takeoverAt(s, cue, cues[k - 1], end) ?? Math.min(cue + FALLBACK_TAKEOVER, (cue + end) / 2)
-    const before = out[k - 1]
-    const blend = measureBlend(s, { cue, start, next, outgoingFrom: Math.max(before.start, before.tailEnd) })
+    const blend = measureBlend(s, { cue, start, next, outgoingFrom })
     out.push({ start, audibleAt: blend.audible, tailEnd: blend.gone })
   })
   return out

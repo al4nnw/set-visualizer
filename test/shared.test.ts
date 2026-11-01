@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCue, decodeText, parseTracklist, entriesToTracks, placeTakeovers, dropRepeatedLoads } from '../src/shared/tracklist'
 import { detectTakeovers, measureBlend, settledAt, stepUp, FALLBACK_TAIL, FALLBACK_TAKEOVER } from '../src/shared/takeover'
+import { bestRise, fitStages, nnls, phraseBoundaries, stagedTransition } from '../src/shared/transitions'
 import { alternateDecks, mainTracks } from '../src/shared/layout'
 import { cardStates, stageShare, parseTime, formatTime, formatTimecode, SWAP_CURVES } from '../src/shared/layout'
 import type { SwapCurve, Track } from '../src/shared/types'
@@ -8,7 +9,7 @@ import { planSwaps, swapLength } from '../src/shared/swapPlan'
 import { isoDuration, youtubeId } from '../src/shared/youtube'
 import type { Motion } from '../src/shared/motion'
 import { buildMotion, motionAt } from '../src/shared/motion'
-import { applyClipEdits, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
+import { applyClipEdits, barsAround, beatPeriod, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
 import { LOCALES, matchLocale, videoText } from '../src/shared/i18n'
 import { formatPatch, SOCIAL_SAFE, videoFormat, waveRect } from '../src/shared/scene'
@@ -257,6 +258,68 @@ describe('takeover detection', () => {
   })
 })
 
+describe('four-stage transitions', () => {
+  // 8 power bands, the first 2 bass (as bassBands(8) says). A and B differ in both groups.
+  const A = [5, 1, 3, 0.5, 2, 0.4, 0.2, 0.1]
+  const B = [1, 5, 0.3, 2, 0.4, 3, 1, 0.8]
+  /**
+   * A set where A plays alone until 100 s, B comes in quietly (no bass) at 100 s, the bass is
+   * swapped at 140 s, A's upper part leaves at 172 s and B plays alone after. B's deck starts at 80 s.
+   */
+  function blendSet() {
+    const fps = 4
+    const power = Array.from({ length: 400 * fps }, (_, i) => {
+      const t = i / fps
+      const beat = 0.6 + 0.4 * Math.abs(Math.sin(i * 1.7))
+      const aBass = t < 140 ? 1 : 0
+      const aUp = t < 172 ? 1 : 0
+      const bBass = t >= 140 ? 1 : 0
+      const bUp = t >= 140 ? 1 : t >= 100 ? 0.35 : 0
+      return Float32Array.from(A.map((v, b) => beat * ((b < 2 ? aBass : aUp) * v + (b < 2 ? bBass : bUp) * B[b]) + 0.01))
+    })
+    return { fps, frames: [], power }
+  }
+
+  it('finds the moments where the music changes', () => {
+    const cuts = phraseBoundaries(blendSet(), 80, 300)
+    for (const t of [100, 140, 172]) expect(cuts.some((c) => Math.abs(c - t) <= 1)).toBe(true)
+  })
+
+  it('splits a blend into mix in, takeover and plays until', () => {
+    const r = stagedTransition(blendSet(), 80, 300, 0)!
+    expect(r.audibleAt).toBeGreaterThanOrEqual(80)
+    expect(r.audibleAt).toBeLessThanOrEqual(102)
+    expect(r.start).toBeGreaterThanOrEqual(138)
+    expect(r.start).toBeLessThanOrEqual(142)
+    expect(r.tailEnd).toBeGreaterThanOrEqual(169)
+    expect(r.tailEnd).toBeLessThanOrEqual(175)
+  })
+
+  it('fits the stages on the given boundaries, with the takeover as the biggest rise', () => {
+    const share = [...Array(20).fill(0), ...Array(20).fill(0.3), ...Array(20).fill(0.85), ...Array(20).fill(1)]
+    expect(fitStages(share, [10, 20, 30, 40, 50, 60, 70], 0)).toMatchObject({ mixIn: 20, start: 40, tailEnd: 60 })
+    // A late mix-in has to pay for itself; a barely audible one stays at the cue.
+    const faint = [...Array(20).fill(0), ...Array(20).fill(0.02), ...Array(40).fill(0.9)]
+    expect(fitStages(faint, [20, 40, 60], 0.5)!.mixIn).toBe(0)
+    // Nothing gets louder than the outgoing track: no takeover.
+    expect(fitStages(Array(60).fill(0.2), [20, 40], 0)).toBeNull()
+  })
+
+  it('finds a step up on a candidate second', () => {
+    const y = [...Array(30).fill(0.7), ...Array(30).fill(0.95)]
+    expect(bestRise(y, 0, 60, [10, 30, 50])).toBe(30)
+    expect(bestRise([...y].reverse(), 0, 60, [10, 30, 50])).toBeNull()
+  })
+
+  it('solves small non-negative least squares', () => {
+    const m = [Float64Array.from([1, 0, 1]), Float64Array.from([0, 1, 1])]
+    const w = nnls(m, [2, 3, 5])
+    expect(w[0]).toBeCloseTo(2)
+    expect(w[1]).toBeCloseTo(3)
+    expect(nnls(m, [-1, 2, 1])[0]).toBe(0)
+  })
+})
+
 describe('card motion', () => {
   const rate = 50
   // 0-20 s loud kicks, 20-40 s quiet kicks, 40-60 s no bass and a 4 Hz vocal envelope.
@@ -313,6 +376,20 @@ describe('clip suggestions', () => {
     // The drop on its own overlaps that transition, so it isn't suggested twice.
     expect(clips.filter((c) => c.kind === 'drop')).toHaveLength(0)
     expect(clips.some((c) => c.title.values?.from === 'two' && c.title.values?.to === 'three')).toBe(true)
+  })
+
+  it('finds the beat and puts clips on whole phrases and bars', () => {
+    // Kicks every 0.5 s: 120 BPM, a bar is 2 s and a phrase 8 s.
+    expect(beatPeriod(motion, 10)).toBeCloseTo(0.5, 1)
+    expect(beatPeriod(motion, 45)).toBeCloseTo(0.5, 1)
+    const r = barsAround(motion, 20.1, 10, 8)
+    expect(r.focus).toBe(20)
+    expect(r.from).toBeCloseTo(12, 1)
+    expect(r.to).toBeCloseTo(28, 1)
+    // No beat anywhere near: the seconds as they are.
+    const silent: Motion = { rate, kick: new Float32Array(n), bassy: new Float32Array(n), vocal: new Float32Array(n) }
+    expect(beatPeriod(silent, 10)).toBeNull()
+    expect(barsAround(silent, 20, 10, 7)).toEqual({ from: 10, to: 27, focus: 20 })
   })
 
   it('keeps clips inside the set and never overlapping by half', () => {

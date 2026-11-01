@@ -29,6 +29,7 @@ npm run typecheck      # tsc --noEmit; CI runs it before deploying
 npm test               # vitest: test/*.test.ts; CI runs it before deploying
 npm run test:browser   # browser analysis vs ffmpeg in Playwright Chromium (needs ffmpeg, see below)
 npm run compare-analysis -- set.wav --cue set.cue   # same check in Node, without a browser
+npm run eval-analysis -- set.wav set.cue checked.djvis [--clips]   # cue import timings vs a hand-checked project
 npm run build:wasm     # regenerate src/shared/resampleWasm.ts from resample.wat
 npm run emulators      # Auth + Functions + Firestore emulators (fake payment provider)
 npm run dev:emulators  # the app talking to the emulators; emulatorSignIn(email) in the console signs in
@@ -52,8 +53,9 @@ src/shared/          pure TS, no DOM or Node deps; runs on the page, in workers 
   swapPlan.ts        per-transition swap curve ("Energy-matched (auto)" picks one)
   motion.ts          card movement driven by the bass (kicks), precomputed per waveform bucket
   tracklist.ts       .cue parser (Rekordbox quirks) and cue entries -> tracks
-  takeover.ts        finds where each incoming track actually takes over in the audio
-  clips.ts           suggested short clips (transitions, drops, peaks)
+  takeover.ts        cue sheet -> transitions; layered tracks; the single-step fallback
+  transitions.ts     mix in / takes over / plays until from a four-stage fit on phrase boundaries
+  clips.ts           suggested short clips (transitions, drops, peaks), on whole phrases and bars
   analysis.ts, analyseSource.ts, dsp.ts, pcm.ts, mp3.ts, audioSource.ts, resample.wat
                      set analysis math, matched to ffmpeg (see "Set analysis" below)
   artwork.ts, youtube.ts   artwork provider order, YouTube link helpers
@@ -79,7 +81,7 @@ src/web/             entry HTML and bootstrap (vite.web.config.ts roots here)
 functions/src/       Cloud Functions (Node 22, region southamerica-east1)
   index.ts           youtubeSearch (signed-in only; the API key is a secret) + re-exports billing
   billing/           accounts, free exports, plans, tickets, payment providers, back office (admin.ts); has its own README
-scripts/             ffmpeg/ (reference analysis), compare-analysis, build-wasm, make-tutorial,
+scripts/             ffmpeg/ (reference analysis), compare-analysis, eval-analysis, build-wasm, make-tutorial,
                      ticket-key.mjs, deploy.ps1 (manual deploy, rarely needed)
 test/                vitest suites; browser/ is the Playwright harness for test:browser
 resources/tutorial/  the shortcuts tutorial clip (generated, gitignored)
@@ -97,7 +99,7 @@ The `@shared/*` import alias points at `src/shared/` (tsconfig + Vite).
 
 **Projects** live in the browser's IndexedDB. The recording itself is never copied: Chrome/Edge keep a file handle so a project can reopen it later; other browsers ask for the file again. File ▸ Save As writes a `.djvis` file (JSON) that File ▸ Open brings back.
 
-**Tracks and the cue sheet.** A `Track` has a `deck` ('A' or 'B'), a `start` (when it takes over as the main track), optional `mixIn` (when it starts being heard and appears on the right) and optional `tailEnd` (when it stops being heard after the swap). Importing a `.cue` sets each track's cue time as its mix-in and then finds the real takeover in the audio (`takeover.ts`). A track that never takes over is `layered`.
+**Tracks and the cue sheet.** A `Track` has a `deck` ('A' or 'B'), a `start` (when it takes over as the main track), optional `mixIn` (when it starts being heard and appears on the right) and optional `tailEnd` (when it stops being heard after the swap). Importing a `.cue` takes each track's cue time as when its deck started and finds the three moments in the audio (`transitions.ts`): every second after the cue is fitted as a blend of the two tracks' spectra, separately for the bass and the rest, and four flat stages (outgoing alone, incoming coming in, incoming on top, incoming alone) are fitted to the incoming track's share, with the steps only on phrase boundaries. The takeover is the biggest step, where the incoming track gets louder; plays until is read from the non-bass share, since DJs swap the bass at the takeover. With two decks the outgoing track must be gone by the next cue (its deck is reloaded), which bounds each search. When the two tracks can't be told apart, `takeover.ts` falls back to a single step. A track that never takes over is `layered`. To change any of this, score it with `npm run eval-analysis` against projects whose timings were set by hand, on more than one set, before and after.
 
 **Backend.** `functions/src/index.ts` exports `youtubeSearch` and the billing callables (`accountStatus`, `claimExport`, `settleExport`, `startCheckout`, `billingPortal`) plus the `billingWebhook` HTTP function, the back office callables (`adminListUsers`, `adminAddExports`, `adminSetPlan`, `adminCreateInvite`, `adminListInvites`, `adminRevokeInvite`) and `redeemInviteLink`. Firestore rules deny all client access: only the functions read and write it.
 
