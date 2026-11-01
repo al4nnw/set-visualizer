@@ -1218,6 +1218,37 @@ kbd {
   border-right: 1px solid var(--accent);
   pointer-events: none;
 }
+/* Grab strips on the clip's start and end; wider than they look so they're easy to catch. */
+.clip-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  pointer-events: auto;
+  cursor: ew-resize;
+  z-index: 1;
+}
+.clip-edge.from {
+  left: -6px;
+}
+.clip-edge.to {
+  right: -6px;
+}
+.clip-edge::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 6px;
+  height: 28px;
+  margin-top: -14px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.clip-edge:hover::after {
+  background: var(--text-hi);
+}
 .playhead {
   position: absolute;
   top: 0;

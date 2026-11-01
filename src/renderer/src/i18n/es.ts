@@ -325,6 +325,8 @@ export const es: Messages = {
     zoomOut: 'Alejar (−)',
     zoomIn: 'Acercar (=)',
     fit: 'Ajustar el set completo (\\)',
+    clipStartDrag: "Arrastra para mover el inicio del clip",
+    clipEndDrag: "Arrastra para mover el final del clip",
     tailTitle: "Sigue sonando por debajo del siguiente tema hasta aquí (aparece a la derecha como 'sonando ahora')",
     leadTitle: 'Mix in: cuando este tema aparece a la derecha. Arrastra el borde para cambiarlo.',
     swap: 'Cambio: {{curve}}, {{seconds}} s ({{reason}})',

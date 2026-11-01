@@ -949,6 +949,7 @@ export function App() {
             }}
             onChangeTrack={changeTrack}
             clip={loop}
+            onTrimClip={loop ? (r) => trimClip(loop.id, r) : undefined}
           />
         ) : (
           <EmptyTimeline />

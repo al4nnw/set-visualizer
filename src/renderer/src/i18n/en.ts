@@ -330,6 +330,8 @@ export const en = {
     zoomOut: 'Zoom out (−)',
     zoomIn: 'Zoom in (=)',
     fit: 'Fit the whole set (\\)',
+    clipStartDrag: "Drag to move the clip's start",
+    clipEndDrag: "Drag to move the clip's end",
     tailTitle: "Still playing under the next track until here (shown on the right as 'now playing')",
     leadTitle: 'Mix-in: when this track appears on the right. Drag the edge to change it.',
     swap: 'Swap: {{curve}}, {{seconds}} s ({{reason}})',

@@ -325,6 +325,8 @@ export const ptBR: Messages = {
     zoomOut: 'Diminuir zoom (−)',
     zoomIn: 'Aumentar zoom (=)',
     fit: 'Ajustar o set inteiro (\\)',
+    clipStartDrag: "Arraste para mover o início do clipe",
+    clipEndDrag: "Arraste para mover o fim do clipe",
     tailTitle: "Ainda tocando por baixo da próxima faixa até aqui (aparece à direita como 'tocando agora')",
     leadTitle: 'Mix in: quando esta faixa aparece à direita. Arraste a borda para mudar.',
     swap: 'Troca: {{curve}}, {{seconds}} s ({{reason}})',

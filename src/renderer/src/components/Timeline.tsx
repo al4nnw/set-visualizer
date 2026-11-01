@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
 import { appearTime, currentIndex, formatTime, mainTracks, tailTime } from '@shared/layout'
+import { nudgeClip } from '@shared/clips'
 import { buildMotion } from '@shared/motion'
 import { planSwaps, swapLength } from '@shared/swapPlan'
 import type { Project, Track } from '@shared/types'
@@ -25,6 +26,8 @@ interface Props {
   onChangeTrack: (id: string, patch: Partial<Track>, mergeKey?: string) => void
   /** The clip being previewed: the timeline zooms in on it and shades it. */
   clip?: { from: number; to: number } | null
+  /** New start and end for the clip being previewed, from dragging its edges. */
+  onTrimClip?: (range: { from: number; to: number }) => void
 }
 
 const RULER = 24
@@ -118,7 +121,7 @@ function tickStep(pps: number) {
   return steps.find((s) => s * pps >= 70) ?? 3600
 }
 
-export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack, clip }: Props) {
+export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack, clip, onTrimClip }: Props) {
   const { t } = useTranslation()
   const [bodyRef, bodyH] = useBodyHeight()
   const { WAVE_H, LANE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT } = lanes(bodyH - 12)
@@ -255,8 +258,10 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
   // clip fills most of the view with a little of the set either side.
   const clipFrom = clip?.from
   const clipTo = clip?.to
+  const clipDragging = useRef(false)
   useEffect(() => {
     const el = scrollRef.current
+    if (clipDragging.current) return
     if (!el || clipFrom === undefined || clipTo === undefined || clipTo <= clipFrom) return
     const z = Math.max(1, Math.min(400, (viewW * 0.7) / (clipTo - clipFrom) / fitPps))
     const mid = (clipFrom + clipTo) / 2
@@ -328,6 +333,24 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
     window.addEventListener('pointerup', up)
   }
 
+  /** Drags the clip's start or end; the view stays put while dragging. */
+  const startClipDrag = (e: React.PointerEvent, edge: 'from' | 'to') => {
+    if (!clip || !onTrimClip) return
+    e.stopPropagation()
+    e.preventDefault()
+    const c0 = { from: clip.from, to: clip.to }
+    const x0 = e.clientX
+    clipDragging.current = true
+    const move = (ev: PointerEvent) => onTrimClip(nudgeClip(c0, edge, (ev.clientX - x0) / pps, dur))
+    const up = () => {
+      clipDragging.current = false
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   const onWheel = (e: React.WheelEvent) => {
     if (!(e.ctrlKey || e.metaKey || e.altKey)) return
     setZoom((z) => Math.max(1, Math.min(400, z * Math.exp(-e.deltaY * 0.002))), e.clientX)
@@ -376,7 +399,16 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
             <canvas ref={canvasRef} className="timeline-canvas" style={{ width: viewW, height: RULER + WAVE_H }} onPointerDown={startScrub} />
             <div className="lane-bg" style={{ top: LANE_A, height: LANE_H }} onPointerDown={startScrub} />
             <div className="lane-bg" style={{ top: LANE_B, height: LANE_H }} onPointerDown={startScrub} />
-            {clipFrom !== undefined && clipTo !== undefined && <div className="clip-range" style={{ left: clipFrom * pps, width: (clipTo - clipFrom) * pps, height: TIMELINE_HEIGHT }} />}
+            {clipFrom !== undefined && clipTo !== undefined && (
+              <div className="clip-range" style={{ left: clipFrom * pps, width: (clipTo - clipFrom) * pps, height: TIMELINE_HEIGHT }}>
+                {onTrimClip && (
+                  <>
+                    <div className="clip-edge from" title={t('timeline.clipStartDrag')} onPointerDown={(e) => startClipDrag(e, 'from')} />
+                    <div className="clip-edge to" title={t('timeline.clipEndDrag')} onPointerDown={(e) => startClipDrag(e, 'to')} />
+                  </>
+                )}
+              </div>
+            )}
             {sorted.map((tr, i) => {
               const start = i === 0 ? Math.min(tr.start, 0) : tr.start
               const end = i + 1 < sorted.length ? sorted[i + 1].start : dur
