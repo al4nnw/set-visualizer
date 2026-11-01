@@ -88,8 +88,13 @@ export function App() {
   const [loopId, setLoopId] = useState<string | null>(null)
   const loopRef = useRef<ClipSuggestion | null>(null)
   const [clipFormat, setClipFormat] = useState<ClipFormat>('portrait')
+  // Clips previewed in Program. A clip can only be exported once it has been seen and heard.
+  const [previewed, setPreviewed] = useState<ReadonlySet<string>>(new Set())
   // A clip belongs to the set it came from.
-  useEffect(() => setLoopId(null), [project?.audioPath])
+  useEffect(() => {
+    setLoopId(null)
+    setPreviewed(new Set())
+  }, [project?.audioPath])
   const [inspectorW, setInspectorW] = useStoredNumber('layout.inspectorWidth', INSPECTOR_W)
   // 0 means the user hasn't dragged the timeline, so its height follows the window.
   const [storedTimelineH, setTimelineH] = useStoredNumber('layout.timelineHeight', 0)
@@ -529,6 +534,7 @@ export function App() {
 
   const playClip = (c: ClipSuggestion) => {
     setLoopId(c.id)
+    setPreviewed((s) => (s.has(c.id) ? s : new Set(s).add(c.id)))
     loopRef.current = c
     seek(c.from)
     audioEl?.play().catch((e) => showToast(t('app.cantPlay', { error: errMsg(e) })))
@@ -884,6 +890,7 @@ export function App() {
           clips={clips}
           loop={loop}
           onPlayClip={playClip}
+          previewedClips={previewed}
           onStopLoop={() => setLoopId(null)}
           onTrimClip={trimClip}
           tab={viewerTab}
@@ -941,6 +948,7 @@ export function App() {
               setTab('tracks')
             }}
             onChangeTrack={changeTrack}
+            clip={loop}
           />
         ) : (
           <EmptyTimeline />

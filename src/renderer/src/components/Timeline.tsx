@@ -23,6 +23,8 @@ interface Props {
   onSeek: (t: number) => void
   onSelect: (id: string) => void
   onChangeTrack: (id: string, patch: Partial<Track>, mergeKey?: string) => void
+  /** The clip being previewed: the timeline zooms in on it and shades it. */
+  clip?: { from: number; to: number } | null
 }
 
 const RULER = 24
@@ -116,7 +118,7 @@ function tickStep(pps: number) {
   return steps.find((s) => s * pps >= 70) ?? 3600
 }
 
-export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack }: Props) {
+export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSelect, onChangeTrack, clip }: Props) {
   const { t } = useTranslation()
   const [bodyRef, bodyH] = useBodyHeight()
   const { WAVE_H, LANE_H, LANE_A, LANE_B, total: TIMELINE_HEIGHT } = lanes(bodyH - 12)
@@ -249,6 +251,26 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
     draw.current()
   }, [pps])
 
+  // Zoom in on a clip when it starts previewing, and again when its start or end moves, so the
+  // clip fills most of the view with a little of the set either side.
+  const clipFrom = clip?.from
+  const clipTo = clip?.to
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || clipFrom === undefined || clipTo === undefined || clipTo <= clipFrom) return
+    const z = Math.max(1, Math.min(400, (viewW * 0.7) / (clipTo - clipFrom) / fitPps))
+    const mid = (clipFrom + clipTo) / 2
+    userScrolledAt.current = Date.now()
+    if (Math.abs(z - zoom) < 1e-6) {
+      autoScrolling.current = true
+      el.scrollLeft = Math.max(0, mid * pps - viewW / 2)
+    } else {
+      zoomAnchor.current = { t: mid, x: viewW / 2 }
+      setZoomState(z)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clipFrom, clipTo])
+
   // Keep the playhead in view while playing, unless the user just scrolled or zoomed.
   useEffect(() => {
     const el = scrollRef.current
@@ -354,6 +376,7 @@ export function Timeline({ ref, project, time, playing, selectedId, onSeek, onSe
             <canvas ref={canvasRef} className="timeline-canvas" style={{ width: viewW, height: RULER + WAVE_H }} onPointerDown={startScrub} />
             <div className="lane-bg" style={{ top: LANE_A, height: LANE_H }} onPointerDown={startScrub} />
             <div className="lane-bg" style={{ top: LANE_B, height: LANE_H }} onPointerDown={startScrub} />
+            {clipFrom !== undefined && clipTo !== undefined && <div className="clip-range" style={{ left: clipFrom * pps, width: (clipTo - clipFrom) * pps, height: TIMELINE_HEIGHT }} />}
             {sorted.map((tr, i) => {
               const start = i === 0 ? Math.min(tr.start, 0) : tr.start
               const end = i + 1 < sorted.length ? sorted[i + 1].start : dur
