@@ -24,6 +24,18 @@ export function frameSpan(project: Project, range?: ExportRange) {
 export const exportWorkerCount = (cores = navigator.hardwareConcurrency || 2) => Math.max(1, Math.min(4, cores - 1))
 
 /**
+ * While the editor plays something (the set or a clip preview), an export keeps one worker going
+ * and lets the others wait, so the preview stays smooth; they pick up again when it stops.
+ */
+let editorPlaying = false
+const resumers = new Set<() => void>()
+export function setEditorPlaying(playing: boolean) {
+  if (playing === editorPlaying) return
+  editorPlaying = playing
+  if (!playing) for (const r of resumers) r()
+}
+
+/**
  * Frames per part: three 2 s keyframe intervals. Parts start on the export's own keyframes, so
  * splitting it doesn't change where they fall.
  */
@@ -60,6 +72,7 @@ export async function runExport(
   const parts = Math.ceil(totalFrames / partFrames(fps))
   const workers = Array.from({ length: Math.min(exportWorkerCount(), parts) }, () => new Worker(new URL('./encodeWorker.ts', import.meta.url), { type: 'module' }))
   let rejectRun: (e: Error) => void = () => {}
+  let cleanup = () => {}
   const abort = () => {
     for (const w of workers) w.postMessage({ type: 'cancel' })
     rejectRun(new Error(i18n.t('errors.exportCancelled')))
@@ -73,6 +86,7 @@ export async function runExport(
       // Parts handed out, and the next one to pass on. Parts that finish early wait here, at
       // most a couple per worker ahead, so memory stays small however long the set is.
       let given = 0
+      let active = 0
       let emitting = 0
       let starting = workers.length
       let startError = ''
@@ -85,7 +99,8 @@ export async function runExport(
         return p
       }
       const give = (w: Worker) => {
-        if (given >= parts || given >= emitting + 2 * ready.size) return void idle.push(w)
+        if (given >= parts || given >= emitting + 2 * ready.size || (editorPlaying && active > 0)) return void idle.push(w)
+        active++
         const from = firstFrame + given * partFrames(fps)
         w.postMessage({ type: 'part', index: given, from, to: Math.min(endFrame, from + partFrames(fps)) })
         given++
@@ -111,6 +126,11 @@ export async function runExport(
         }
       }
       let configSent = false
+      const resume = () => {
+        for (const w of idle.splice(0)) give(w)
+      }
+      resumers.add(resume)
+      cleanup = () => resumers.delete(resume)
       for (const worker of workers) {
         worker.onmessage = (e: MessageEvent) => {
           const m = e.data
@@ -126,6 +146,7 @@ export async function runExport(
               report('rendering')
             }
           } else if (m.type === 'partDone') {
+            active--
             partOf(m.index).done = true
             flush()
             give(worker)
@@ -158,6 +179,7 @@ export async function runExport(
     throw new Error(errMsg(e))
   } finally {
     signal.removeEventListener('abort', abort)
+    cleanup()
     for (const w of workers) w.terminate()
   }
 }

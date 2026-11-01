@@ -23,6 +23,7 @@ import { useFullscreen } from './useFullscreen'
 import { useHistory } from './useHistory'
 import { ExportJobs } from './components/ExportJobs'
 import { exportQueue, useExportJobs } from './export/queue'
+import { setEditorPlaying } from './export/runExport'
 import { setUiLocale, uiLocale } from './i18n'
 import { loadAccount } from './account/account'
 import { AccountButton, AccountDialogs } from './account/AccountDialogs'
@@ -82,6 +83,8 @@ export function App() {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
+  // A running export gives the cores back while something plays here.
+  useEffect(() => setEditorPlaying(playing), [playing])
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
   // The clip looping in Program, by id so that trimming it changes the loop too.
