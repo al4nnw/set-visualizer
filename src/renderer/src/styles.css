@@ -342,6 +342,8 @@ kbd {
   height: 100%;
   display: grid;
   grid-template-rows: 30px minmax(0, 1fr) 4px var(--timeline-h, 250px);
+  /* One column no wider than the window: a deeply zoomed timeline must scroll, not widen the app. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   padding: 0 4px 4px;
 }
@@ -1205,6 +1207,16 @@ kbd {
 .mix-handle:hover {
   background: color-mix(in srgb, var(--c) 50%, transparent);
   border-radius: 2px;
+}
+/* The clip being previewed, shaded across the ruler, waveform and lanes. */
+.clip-range {
+  position: absolute;
+  top: 0;
+  z-index: 4;
+  background: var(--accent-soft);
+  border-left: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  pointer-events: none;
 }
 .playhead {
   position: absolute;

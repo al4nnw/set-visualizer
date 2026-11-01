@@ -948,6 +948,7 @@ export function App() {
               setTab('tracks')
             }}
             onChangeTrack={changeTrack}
+            clip={loop}
           />
         ) : (
           <EmptyTimeline />
