@@ -526,6 +526,12 @@ export function App() {
     [audioEl, project?.duration]
   )
 
+  /** Skips forward or back; while a clip loops, the skip stays inside the clip instead of leaving it. */
+  const skip = (dt: number) => {
+    const l = loopRef.current
+    seek(l ? Math.max(l.from, Math.min(l.to - 0.05, time + dt)) : time + dt)
+  }
+
   const togglePlay = useCallback(() => {
     if (!audioEl) return
     if (audioEl.paused) audioEl.play().catch((e) => showToast(t('app.cantPlay', { error: errMsg(e) })))
@@ -733,10 +739,10 @@ export function App() {
         'sep',
         { ...cmd('previousTrack'), shortcut: 'ArrowUp', alsoKeys: ['PageUp'], run: () => jumpTrack(-1), disabled: !has },
         { ...cmd('nextTrack'), shortcut: 'ArrowDown', alsoKeys: ['PageDown'], run: () => jumpTrack(1), disabled: !has },
-        { ...cmd('back5'), shortcut: 'ArrowLeft', alsoKeys: ['J'], run: () => seek(time - 5), disabled: !has },
-        { ...cmd('forward5'), shortcut: 'ArrowRight', alsoKeys: ['L'], run: () => seek(time + 5), disabled: !has },
-        { ...cmd('back30'), shortcut: 'Shift+ArrowLeft', alsoKeys: ['Shift+J'], run: () => seek(time - 30), disabled: !has },
-        { ...cmd('forward30'), shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => seek(time + 30), disabled: !has },
+        { ...cmd('back5'), shortcut: 'ArrowLeft', alsoKeys: ['J'], run: () => skip(-5), disabled: !has },
+        { ...cmd('forward5'), shortcut: 'ArrowRight', alsoKeys: ['L'], run: () => skip(5), disabled: !has },
+        { ...cmd('back30'), shortcut: 'Shift+ArrowLeft', alsoKeys: ['Shift+J'], run: () => skip(-30), disabled: !has },
+        { ...cmd('forward30'), shortcut: 'Shift+ArrowRight', alsoKeys: ['Shift+L'], run: () => skip(30), disabled: !has },
         'sep',
         { ...cmd('goToStart'), shortcut: 'Home', run: () => seek(0), disabled: !has },
         { ...cmd('goToEnd'), shortcut: 'End', run: () => seek(project?.duration ?? 0), disabled: !has }
