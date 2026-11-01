@@ -25,6 +25,7 @@ export const ptBR: Messages = {
     help: 'Ajuda'
   },
   cmd: {
+    clipFromHere: 'Recortar a Partir Daqui',
     newProject: 'Novo projeto',
     openAny: 'Importar set ou abrir projeto…',
     openRecent: 'Abrir recente',
@@ -142,6 +143,10 @@ export const ptBR: Messages = {
     skip: 'Pular'
   },
   viewer: {
+    clipFromHere: 'Recortar daqui',
+    clipFromHereTitle: 'Criar um clipe que começa no cursor ({{key}})',
+    clipFromAt: 'Novo clipe de 30 s a partir de {{at}}',
+    clipFormats: { portrait: 'Vertical, para celular', landscape: 'Horizontal, como o vídeo completo', social: 'Vertical, longe dos botões do TikTok e do Reels' },
     justNow: 'agora mesmo',
     minAgo: 'há {{n}} min',
     hAgo: 'há {{n}} h',
@@ -185,8 +190,11 @@ export const ptBR: Messages = {
     volumeHintText: 'Isto muda o volume da prévia enquanto você edita. Os vídeos exportados sempre mantêm o áudio original do set.'
   },
   clips: {
-    kind: { transition: 'Transição', drop: 'Drop', peak: 'Pico' },
-    kindPlural: { transition: 'Transições', drop: 'Drops', peak: 'Picos' },
+    newClip: 'Novo clipe em {{at}}',
+    newClipTitle: 'Criar um clipe de 30 s que começa no cursor, no formato escolhido aqui',
+    deleteClip: 'Apagar este clipe',
+    kind: { custom: 'Seu clipe', transition: 'Transição', drop: 'Drop', peak: 'Pico' },
+    kindPlural: { custom: 'Seus', transition: 'Transições', drop: 'Drops', peak: 'Picos' },
     all: 'Todos',
     empty: 'Importe o .cue do Rekordbox e os clipes dos melhores momentos do set aparecem aqui.',
     bestFirst: 'Melhores primeiro',
@@ -204,11 +212,14 @@ export const ptBR: Messages = {
     playInProgram: 'Tocar este clipe no Programa'
   },
   clipText: {
+    custom: 'Clipe a partir de {{at}}',
+    customTrack: '{{track}} a partir de {{at}}',
     transition: '{{from}} → {{to}}',
     drop: 'Drop em {{track}}',
     peak: '{{track}} com energia total'
   },
   clipReason: {
+    custom: 'clipe feito por você',
     dropOnTakeover: 'o drop cai bem quando a faixa assume',
     buildsIntoDrop: 'cresce até um drop {{seconds}} s depois que a faixa assume',
     blend: 'mixagem de {{seconds}} s',

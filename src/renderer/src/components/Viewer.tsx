@@ -1,4 +1,4 @@
-import { useEffect, useState, type Ref } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
 import type { AppOverlay, Project, RecentProject } from '@shared/types'
@@ -40,6 +40,10 @@ interface Props {
   onStopLoop: () => void
   /** New start and end for a clip, or null to go back to the suggested ones. */
   onTrimClip: (id: string, range: { from: number; to: number } | null) => void
+  /** Starts a clip of the user's own at the playhead, in `format` when one is picked. */
+  onClipFromHere: (format?: ClipFormat) => void
+  /** Removes one of the user's own clips. */
+  onDeleteClip: (id: string) => void
   tab: ViewerTab
   onTab: (tab: ViewerTab) => void
   /** Show the one-time note that points at the Clips tab. */
@@ -193,6 +197,9 @@ export function Viewer(p: Props) {
               setTab('program')
             }}
             onTrim={p.onTrimClip}
+            time={time}
+            onClipFromHere={() => p.onClipFromHere()}
+            onDelete={p.onDeleteClip}
             format={p.clipFormat}
             onFormat={p.onClipFormat}
           />
@@ -217,6 +224,7 @@ export function Viewer(p: Props) {
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
+        {project && !loop && !p.busy && <ClipHere time={time} hours={hours} format={p.clipFormat} onPick={p.onClipFromHere} />}
         {loop && (
           <div className="loop-chip" title={clipTitle(loop)}>
             <span>{t('viewer.looping', { from: formatTime(loop.from, hours), to: formatTime(loop.to, hours), title: clipTitle(loop) })}</span>
@@ -257,6 +265,57 @@ export function Viewer(p: Props) {
         <div className="timecode total">{formatTimecode(project?.duration ?? 0, fps)}</div>
       </div>
     </section>
+  )
+}
+
+const FORMATS: ClipFormat[] = ['portrait', 'landscape', 'social']
+
+/**
+ * Clip from here, in the transport bar: a menu of the three clip formats that starts clip mode at
+ * the playhead in the one picked. The clip runs 30 s from there and can then be trimmed like any other.
+ */
+function ClipHere({ time, hours, format, onPick }: { time: number; hours: boolean; format: ClipFormat; onPick: (f: ClipFormat) => void }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('pointerdown', away)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('pointerdown', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  return (
+    <div className="clip-here" ref={ref}>
+      <button className="clip-here-btn" aria-expanded={open} title={t('viewer.clipFromHereTitle', { key: shortcutLabel('C') })} onClick={() => setOpen((o) => !o)}>
+        <Icon name="scissors" size={13} /> {t('viewer.clipFromHere')}
+      </button>
+      {open && (
+        <div className="clip-here-menu" role="menu">
+          <div className="clip-here-head">{t('viewer.clipFromAt', { at: formatTime(time, hours) })}</div>
+          {FORMATS.map((f) => (
+            <button
+              key={f}
+              role="menuitem"
+              className={`clip-here-item ${f === format ? 'on' : ''}`}
+              onClick={(e) => {
+                setOpen(false)
+                e.currentTarget.blur()
+                onPick(f)
+              }}
+            >
+              <span className={`clip-here-shape ${f}`} />
+              <span className="clip-here-name">{f === 'portrait' ? '9:16' : f === 'landscape' ? '16:9' : t('clips.social')}</span>
+              <span className="clip-here-sub">{t(`viewer.clipFormats.${f}`)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

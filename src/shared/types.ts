@@ -139,6 +139,8 @@ export interface Project {
   cue?: CueImport
   /** Suggested clips the user lengthened or shortened, by clip id. */
   clipEdits?: Record<string, { from: number; to: number }>
+  /** Clips the user started at a point of their choosing (Clip from here), oldest first. */
+  customClips?: { id: string; from: number; to: number }[]
   createdAt?: string
   savedAt?: string
 }

@@ -26,6 +26,12 @@ interface Props {
   onPlay: (clip: ClipSuggestion) => void
   /** New start and end for a clip, or null to go back to the suggested ones. */
   onTrim: (id: string, range: { from: number; to: number } | null) => void
+  /** The playhead, where New clip here starts a clip. */
+  time: number
+  /** Starts a clip of the user's own at the playhead and previews it. */
+  onClipFromHere: () => void
+  /** Removes one of the user's own clips. */
+  onDelete: (id: string) => void
   format: ClipFormat
   onFormat: (f: ClipFormat) => void
 }
@@ -53,7 +59,7 @@ export function clipTitle(c: ClipSuggestion): string {
  * Preview, which loops the clip in Program where it can be fine-tuned and exported. Export shows up
  * on the card only after the clip has been previewed, so nothing is exported unseen.
  */
-export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTrim, format, onFormat }: Props) {
+export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTrim, time, onClipFromHere, onDelete, format, onFormat }: Props) {
   const { t } = useTranslation()
   const [kind, setKind] = useState<ClipKind | 'all'>('all')
   const [order, setOrder] = useState<'best' | 'time'>('best')
@@ -92,16 +98,21 @@ export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTri
     const list = clips.filter((c) => kind === 'all' || c.kind === kind)
     return order === 'time' ? [...list].sort((a, b) => a.from - b.from) : list
   }, [clips, kind, order])
-  const best = clips[0]?.id
+  // The user's own clips come first but are not suggestions, so Best goes to the first suggestion.
+  const best = clips.find((c) => c.kind !== 'custom')?.id
+  const kinds = (['all', 'custom', 'transition', 'drop', 'peak'] as const).filter((k) => k !== 'custom' || clips.some((c) => c.kind === 'custom'))
   const hours = project.duration >= 3600
 
   const exportClip = (c: ClipSuggestion) => exportClipVideo(project, c, format)
 
-  if (!project.tracks.length)
+  if (!clips.length && !project.tracks.length)
     return (
       <div className="clips-empty">
         <Icon name="cue" size={22} />
         <div>{t('clips.empty')}</div>
+        <button className="btn primary" onClick={onClipFromHere}>
+          <Icon name="scissors" size={12} /> {t('clips.newClip', { at: formatTime(time, hours) })}
+        </button>
       </div>
     )
 
@@ -109,7 +120,7 @@ export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTri
     <div className="clips-panel">
       <div className="clips-toolbar">
         <div className="seg">
-          {(['all', 'transition', 'drop', 'peak'] as const).map((k) => (
+          {kinds.map((k) => (
             <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
               {k === 'all' ? `${t('clips.all')} ${clips.length}` : `${t(`clips.kindPlural.${k}`)} ${clips.filter((c) => c.kind === k).length}`}
             </button>
@@ -120,6 +131,9 @@ export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTri
           <option value="time">{t('clips.inSetOrder')}</option>
         </select>
         <div className="grow" />
+        <button className="btn small" onClick={onClipFromHere} title={t('clips.newClipTitle')}>
+          <Icon name="scissors" size={12} /> {t('clips.newClip', { at: formatTime(time, hours) })}
+        </button>
         <div className="seg" title={t('clips.formatTitle')}>
           <button className={format === 'portrait' ? 'on' : ''} onClick={() => onFormat('portrait')}>
             9:16
@@ -174,6 +188,11 @@ export function ClipsPanel({ project, clips, playingId, previewed, onPlay, onTri
                       <Icon name="export" size={12} /> {t('common.export')}
                     </button>
                   ) : null}
+                  {c.kind === 'custom' && !busy && (
+                    <button className="icon-btn small clips-delete" onClick={() => onDelete(c.id)} title={t('clips.deleteClip')} aria-label={t('clips.deleteClip')}>
+                      <Icon name="trash" size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

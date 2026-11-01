@@ -25,6 +25,7 @@ export const es: Messages = {
     help: 'Ayuda'
   },
   cmd: {
+    clipFromHere: 'Recortar desde Aquí',
     newProject: 'Nuevo proyecto',
     openAny: 'Importar set o abrir proyecto…',
     openRecent: 'Abrir reciente',
@@ -142,6 +143,10 @@ export const es: Messages = {
     skip: 'Omitir'
   },
   viewer: {
+    clipFromHere: 'Recortar desde aquí',
+    clipFromHereTitle: 'Crear un clip que empieza en el cursor ({{key}})',
+    clipFromAt: 'Nuevo clip de 30 s desde {{at}}',
+    clipFormats: { portrait: 'Vertical, para el móvil', landscape: 'Horizontal, como el video completo', social: 'Vertical, lejos de los botones de TikTok y Reels' },
     justNow: 'ahora mismo',
     minAgo: 'hace {{n}} min',
     hAgo: 'hace {{n}} h',
@@ -185,8 +190,11 @@ export const es: Messages = {
     volumeHintText: 'Esto cambia el volumen de la vista previa mientras editas. Los videos exportados siempre conservan el audio original del set.'
   },
   clips: {
-    kind: { transition: 'Transición', drop: 'Drop', peak: 'Pico' },
-    kindPlural: { transition: 'Transiciones', drop: 'Drops', peak: 'Picos' },
+    newClip: 'Nuevo clip en {{at}}',
+    newClipTitle: 'Crear un clip de 30 s que empieza en el cursor, en el formato elegido aquí',
+    deleteClip: 'Borrar este clip',
+    kind: { custom: 'Tu clip', transition: 'Transición', drop: 'Drop', peak: 'Pico' },
+    kindPlural: { custom: 'Tuyos', transition: 'Transiciones', drop: 'Drops', peak: 'Picos' },
     all: 'Todos',
     empty: 'Importa el .cue de Rekordbox y aquí aparecerán los clips de los mejores momentos del set.',
     bestFirst: 'Mejores primero',
@@ -204,11 +212,14 @@ export const es: Messages = {
     playInProgram: 'Reproducir este clip en Programa'
   },
   clipText: {
+    custom: 'Clip desde {{at}}',
+    customTrack: '{{track}} desde {{at}}',
     transition: '{{from}} → {{to}}',
     drop: 'Drop en {{track}}',
     peak: '{{track}} a toda energía'
   },
   clipReason: {
+    custom: 'tu propio clip',
     dropOnTakeover: 'el drop cae justo al tomar el relevo',
     buildsIntoDrop: 'sube hasta un drop {{seconds}} s después de tomar el relevo',
     blend: 'mezcla de {{seconds}} s',

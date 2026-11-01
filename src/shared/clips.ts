@@ -1,9 +1,10 @@
-import { currentIndex, mainTracks } from './layout'
+import { currentIndex, formatTime, mainTracks } from './layout'
 import type { Motion } from './motion'
 import type { Msg } from './i18n'
 import type { Track } from './types'
 
-export type ClipKind = 'transition' | 'drop' | 'peak'
+/** What a clip was built around; `custom` is one the user started with Clip from here. */
+export type ClipKind = 'transition' | 'drop' | 'peak' | 'custom'
 
 /** A stretch of the set that should work on its own as a short video. */
 export interface ClipSuggestion {
@@ -301,4 +302,49 @@ export function nudgeClip(c: { from: number; to: number }, edge: 'from' | 'to', 
   }
   const to = Math.min(duration, c.from + CLIP_MAX, Math.max(c.to + delta, c.from + CLIP_MIN))
   return { from: c.from, to: round(to) }
+}
+
+/** A clip the user started at a point of their choosing (Clip from here), as saved in the project. */
+export interface CustomClip {
+  id: string
+  from: number
+  to: number
+}
+
+/** How long a clip started with Clip from here is, seconds, before the user changes it. */
+export const CUSTOM_CLIP_LENGTH = 30
+
+/**
+ * A new clip that starts at `at` and runs `length` seconds. Near the end of the set it starts
+ * earlier instead, so it keeps its length while the set allows it.
+ */
+export function newCustomClip(id: string, at: number, duration: number, length = CUSTOM_CLIP_LENGTH): CustomClip {
+  const len = Math.max(Math.min(CLIP_MIN, duration), Math.min(CLIP_MAX, duration, length))
+  const from = Math.max(0, Math.min(duration - len, at))
+  return { id, from: round(from), to: round(from + len) }
+}
+
+/**
+ * The user's own clips as clips the Clips tab and clip mode can show, newest first. They are built
+ * around their start, so changing the length keeps the start where the user put it. The title names
+ * the track playing at the start, when the set has a tracklist.
+ */
+export function customClipSuggestions(custom: CustomClip[] | undefined, tracks: Track[], duration: number): ClipSuggestion[] {
+  if (!custom?.length) return []
+  const sorted = mainTracks(tracks)
+  const hours = duration >= 3600
+  return [...custom].reverse().map((c): ClipSuggestion => {
+    const tr = sorted.length ? sorted[currentIndex(sorted, c.from + 0.5)] : undefined
+    const at = formatTime(c.from, hours)
+    return {
+      id: c.id,
+      kind: 'custom',
+      from: c.from,
+      to: c.to,
+      focus: c.from,
+      title: tr && name(tr) ? { key: 'customTrack', values: { track: name(tr), at } } : { key: 'custom', values: { at } },
+      reason: { key: 'custom' },
+      score: 0
+    }
+  })
 }

@@ -55,7 +55,7 @@ src/shared/          pure TS, no DOM or Node deps; runs on the page, in workers 
   tracklist.ts       .cue parser (Rekordbox quirks) and cue entries -> tracks
   takeover.ts        cue sheet -> transitions; layered tracks; the single-step fallback
   transitions.ts     mix in / takes over / plays until from a four-stage fit on phrase boundaries
-  clips.ts           suggested short clips (transitions, drops, peaks), on whole phrases and bars
+  clips.ts           suggested short clips (transitions, drops, peaks), on whole phrases and bars, and the user's own (Clip from here)
   analysis.ts, analyseSource.ts, dsp.ts, pcm.ts, mp3.ts, audioSource.ts, resample.wat
                      set analysis math, matched to ffmpeg (see "Set analysis" below)
   artwork.ts, youtube.ts   artwork provider order, YouTube link helpers

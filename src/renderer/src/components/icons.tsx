@@ -29,6 +29,7 @@ const paths: Record<string, string> = {
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 9h6l.5-9',
   chevron: 'M6 4l4 4-4 4',
   close: 'M4 4l8 8M12 4l-8 8',
+  scissors: 'M4.5 2.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5zM4.5 10a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5zM6 5.3 13.5 12M6 10.7 13.5 4',
   fullscreen: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
   fullscreenExit: 'M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5'
 }

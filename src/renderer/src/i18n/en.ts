@@ -28,6 +28,7 @@ export const en = {
   },
   /** Menu commands, by command id (the tutorial and the shortcuts list use the same ids). */
   cmd: {
+    clipFromHere: 'Clip from Here',
     newProject: 'New Project',
     openAny: 'Import Set or Open Project…',
     openRecent: 'Open Recent',
@@ -145,6 +146,10 @@ export const en = {
     skip: 'Skip'
   },
   viewer: {
+    clipFromHere: 'Clip from here',
+    clipFromHereTitle: 'Make a clip that starts at the playhead ({{key}})',
+    clipFromAt: 'New 30 s clip from {{at}}',
+    clipFormats: { portrait: 'Vertical, for phones', landscape: 'Wide, like the full video', social: "Vertical, clear of TikTok and Reels' buttons" },
     justNow: 'just now',
     minAgo: '{{n}} min ago',
     hAgo: '{{n}} h ago',
@@ -188,8 +193,11 @@ export const en = {
     volumeHintText: 'This changes how loud the preview plays while you edit. Exported videos always keep the original audio of the set.'
   },
   clips: {
-    kind: { transition: 'Transition', drop: 'Drop', peak: 'Peak' },
-    kindPlural: { transition: 'Transitions', drop: 'Drops', peak: 'Peaks' },
+    newClip: 'New clip at {{at}}',
+    newClipTitle: 'Make a 30 s clip that starts at the playhead, in the format picked here',
+    deleteClip: 'Delete this clip',
+    kind: { custom: 'Your clip', transition: 'Transition', drop: 'Drop', peak: 'Peak' },
+    kindPlural: { custom: 'Yours', transition: 'Transitions', drop: 'Drops', peak: 'Peaks' },
     all: 'All',
     empty: 'Import the Rekordbox .cue and the clips of the best moments of the set show up here.',
     bestFirst: 'Best first',
@@ -208,11 +216,14 @@ export const en = {
   },
   /** Clip titles from src/shared/clips.ts. */
   clipText: {
+    custom: 'Clip from {{at}}',
+    customTrack: '{{track}} from {{at}}',
     transition: '{{from}} → {{to}}',
     drop: 'Drop in {{track}}',
     peak: '{{track}} at full energy'
   },
   clipReason: {
+    custom: 'your own clip',
     dropOnTakeover: 'the drop lands on the takeover',
     buildsIntoDrop: 'builds into a drop {{seconds}} s after the takeover',
     blend: '{{seconds}} s blend',
