@@ -1,7 +1,7 @@
 import { useEffect, useState, type Ref } from 'react'
 import { nudgeClip, type ClipSuggestion } from '@shared/clips'
 import { formatTime, formatTimecode } from '@shared/layout'
-import type { Project, RecentProject } from '@shared/types'
+import type { AppOverlay, Project, RecentProject } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { i18n, lang } from '../i18n'
 import { Icon } from './icons'
@@ -47,6 +47,8 @@ interface Props {
   onDismissClipsHint: () => void
   clipFormat: ClipFormat
   onClipFormat: (f: ClipFormat) => void
+  /** The TikTok or Reels buttons drawn over a Social preview (never exported). */
+  onAppOverlay: (o: AppOverlay) => void
   /** Preview loudness, 0 to 1. */
   volume: number
   muted: boolean
@@ -197,7 +199,21 @@ export function Viewer(p: Props) {
         ) : (
           <Preview project={shown!} audio={p.audio} time={time} range={loop ? { from: loop.from, to: loop.to } : undefined} short={short} />
         )}
-        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} onExit={p.onStopLoop} />}
+        {loop && project && !p.busy && tab === 'program' && (
+          <LoopEdit
+            clip={loop}
+            time={time}
+            duration={project.duration}
+            hours={hours}
+            format={p.clipFormat}
+            appOverlay={project.settings.appOverlay ?? 'tiktok'}
+            onFormat={p.onClipFormat}
+            onAppOverlay={p.onAppOverlay}
+            onTrim={(r) => p.onTrimClip(loop.id, r)}
+            onExport={() => exportClipVideo(project, loop, p.clipFormat)}
+            onExit={p.onStopLoop}
+          />
+        )}
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
@@ -327,7 +343,19 @@ function VolumeControl(p: Pick<Props, 'volume' | 'muted' | 'onVolume' | 'onMuted
  * Floats at the right of the clip being previewed: its length, buttons that move its start or end
  * to the playhead, and Export.
  */
-function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number } | null) => void; onExport: () => void; onExit: () => void }) {
+function LoopEdit(p: {
+  clip: ClipSuggestion & { edited?: boolean }
+  time: number
+  duration: number
+  hours: boolean
+  format: ClipFormat
+  appOverlay: AppOverlay
+  onFormat: (f: ClipFormat) => void
+  onAppOverlay: (o: AppOverlay) => void
+  onTrim: (r: { from: number; to: number } | null) => void
+  onExport: () => void
+  onExit: () => void
+}) {
   const { clip, time, duration, hours, onTrim } = p
   const { t } = useTranslation()
   const job = useExportJobs().find((j) => j.clipId === clip.id && (j.status === 'queued' || j.status === 'running'))
@@ -356,6 +384,23 @@ function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number
         </span>{' '}
         · {t('common.seconds', { n: Math.round(clip.to - clip.from) })}
       </div>
+      {/* The format the clip exports in, and in Social the apps' buttons to check it against. */}
+      <div className="seg wide" title={t('clips.formatTitle')}>
+        {(['portrait', 'landscape', 'social'] as const).map((f) => (
+          <button key={f} className={p.format === f ? 'on' : ''} onClick={() => p.onFormat(f)} disabled={!!job}>
+            {f === 'portrait' ? '9:16' : f === 'landscape' ? '16:9' : t('clips.social')}
+          </button>
+        ))}
+      </div>
+      {p.format === 'social' && (
+        <div className="seg wide" title={t('inspector.appOverlayTitle')}>
+          {(['off', 'tiktok', 'reels'] as const).map((o) => (
+            <button key={o} className={p.appOverlay === o ? 'on' : ''} onClick={() => p.onAppOverlay(o)}>
+              {t(`inspector.overlays.${o}`)}
+            </button>
+          ))}
+        </div>
+      )}
       <Lengths clip={clip} duration={duration} disabled={!!job} onTrim={onTrim} />
       <div className="loop-edit-row">
         {here('from')}

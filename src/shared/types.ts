@@ -69,6 +69,8 @@ export interface RenderSettings {
    * and the waveform sits at the top. Only applies when the video is portrait.
    */
   social?: boolean
+  /** Format clips export in. Missing means the video's own when it's vertical, else 9:16 (see clipFormatOf). */
+  clipFormat?: VideoFormat
   /** Preview-only stand-in for the TikTok or Reels buttons over a social video; never exported. */
   appOverlay?: AppOverlay
   /** The line along the bottom that fills up as the video plays. Missing means hidden. */

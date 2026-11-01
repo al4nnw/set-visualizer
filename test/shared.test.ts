@@ -12,7 +12,7 @@ import { buildMotion, motionAt } from '../src/shared/motion'
 import { applyClipEdits, barsAround, beatPeriod, CLIP_MIN, findDrops, nudgeClip, resizeClip, suggestClips } from '../src/shared/clips'
 import { ANALYSIS_STREAMS, createSetAnalyser } from '../src/shared/analysis'
 import { LOCALES, matchLocale, videoText } from '../src/shared/i18n'
-import { formatPatch, SOCIAL_SAFE, videoFormat, waveRect } from '../src/shared/scene'
+import { aspectPatch, clipFormatOf, formatPatch, SOCIAL_SAFE, videoFormat, waveRect } from '../src/shared/scene'
 
 describe('tracklist parsing', () => {
   it('parses cue sheets', () => {
@@ -512,6 +512,20 @@ describe('video formats and the waveform', () => {
     expect(videoFormat({ ...portrait, ...formatPatch(portrait, 'landscape') })).toBe('landscape')
     // A landscape video with the flag left over from earlier is still landscape.
     expect(videoFormat({ ...land, social: true })).toBe('landscape')
+  })
+
+  it('exports clips in the video\'s vertical format unless Clips picked another', () => {
+    expect(clipFormatOf(land)).toBe('portrait')
+    const social = { ...land, ...formatPatch(land, 'social') }
+    expect(clipFormatOf(social)).toBe('social')
+    expect(clipFormatOf({ ...social, clipFormat: 'landscape' })).toBe('landscape')
+    // Picking Social in Style makes Social clips, even after 9:16 was picked in Clips.
+    const picked = { ...land, clipFormat: 'portrait' as const }
+    expect(clipFormatOf({ ...picked, ...aspectPatch(picked, 'social') })).toBe('social')
+    // Going back to 16:9 for the full set keeps the clips in Social.
+    const back = { ...social, ...aspectPatch(social, 'landscape') }
+    expect(videoFormat(back)).toBe('landscape')
+    expect(clipFormatOf(back)).toBe('social')
   })
 
   it('puts the waveform in the chosen lane, bottom by default', () => {

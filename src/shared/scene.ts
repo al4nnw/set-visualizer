@@ -191,6 +191,24 @@ export function formatPatch(settings: Size, format: VideoFormat): Partial<Render
   const turn = portrait !== isPortrait(settings) ? { width: settings.height, height: settings.width } : {}
   return { ...turn, social: format === 'social' }
 }
+
+/**
+ * The format clips export in: the one picked in Clips, else the video's own when it's vertical
+ * (so a Social project makes Social clips), else 9:16.
+ */
+export function clipFormatOf(settings: Size & { clipFormat?: VideoFormat }): VideoFormat {
+  if (settings.clipFormat) return settings.clipFormat
+  const own = videoFormat(settings)
+  return own === 'landscape' ? 'portrait' : own
+}
+
+/**
+ * The settings change that switches the video to `format`. A vertical pick becomes the clips'
+ * format too, so clips export in what the preview shows; 16:9 keeps the clips as they were.
+ */
+export function aspectPatch(settings: Size & { clipFormat?: VideoFormat }, format: VideoFormat): Partial<RenderSettings> {
+  return { ...formatPatch(settings, format), clipFormat: format === 'landscape' ? clipFormatOf(settings) : format }
+}
 const cardMain = (settings: Size) => (isSocial(settings) ? CARD_MAIN_SOCIAL : isPortrait(settings) ? CARD_MAIN_PORTRAIT : CARD_MAIN)
 const cardNext = (settings: Size) => (isSocial(settings) ? CARD_NEXT_SOCIAL : CARD_NEXT)
 const textScaleFor = (settings: Size) => (isSocial(settings) ? SOCIAL_TEXT : isPortrait(settings) ? PORTRAIT_TEXT : 1)

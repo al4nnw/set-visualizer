@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatTime, mainTracks, parseTime, sortTracks } from '@shared/layout'
-import { formatPatch, videoFormat } from '@shared/scene'
+import { aspectPatch, clipFormatOf, videoFormat } from '@shared/scene'
 import { DEFAULT_PROGRESS, PROGRESS_SIZE, type ProgressBar, type Project, type RenderSettings, type SwapCurve, type Theme, type Track } from '@shared/types'
 import { Trans, useTranslation } from 'react-i18next'
 import { LOCALE_NAMES, LOCALES, type Locale } from '@shared/i18n'
@@ -221,13 +221,13 @@ function StyleTab({ project, onChangeSettings }: Props & { project: Project }) {
         <Prop label={t('inspector.aspect')} title={t('inspector.aspectTitle')}>
           <div className="seg">
             {(['landscape', 'portrait', 'social'] as const).map((f) => (
-              <button key={f} className={format === f ? 'on' : ''} onClick={() => format !== f && onChangeSettings(formatPatch(s, f))}>
+              <button key={f} className={format === f ? 'on' : ''} onClick={() => format !== f && onChangeSettings(aspectPatch(s, f))}>
                 {t(`inspector.${f}`)}
               </button>
             ))}
           </div>
         </Prop>
-        {format === 'social' && (
+        {(format === 'social' || clipFormatOf(s) === 'social') && (
           <Prop label={t('inspector.appOverlay')} title={t('inspector.appOverlayTitle')}>
             <div className="seg">
               {(['off', 'tiktok', 'reels'] as const).map((o) => (

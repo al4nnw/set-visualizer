@@ -3,12 +3,12 @@ import { Trans, useTranslation } from 'react-i18next'
 import { applyClipEdits, suggestClips, type ClipSuggestion } from '@shared/clips'
 import { alternateDecks, currentIndex, formatTime, mainTracks, sortTracks } from '@shared/layout'
 import { buildMotion } from '@shared/motion'
+import { clipFormatOf } from '@shared/scene'
 import { entriesToTracks, newId, placeTakeovers } from '@shared/tracklist'
 import type { ParsedEntry } from '@shared/tracklist'
 import { BRAND, DEFAULT_SETTINGS, forDisk, type Preferences, type Project, type RecentProject, type RenderSettings, type Track } from '@shared/types'
 import { errMsg, needsFile, platform, type NeedsFile } from './platform'
 import { ExportDialog } from './components/ExportDialog'
-import type { ClipFormat } from './components/Clips'
 import type { ViewerTab } from './components/Viewer'
 import { Icon } from './components/icons'
 import { Inspector, type InspectorTab } from './components/Inspector'
@@ -87,7 +87,6 @@ export function App() {
   // The clip looping in Program, by id so that trimming it changes the loop too.
   const [loopId, setLoopId] = useState<string | null>(null)
   const loopRef = useRef<ClipSuggestion | null>(null)
-  const [clipFormat, setClipFormat] = useState<ClipFormat>('portrait')
   // Clips previewed in Program. A clip can only be exported once it has been seen and heard.
   const [previewed, setPreviewed] = useState<ReadonlySet<string>>(new Set())
   // A clip belongs to the set it came from.
@@ -897,8 +896,9 @@ export function App() {
           onTab={setViewerTab}
           clipsHint={clipsHint}
           onDismissClipsHint={() => void changePrefs({ clipsHintSeen: true })}
-          clipFormat={clipFormat}
-          onClipFormat={setClipFormat}
+          clipFormat={project ? clipFormatOf(project.settings) : 'portrait'}
+          onClipFormat={(f) => changeSettings({ clipFormat: f })}
+          onAppOverlay={(o) => changeSettings({ appOverlay: o })}
           sectionRef={fullscreen.ref}
           fullscreen={fullscreen.on}
           onToggleFullscreen={toggleFullscreen}
