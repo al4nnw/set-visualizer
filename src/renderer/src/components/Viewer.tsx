@@ -197,15 +197,15 @@ export function Viewer(p: Props) {
         ) : (
           <Preview project={shown!} audio={p.audio} time={time} range={loop ? { from: loop.from, to: loop.to } : undefined} short={short} />
         )}
-        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} />}
+        {loop && project && !p.busy && tab === 'program' && <LoopEdit clip={loop} time={time} duration={project.duration} hours={hours} onTrim={(r) => p.onTrimClip(loop.id, r)} onExport={() => exportClipVideo(project, loop, p.clipFormat)} onExit={p.onStopLoop} />}
       </div>
       <div className="transport">
         <div className="timecode current">{formatTimecode(time, fps)}</div>
         {loop && (
           <div className="loop-chip" title={clipTitle(loop)}>
             <span>{t('viewer.looping', { from: formatTime(loop.from, hours), to: formatTime(loop.to, hours), title: clipTitle(loop) })}</span>
-            <button className="icon-btn small" title={t('viewer.stopLoop')} onClick={p.onStopLoop}>
-              <Icon name="close" size={12} />
+            <button className="loop-chip-exit" onClick={p.onStopLoop}>
+              <Icon name="close" size={11} /> {t('viewer.exitClip')}
             </button>
           </div>
         )}
@@ -327,7 +327,7 @@ function VolumeControl(p: Pick<Props, 'volume' | 'muted' | 'onVolume' | 'onMuted
  * Floats at the right of the clip being previewed: its length, buttons that move its start or end
  * to the playhead, and Export.
  */
-function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number } | null) => void; onExport: () => void }) {
+function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number; duration: number; hours: boolean; onTrim: (r: { from: number; to: number } | null) => void; onExport: () => void; onExit: () => void }) {
   const { clip, time, duration, hours, onTrim } = p
   const { t } = useTranslation()
   const job = useExportJobs().find((j) => j.clipId === clip.id && (j.status === 'queued' || j.status === 'running'))
@@ -344,6 +344,12 @@ function LoopEdit(p: { clip: ClipSuggestion & { edited?: boolean }; time: number
   )
   return (
     <div className="loop-edit" role="group" aria-label={t('viewer.clipEdges')}>
+      <div className="loop-edit-head">
+        <span>{t('viewer.clipMode')}</span>
+        <button className="btn small ghost" onClick={p.onExit}>
+          <Icon name="close" size={11} /> {t('viewer.exitClip')}
+        </button>
+      </div>
       <div className="loop-edit-label">
         <span className="mono">
           {formatTime(clip.from, hours)}–{formatTime(clip.to, hours)}

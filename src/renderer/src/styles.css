@@ -1814,6 +1814,24 @@ kbd {
   color: var(--accent);
   font-size: 11px;
 }
+.loop-chip-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.loop-chip-exit:hover {
+  filter: brightness(1.1);
+}
 .loop-chip span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1834,6 +1852,16 @@ kbd {
   background: rgba(30, 30, 34, 0.92);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(6px);
+}
+.loop-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-hi);
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
 }
 .loop-edit-label {
   font-size: 11px;
